@@ -25,6 +25,9 @@ function getExtension(name) {
 }
 
 /* ── App ───────────────────────────────────────────────────────────── */
+const MAX_CHAT_CHARS = 2000;
+const MAX_CHAT_MESSAGES = 10;
+
 export default function App() {
     const [file, setFile] = useState(null);
     const [dragOver, setDragOver] = useState(false);
@@ -33,6 +36,18 @@ export default function App() {
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
     const inputRef = useRef(null);
+
+    /* ── Chat state (lives in React only — lost on refresh by design) ── */
+    const [chatMessages, setChatMessages] = useState([]);
+    const [chatInput, setChatInput] = useState('');
+    const [chatLoading, setChatLoading] = useState(false);
+    const chatEndRef = useRef(null);
+    const analysisContextRef = useRef('');
+
+    /* Auto-scroll chat to bottom on new messages */
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [chatMessages]);
 
     /* Cycle through loading messages while uploading */
     useEffect(() => {
@@ -115,6 +130,15 @@ export default function App() {
 
             setResult(data);
             setFile(null);
+
+            /* Initialize chat with AI hints as first assistant message */
+            if (data.hints) {
+                setChatMessages([{ role: 'assistant', content: data.hints }]);
+                analysisContextRef.current = data.hints;
+            } else {
+                setChatMessages([]);
+                analysisContextRef.current = '';
+            }
         } catch (err) {
             setError(
                 err.message === 'Failed to fetch'
@@ -123,6 +147,59 @@ export default function App() {
             );
         } finally {
             setLoading(false);
+        }
+    };
+
+    /* Send a follow-up chat message */
+    const sendChat = async () => {
+        const text = chatInput.trim();
+        if (!text || chatLoading) return;
+        if (text.length > MAX_CHAT_CHARS) return;
+
+        const userMsg = { role: 'user', content: text };
+        const updated = [...chatMessages, userMsg].slice(-MAX_CHAT_MESSAGES);
+        setChatMessages(updated);
+        setChatInput('');
+        setChatLoading(true);
+
+        try {
+            const res = await fetch(`${BACKEND_URL}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: updated,
+                    context: analysisContextRef.current,
+                }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                setChatMessages(prev => [
+                    ...prev,
+                    { role: 'assistant', content: `⚠ Error: ${data.detail || 'Something went wrong.'}` },
+                ]);
+                return;
+            }
+
+            setChatMessages(prev => [
+                ...prev,
+                { role: 'assistant', content: data.response },
+            ]);
+        } catch (err) {
+            setChatMessages(prev => [
+                ...prev,
+                { role: 'assistant', content: `⚠ ${err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message}` },
+            ]);
+        } finally {
+            setChatLoading(false);
+        }
+    };
+
+    const onChatKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendChat();
         }
     };
 
@@ -201,6 +278,7 @@ export default function App() {
 
             {/* Results */}
             {result && (
+                <>
                 <section className="results">
                     <div className="results-header">
                         <span>
@@ -224,6 +302,106 @@ export default function App() {
                         )}
                     </div>
                 </section>
+
+                {/* 🚩 Flags Detected */}
+                <section className="section-flags">
+                    <h2 className="section-title section-title--flags">🚩 Flags Detected</h2>
+                    <div className="section-body">
+                        {result.flags_detected && result.flags_detected.length > 0 ? (
+                            result.flags_detected.map((flag, i) => (
+                                <div className="section-item section-item--flag" key={i}>{flag}</div>
+                            ))
+                        ) : (
+                            <div className="section-empty">No flags detected in strings</div>
+                        )}
+                    </div>
+                </section>
+
+                {/* 🔍 Interesting Findings */}
+                <section className="section-findings">
+                    <h2 className="section-title section-title--findings">🔍 Interesting Findings</h2>
+                    <div className="section-body">
+                        {result.patterns && Object.keys(result.patterns).length > 0 ? (
+                            Object.entries(result.patterns).map(([category, items]) => (
+                                <div className="finding-category" key={category}>
+                                    <span className="finding-label">{category.replace(/_/g, ' ')}:</span>
+                                    {items.map((item, j) => (
+                                        <div className="section-item section-item--finding" key={j}>{item}</div>
+                                    ))}
+                                </div>
+                            ))
+                        ) : (
+                            <div className="section-empty">No interesting patterns detected</div>
+                        )}
+                    </div>
+                </section>
+
+                {/* 💡 AI Hints */}
+                <section className="section-hints">
+                    <h2 className="section-title section-title--hints">💡 AI Hints</h2>
+                    <div className="section-body">
+                        {result.hints ? (
+                            result.hints.split(/\n/).filter(line => line.trim()).map((line, i) => (
+                                <div className="section-item section-item--hint" key={i}>{line}</div>
+                            ))
+                        ) : (
+                            <div className="section-empty">AI hints unavailable</div>
+                        )}
+                    </div>
+                </section>
+
+                {/* 💬 Follow-up Chat */}
+                <section className="chat-container">
+                    <h2 className="section-title chat-title">💬 Ask Follow-Up Questions</h2>
+                    <div className="chat-messages" id="chat-messages">
+                        {chatMessages.map((msg, i) => (
+                            <div
+                                className={`chat-bubble chat-bubble--${msg.role}`}
+                                key={i}
+                            >
+                                <span className="chat-bubble-label">
+                                    {msg.role === 'user' ? 'You' : 'AI Mentor'}
+                                </span>
+                                <div className="chat-bubble-content">
+                                    {msg.content.split(/\n/).filter(l => l.trim()).map((line, j) => (
+                                        <div key={j}>{line}</div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                        {chatLoading && (
+                            <div className="chat-bubble chat-bubble--assistant">
+                                <span className="chat-bubble-label">AI Mentor</span>
+                                <div className="chat-bubble-content">
+                                    <span className="chat-typing">Thinking<span className="chat-dots">...</span></span>
+                                </div>
+                            </div>
+                        )}
+                        <div ref={chatEndRef} />
+                    </div>
+                    <div className="chat-input-row">
+                        <input
+                            className="chat-input"
+                            type="text"
+                            placeholder="Ask about this binary..."
+                            value={chatInput}
+                            onChange={e => setChatInput(e.target.value.slice(0, MAX_CHAT_CHARS))}
+                            onKeyDown={onChatKeyDown}
+                            disabled={chatLoading}
+                            maxLength={MAX_CHAT_CHARS}
+                            id="chat-input"
+                        />
+                        <button
+                            className="chat-send-btn"
+                            onClick={sendChat}
+                            disabled={chatLoading || !chatInput.trim()}
+                            id="chat-send-btn"
+                        >
+                            {chatLoading ? '...' : '▶ Send'}
+                        </button>
+                    </div>
+                </section>
+                </>
             )}
 
             {/* Footer */}
