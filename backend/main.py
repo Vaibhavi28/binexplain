@@ -10,6 +10,7 @@ Security invariants
 • Temp files live in the OS temp directory, never in the project tree.
 • Only extracted strings (never the binary itself) are sent to Claude.
 • The Anthropic API key is read from the ANTHROPIC_API_KEY env var.
+• Chat messages are NEVER stored — history lives only in the client.
 """
 
 import logging
@@ -18,12 +19,18 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 import anthropic
+import openai
+import requests
+from typing import Literal
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, field_validator
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -35,18 +42,84 @@ MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 ALLOWED_EXTENSIONS: set[str] = {".bin", ".elf", ".exe"}
 MIN_STRING_LENGTH = 4  # minimum printable-ASCII run to extract
 MAX_STRINGS_FOR_AI = 100  # cap strings sent to Claude to avoid token abuse
+MAX_CHAT_MESSAGES = 10    # max conversation turns kept per request
+MAX_CHAT_CHARS = 2000     # max characters per single chat message
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+OLLAMA_BASE_URL = "http://localhost:11434"
+OLLAMA_MODELS = ["llama3.2", "qwen2.5-coder", "qwen2.5"]
+
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY") or ""
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") or ""
+
+# ── Startup debug: confirm API key status ─────────────────────────────
+if ANTHROPIC_API_KEY:
+    print(f"[BinExplain] ANTHROPIC_API_KEY loaded ✓  (length={len(ANTHROPIC_API_KEY)})")
+else:
+    print("[BinExplain] WARNING: ANTHROPIC_API_KEY is NOT set — Claude hints will be disabled")
+
+if OPENAI_API_KEY:
+    print(f"[BinExplain] OPENAI_API_KEY loaded ✓  (length={len(OPENAI_API_KEY)})")
+else:
+    print("[BinExplain] WARNING: OPENAI_API_KEY is NOT set — GPT-4o fallback will be disabled")
 
 AI_SYSTEM_PROMPT = (
     "You are a CTF mentor helping beginners learn binary exploitation. "
-    "Given extracted strings and patterns from a binary, provide 3-5 specific, "
-    "actionable next steps a beginner should take. Be encouraging, specific, "
-    "and explain WHY each step matters. Format as numbered list. Keep each "
-    "hint under 3 sentences."
+    "Given extracted strings and patterns from a binary, respond using ONLY the format below.\n\n"
+    "ABSOLUTE RULES — you must follow every single one:\n"
+    "1. Your ENTIRE response must be • bullet points. ZERO prose, ZERO paragraphs, ZERO introductions or conclusions.\n"
+    "2. NEVER use markdown headers (#), numbered lists (1. 2. 3.), bold (**), italic (*), or any markdown formatting.\n"
+    "3. Each • bullet = one specific action + the exact Linux command to run. No bullet without a command.\n"
+    "4. Maximum 5 • bullets. Each bullet is 1 sentence, 2 sentences absolute max.\n"
+    "5. Your LAST line must be exactly: 🔥 Try this first: <the single most important command to run>\n"
+    "6. Do NOT write anything before the first • or after the 🔥 line.\n\n"
+    "EXAMPLE (follow this format exactly):\n"
+    "• Run `checksec ./binary` to see if NX, PIE, or stack canaries are enabled.\n"
+    "• The binary uses `gets()` — test for overflow with `python3 -c 'print(\"A\"*100)' | ./binary`.\n"
+    "• List all functions with `objdump -d binary | grep '<' | head -20` to find win/flag functions.\n"
+    "• Search for flag strings with `strings binary | grep -i flag`.\n"
+    "🔥 Try this first: `checksec ./binary`"
+)
+
+CHAT_SYSTEM_PROMPT = (
+    "You are a CTF mentor helping a beginner analyze a binary they just uploaded. "
+    "The user has already received an initial analysis summary (provided as context).\n\n"
+    "ABSOLUTE RULES — you must follow every single one:\n"
+    "1. Your ENTIRE response must be • bullet points. ZERO prose, ZERO paragraphs, ZERO introductions or conclusions.\n"
+    "2. NEVER use markdown headers (#), numbered lists (1. 2. 3.), bold (**), italic (*), or any markdown formatting.\n"
+    "3. Each • bullet = one specific action + the exact Linux command to run where relevant.\n"
+    "4. Maximum 5 • bullets. Each bullet is 1 sentence, 2 sentences absolute max.\n"
+    "5. Your LAST line must be exactly: 🔥 Try this first: <the single most important command>\n"
+    "6. Do NOT write anything before the first • or after the 🔥 line.\n"
+    "7. If the user asks something outside binary exploitation / CTF scope, "
+    "reply with a single • bullet redirecting them back.\n\n"
+    "EXAMPLE (follow this format exactly):\n"
+    "• Run `checksec ./binary` to see if NX, PIE, or stack canaries are enabled.\n"
+    "• The binary uses `gets()` — test for overflow with `python3 -c 'print(\"A\"*100)' | ./binary`.\n"
+    "• Use `gdb ./binary` then `info functions` to find interesting function addresses.\n"
+    "🔥 Try this first: `checksec ./binary`"
 )
 
 logger = logging.getLogger("binexplain")
+
+
+# ---------------------------------------------------------------------------
+# Chat request models
+# ---------------------------------------------------------------------------
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+    @field_validator("content")
+    @classmethod
+    def cap_content_length(cls, v: str) -> str:
+        if len(v) > MAX_CHAT_CHARS:
+            raise ValueError(f"Message content exceeds {MAX_CHAT_CHARS} character limit.")
+        return v
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage]
+    context: str = ""
 
 # Expected magic-byte prefixes for known binary formats
 FILE_SIGNATURES: dict[str, bytes] = {
@@ -262,6 +335,36 @@ def detect_patterns(strings: list[str]) -> dict[str, list[str]]:
 
 
 # ---------------------------------------------------------------------------
+# CTF flag detection
+# ---------------------------------------------------------------------------
+def detect_flags(strings: list[str]) -> list[str]:
+    """
+    Scan extracted strings for CTF flag formats using regex.
+    Detects 10 named formats plus a generic [A-Z0-9]{2,8}\\{...} pattern.
+    Returns a deduplicated list of all matches found.
+    """
+    FLAG_PATTERNS = [
+        r'flag\{[^}]+\}',
+        r'CTF\{[^}]+\}',
+        r'picoCTF\{[^}]+\}',
+        r'HTB\{[^}]+\}',
+        r'THM\{[^}]+\}',
+        r'DUCTF\{[^}]+\}',
+        r'LACTF\{[^}]+\}',
+        r'FLAG\{[^}]+\}',
+        r'0ctf\{[^}]+\}',
+        r'rtcp\{[^}]+\}',
+        r'[A-Z0-9]{2,8}\{[^}]+\}',
+    ]
+    combined = re.compile('|'.join(f'({p})' for p in FLAG_PATTERNS))
+    matches = []
+    for s in strings:
+        for m in combined.finditer(s):
+            matches.append(m.group())
+    return list(dict.fromkeys(matches))  # deduplicate, preserve order
+
+
+# ---------------------------------------------------------------------------
 # AI hints (Anthropic Claude)
 # ---------------------------------------------------------------------------
 def get_ai_hints(strings: list[str], patterns: dict[str, list[str]]) -> str:
@@ -274,10 +377,10 @@ def get_ai_hints(strings: list[str], patterns: dict[str, list[str]]) -> str:
     • Caps strings at MAX_STRINGS_FOR_AI to limit token usage.
     • API key is read from the ANTHROPIC_API_KEY env var.
     """
-    if not ANTHROPIC_API_KEY:
+    if not ANTHROPIC_API_KEY and not OPENAI_API_KEY:
         return (
-            "AI hints unavailable — set the ANTHROPIC_API_KEY environment "
-            "variable to enable Claude-powered analysis hints."
+            "AI hints unavailable — set the ANTHROPIC_API_KEY or OPENAI_API_KEY "
+            "environment variable to enable AI-powered analysis hints."
         )
 
     # Build a concise summary for the prompt
@@ -303,11 +406,110 @@ def get_ai_hints(strings: list[str], patterns: dict[str, list[str]]) -> str:
         return message.content[0].text
     except Exception as exc:
         logger.warning("Anthropic API call failed: %s", exc)
-        return (
-            "AI hints could not be generated at this time. "
-            "Tip: review the detected patterns above — look for dangerous "
-            "functions (gets, strcpy) and flag-related strings as a starting point."
+
+    # ── Fallback 1: try OpenAI GPT-4o-mini ────────────────────────────
+    openai_result = _try_openai(
+        messages=[{"role": "user", "content": user_message}],
+        system_prompt=AI_SYSTEM_PROMPT,
+    )
+    if openai_result:
+        return openai_result
+
+    # ── Fallback 2: try Ollama locally ────────────────────────────────
+    ollama_result = _try_ollama(user_message)
+    if ollama_result:
+        return ollama_result
+
+    return (
+        "AI hints could not be generated — Anthropic, OpenAI, and Ollama all failed. "
+        "Tip: review the detected patterns above — look for dangerous "
+        "functions (gets, strcpy) and flag-related strings as a starting point."
+    )
+
+
+def _try_openai(messages: list[dict], system_prompt: str) -> str | None:
+    """
+    Try to generate a response using OpenAI GPT-4o-mini.
+    Returns the response text, or None if the call fails.
+    """
+    if not OPENAI_API_KEY:
+        return None
+    try:
+        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            max_tokens=1024,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                *messages,
+            ],
         )
+        text = response.choices[0].message.content
+        if text and text.strip():
+            logger.info("OpenAI hint generated with model: gpt-4o-mini")
+            return text.strip()
+    except Exception as exc:
+        logger.warning("OpenAI API call failed: %s", exc)
+    return None
+
+
+def _try_ollama(user_message: str) -> str | None:
+    """
+    Try to generate hints using a local Ollama instance.
+    Attempts models in order: qwen2.5-coder, qwen2.5, qwen3.
+    Returns the response text, or None if all models fail.
+    """
+    for model in OLLAMA_MODELS:
+        try:
+            resp = requests.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json={
+                    "model": model,
+                    "prompt": user_message,
+                    "system": AI_SYSTEM_PROMPT,
+                    "stream": False,
+                },
+                timeout=120,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                text = data.get("response", "").strip()
+                if text:
+                    logger.info("Ollama hint generated with model: %s", model)
+                    return text
+        except requests.RequestException as exc:
+            logger.warning("Ollama model '%s' failed: %s", model, exc)
+            continue
+    return None
+
+
+def _try_ollama_chat(messages: list[dict]) -> str | None:
+    """
+    Try Ollama's multi-turn /api/chat endpoint.
+    Attempts models in order: qwen2.5-coder, qwen2.5, qwen3.
+    Returns the response text, or None if all models fail.
+    """
+    for model in OLLAMA_MODELS:
+        try:
+            resp = requests.post(
+                f"{OLLAMA_BASE_URL}/api/chat",
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "stream": False,
+                },
+                timeout=120,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                text = data.get("message", {}).get("content", "").strip()
+                if text:
+                    logger.info("Ollama chat generated with model: %s", model)
+                    return text
+        except requests.RequestException as exc:
+            logger.warning("Ollama chat model '%s' failed: %s", model, exc)
+            continue
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -348,8 +550,9 @@ async def analyze(request: Request, file: UploadFile = File(...)):
 
         strings = _run_strings(tmp_path)
 
-        # ── 5. Detect patterns & generate AI hints ────────────────────
+        # ── 5. Detect patterns, flags & generate AI hints ─────────────
         patterns = detect_patterns(strings)
+        flags = detect_flags(strings)
         hints = get_ai_hints(strings, patterns)
 
         return {
@@ -359,12 +562,88 @@ async def analyze(request: Request, file: UploadFile = File(...)):
             "strings_count": len(strings),
             "strings": strings,
             "patterns": patterns,
+            "flags_detected": flags,
             "hints": hints,
         }
     finally:
         # ALWAYS delete the temp file — no exceptions.
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
+
+@app.post("/chat")
+@limiter.limit("20/hour")
+async def chat(request: Request, body: ChatRequest):
+    """
+    Conversational follow-up endpoint.
+
+    Accepts the full conversation history from the client (nothing is stored
+    server-side) plus the initial analysis context, forwards to Anthropic
+    Claude (with Ollama fallback), and returns a single AI response.
+
+    Security:
+    • Max 10 messages in history, max 2000 chars per message.
+    • No database, no file writes, no storage of any kind.
+    • User text goes directly to the AI only.
+    """
+    # ── Validate message count ────────────────────────────────────────
+    if len(body.messages) > MAX_CHAT_MESSAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Too many messages. Maximum {MAX_CHAT_MESSAGES} allowed.",
+        )
+
+    if not body.messages:
+        raise HTTPException(status_code=400, detail="No messages provided.")
+
+    # ── Build message list for the AI ─────────────────────────────────
+    ai_messages: list[dict] = []
+
+    # Inject analysis context as a leading user→assistant exchange so the
+    # AI knows what binary was analysed.
+    if body.context:
+        ai_messages.append({
+            "role": "user",
+            "content": "Here is the initial analysis summary of the binary I uploaded:\n\n" + body.context[:MAX_CHAT_CHARS],
+        })
+        ai_messages.append({
+            "role": "assistant",
+            "content": "Got it — I've reviewed the analysis. Ask me anything about this binary!",
+        })
+
+    # Append the actual conversation history
+    for msg in body.messages:
+        ai_messages.append({"role": msg.role, "content": msg.content})
+
+    # ── Try Anthropic Claude first ────────────────────────────────────
+    if ANTHROPIC_API_KEY:
+        try:
+            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1024,
+                system=CHAT_SYSTEM_PROMPT,
+                messages=ai_messages,
+            )
+            return {"response": response.content[0].text}
+        except Exception as exc:
+            logger.warning("Anthropic chat call failed: %s", exc)
+
+    # ── Fallback 1: OpenAI GPT-4o-mini ────────────────────────────────
+    openai_result = _try_openai(messages=ai_messages, system_prompt=CHAT_SYSTEM_PROMPT)
+    if openai_result:
+        return {"response": openai_result}
+
+    # ── Fallback 2: Ollama multi-turn chat ────────────────────────────
+    ollama_messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}] + ai_messages
+    ollama_result = _try_ollama_chat(ollama_messages)
+    if ollama_result:
+        return {"response": ollama_result}
+
+    raise HTTPException(
+        status_code=503,
+        detail="Chat is temporarily unavailable — Anthropic, OpenAI, and Ollama all failed.",
+    )
 
 
 # ---------------------------------------------------------------------------
