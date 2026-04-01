@@ -23,6 +23,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
 import anthropic
+import groq
 import openai
 import requests
 from typing import Literal
@@ -49,6 +50,7 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODELS = ["llama3.2", "qwen2.5-coder", "qwen2.5"]
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY") or ""
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY") or ""
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") or ""
 
 # ── Startup debug: confirm API key status ─────────────────────────────
@@ -56,6 +58,11 @@ if ANTHROPIC_API_KEY:
     print(f"[BinExplain] ANTHROPIC_API_KEY loaded ✓  (length={len(ANTHROPIC_API_KEY)})")
 else:
     print("[BinExplain] WARNING: ANTHROPIC_API_KEY is NOT set — Claude hints will be disabled")
+
+if GROQ_API_KEY:
+    print(f"[BinExplain] GROQ_API_KEY loaded ✓  (length={len(GROQ_API_KEY)})")
+else:
+    print("[BinExplain] WARNING: GROQ_API_KEY is NOT set — Groq fallback will be disabled")
 
 if OPENAI_API_KEY:
     print(f"[BinExplain] OPENAI_API_KEY loaded ✓  (length={len(OPENAI_API_KEY)})")
@@ -377,9 +384,9 @@ def get_ai_hints(strings: list[str], patterns: dict[str, list[str]]) -> str:
     • Caps strings at MAX_STRINGS_FOR_AI to limit token usage.
     • API key is read from the ANTHROPIC_API_KEY env var.
     """
-    if not ANTHROPIC_API_KEY and not OPENAI_API_KEY:
+    if not ANTHROPIC_API_KEY and not GROQ_API_KEY and not OPENAI_API_KEY:
         return (
-            "AI hints unavailable — set the ANTHROPIC_API_KEY or OPENAI_API_KEY "
+            "AI hints unavailable — set the ANTHROPIC_API_KEY, GROQ_API_KEY, or OPENAI_API_KEY "
             "environment variable to enable AI-powered analysis hints."
         )
 
@@ -407,7 +414,15 @@ def get_ai_hints(strings: list[str], patterns: dict[str, list[str]]) -> str:
     except Exception as exc:
         logger.warning("Anthropic API call failed: %s", exc)
 
-    # ── Fallback 1: try OpenAI GPT-4o-mini ────────────────────────────
+    # ── Fallback 1: try Groq ───────────────────────────────────────────
+    groq_result = _try_groq(
+        messages=[{"role": "user", "content": user_message}],
+        system_prompt=AI_SYSTEM_PROMPT,
+    )
+    if groq_result:
+        return groq_result
+
+    # ── Fallback 2: try OpenAI GPT-4o-mini ────────────────────────────
     openai_result = _try_openai(
         messages=[{"role": "user", "content": user_message}],
         system_prompt=AI_SYSTEM_PROMPT,
@@ -415,16 +430,42 @@ def get_ai_hints(strings: list[str], patterns: dict[str, list[str]]) -> str:
     if openai_result:
         return openai_result
 
-    # ── Fallback 2: try Ollama locally ────────────────────────────────
+    # ── Fallback 3: try Ollama locally ────────────────────────────────
     ollama_result = _try_ollama(user_message)
     if ollama_result:
         return ollama_result
 
     return (
-        "AI hints could not be generated — Anthropic, OpenAI, and Ollama all failed. "
+        "AI hints could not be generated — Anthropic, Groq, OpenAI, and Ollama all failed. "
         "Tip: review the detected patterns above — look for dangerous "
         "functions (gets, strcpy) and flag-related strings as a starting point."
     )
+
+
+def _try_groq(messages: list[dict], system_prompt: str) -> str | None:
+    """
+    Try to generate a response using Groq (llama-3.3-70b-versatile).
+    Returns the response text, or None if the call fails.
+    """
+    if not GROQ_API_KEY:
+        return None
+    try:
+        client = groq.Groq(api_key=GROQ_API_KEY)
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            max_tokens=1024,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                *messages,
+            ],
+        )
+        text = response.choices[0].message.content
+        if text and text.strip():
+            logger.info("Groq hint generated with model: llama-3.3-70b-versatile")
+            return text.strip()
+    except Exception as exc:
+        logger.warning("Groq API call failed: %s", exc)
+    return None
 
 
 def _try_openai(messages: list[dict], system_prompt: str) -> str | None:
@@ -449,7 +490,7 @@ def _try_openai(messages: list[dict], system_prompt: str) -> str | None:
             logger.info("OpenAI hint generated with model: gpt-4o-mini")
             return text.strip()
     except Exception as exc:
-        logger.warning("OpenAI API call failed: %s", exc)
+        logger.warning("OpenAI API call failed (%s): %s", type(exc).__name__, exc)
     return None
 
 
@@ -629,12 +670,17 @@ async def chat(request: Request, body: ChatRequest):
         except Exception as exc:
             logger.warning("Anthropic chat call failed: %s", exc)
 
-    # ── Fallback 1: OpenAI GPT-4o-mini ────────────────────────────────
+    # ── Fallback 1: Groq ──────────────────────────────────────────────
+    groq_result = _try_groq(messages=ai_messages, system_prompt=CHAT_SYSTEM_PROMPT)
+    if groq_result:
+        return {"response": groq_result}
+
+    # ── Fallback 2: OpenAI GPT-4o-mini ────────────────────────────────
     openai_result = _try_openai(messages=ai_messages, system_prompt=CHAT_SYSTEM_PROMPT)
     if openai_result:
         return {"response": openai_result}
 
-    # ── Fallback 2: Ollama multi-turn chat ────────────────────────────
+    # ── Fallback 3: Ollama multi-turn chat ────────────────────────────
     ollama_messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}] + ai_messages
     ollama_result = _try_ollama_chat(ollama_messages)
     if ollama_result:
@@ -642,7 +688,7 @@ async def chat(request: Request, body: ChatRequest):
 
     raise HTTPException(
         status_code=503,
-        detail="Chat is temporarily unavailable — Anthropic, OpenAI, and Ollama all failed.",
+        detail="Chat is temporarily unavailable — Anthropic, Groq, OpenAI, and Ollama all failed.",
     )
 
 
