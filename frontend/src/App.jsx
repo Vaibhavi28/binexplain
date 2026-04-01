@@ -3,8 +3,9 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 /* ── Config ────────────────────────────────────────────────────────── */
 const BACKEND_URL = 'http://localhost:8000';
 
-const ALLOWED_EXTENSIONS = ['.bin', '.elf', '.exe'];
+const ALLOWED_EXTENSIONS = ['.bin', '.elf', '.exe', '.so', '.dll', '.out', '.o', '.zip'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_ZIP_SIZE = 10 * 1024 * 1024; // 10 MB
 
 const LOADING_MESSAGES = [
     'Reading file headers...',
@@ -41,7 +42,10 @@ export default function App() {
     const [chatMessages, setChatMessages] = useState([]);
     const [chatInput, setChatInput] = useState('');
     const [chatLoading, setChatLoading] = useState(false);
+    const [chatImage, setChatImage] = useState(null);
+    const [chatImagePreview, setChatImagePreview] = useState('');
     const chatEndRef = useRef(null);
+    const chatImageRef = useRef(null);
     const analysisContextRef = useRef('');
 
     /* Auto-scroll chat to bottom on new messages */
@@ -67,12 +71,15 @@ export default function App() {
         setResult(null);
 
         const ext = getExtension(f.name);
-        if (!ALLOWED_EXTENSIONS.includes(ext)) {
-            setError(`Invalid file type "${ext}". Accepted: ${ALLOWED_EXTENSIONS.join(', ')}`);
+        // Allow extensionless files (auto-detected by backend via magic bytes)
+        if (ext !== '' && !ALLOWED_EXTENSIONS.includes(ext)) {
+            setError(`Invalid file type "${ext}". Accepted: ${ALLOWED_EXTENSIONS.join(', ')} or no extension (auto-detect).`);
             return;
         }
-        if (f.size > MAX_FILE_SIZE) {
-            setError(`File is too large (${formatBytes(f.size)}). Maximum: 5 MB.`);
+        const sizeLimit = ext === '.zip' ? MAX_ZIP_SIZE : MAX_FILE_SIZE;
+        const sizeLimitLabel = ext === '.zip' ? '10 MB' : '5 MB';
+        if (f.size > sizeLimit) {
+            setError(`File is too large (${formatBytes(f.size)}). Maximum: ${sizeLimitLabel}.`);
             return;
         }
         if (f.size === 0) {
@@ -150,12 +157,73 @@ export default function App() {
         }
     };
 
+    /* Attach image to chat */
+    const onChatImageSelect = (e) => {
+        const f = e.target.files?.[0];
+        if (!f) return;
+        e.target.value = '';
+        const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+        if (!validTypes.includes(f.type)) {
+            setChatMessages(prev => [...prev, { role: 'assistant', content: '⚠ Invalid image type. Accepted: PNG, JPG, GIF, WEBP.' }]);
+            return;
+        }
+        if (f.size > 5 * 1024 * 1024) {
+            setChatMessages(prev => [...prev, { role: 'assistant', content: '⚠ Image too large. Maximum: 5 MB.' }]);
+            return;
+        }
+        setChatImage(f);
+        setChatImagePreview(URL.createObjectURL(f));
+    };
+
+    const clearChatImage = () => {
+        if (chatImagePreview) URL.revokeObjectURL(chatImagePreview);
+        setChatImage(null);
+        setChatImagePreview('');
+    };
+
     /* Send a follow-up chat message */
     const sendChat = async () => {
+        const hasImage = !!chatImage;
         const text = chatInput.trim();
-        if (!text || chatLoading) return;
+        if ((!text && !hasImage) || chatLoading) return;
         if (text.length > MAX_CHAT_CHARS) return;
 
+        // If there's an image, use the image endpoint
+        if (hasImage) {
+            const userMsg = { role: 'user', content: text || '📷 [Screenshot attached]', image: chatImagePreview };
+            setChatMessages(prev => [...prev, userMsg]);
+            setChatInput('');
+            const imageFile = chatImage;
+            clearChatImage();
+            setChatLoading(true);
+
+            try {
+                const form = new FormData();
+                form.append('file', imageFile);
+                form.append('context', analysisContextRef.current || '');
+
+                const res = await fetch(`${BACKEND_URL}/analyze-image`, {
+                    method: 'POST',
+                    body: form,
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    setChatMessages(prev => [...prev, { role: 'assistant', content: `⚠ Error: ${data.detail || 'Image analysis failed.'}` }]);
+                    return;
+                }
+
+                setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+            } catch (err) {
+                setChatMessages(prev => [...prev, { role: 'assistant', content: `⚠ ${err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message}` }]);
+            } finally {
+                setChatLoading(false);
+            }
+            return;
+        }
+
+        // Text-only chat
         const userMsg = { role: 'user', content: text };
         const updated = [...chatMessages, userMsg].slice(-MAX_CHAT_MESSAGES);
         setChatMessages(updated);
@@ -248,6 +316,10 @@ export default function App() {
                                 <span className="format-badge">.ELF</span>
                                 <span className="format-badge">.EXE</span>
                                 <span className="format-badge">.BIN</span>
+                                <span className="format-badge">.SO</span>
+                                <span className="format-badge">.DLL</span>
+                                <span className="format-badge">.ZIP</span>
+                                <span className="format-badge">No Ext</span>
                             </div>
                             <button
                                 className="browse-btn"
@@ -263,7 +335,6 @@ export default function App() {
                                 ref={inputRef}
                                 type="file"
                                 className="file-input"
-                                accept=".bin,.elf,.exe"
                                 onChange={onFileChange}
                             />
                         </div>
@@ -328,6 +399,135 @@ export default function App() {
                                 </span>
                             </div>
                         </div>
+
+                        {/* ── Risk Score Badge ── */}
+                        {result.risk_score && (
+                            <div className={`risk-card risk-card--${result.risk_score.level.toLowerCase()}`}>
+                                <div className="risk-header">
+                                    <div className="risk-score-circle">
+                                        <span className="risk-score-number">{result.risk_score.score}</span>
+                                        <span className="risk-score-max">/100</span>
+                                    </div>
+                                    <div className="risk-info">
+                                        <span className={`risk-badge risk-badge--${result.risk_score.level.toLowerCase()}`}>
+                                            {result.risk_score.level === 'Clean' && '✓ '}
+                                            {result.risk_score.level === 'Warning' && '⚠ '}
+                                            {result.risk_score.level === 'Critical' && '🔴 '}
+                                            {result.risk_score.level}
+                                        </span>
+                                        <span className="risk-label">Risk Assessment</span>
+                                    </div>
+                                </div>
+                                <div className="risk-bar-track">
+                                    <div
+                                        className={`risk-bar-fill risk-bar-fill--${result.risk_score.level.toLowerCase()}`}
+                                        style={{ width: `${result.risk_score.score}%` }}
+                                    />
+                                </div>
+                                {result.risk_score.reasons && result.risk_score.reasons.length > 0 && (
+                                    <ul className="risk-reasons">
+                                        {result.risk_score.reasons.map((reason, i) => (
+                                            <li key={i} className="risk-reason">{reason}</li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ── Entropy Bar ── */}
+                        {result.entropy !== undefined && (
+                            <div className={`entropy-card entropy-card--${
+                                result.entropy < 5 ? 'low' :
+                                result.entropy < 6.5 ? 'medium' :
+                                result.entropy < 7 ? 'high' : 'veryhigh'
+                            }`}>
+                                <div className="entropy-header">
+                                    <div className="entropy-score-group">
+                                        <span className="entropy-score">{result.entropy.toFixed(3)}</span>
+                                        <span className="entropy-max">/8.0</span>
+                                    </div>
+                                    <div className="entropy-info">
+                                        <span className={`entropy-badge entropy-badge--${
+                                            result.entropy < 5 ? 'low' :
+                                            result.entropy < 6.5 ? 'medium' :
+                                            result.entropy < 7 ? 'high' : 'veryhigh'
+                                        }`}>
+                                            {result.entropy_label}
+                                        </span>
+                                        <span className="entropy-label-text">Shannon Entropy</span>
+                                    </div>
+                                </div>
+                                <div className="entropy-bar-track">
+                                    <div
+                                        className={`entropy-bar-fill entropy-bar-fill--${
+                                            result.entropy < 5 ? 'low' :
+                                            result.entropy < 6.5 ? 'medium' :
+                                            result.entropy < 7 ? 'high' : 'veryhigh'
+                                        }`}
+                                        style={{ width: `${(result.entropy / 8) * 100}%` }}
+                                    />
+                                </div>
+                                <div className="entropy-hint">
+                                    {result.entropy < 5 && 'Normal binary — code and data sections are readable.'}
+                                    {result.entropy >= 5 && result.entropy < 6.5 && 'Moderate density — may contain compressed resources.'}
+                                    {result.entropy >= 6.5 && result.entropy < 7 && 'High density — sections may be compressed or obfuscated.'}
+                                    {result.entropy >= 7 && '⚠ Very high entropy — binary is likely packed, encrypted, or compressed. Consider unpacking first.'}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── Encodings Detected ── */}
+                        {result.encodings && Object.keys(result.encodings).length > 0 && (
+                            <div className="result-card" style={{ marginTop: 20 }}>
+                                <div className="result-card-header result-card-header--encodings">
+                                    <span>🔐 Encodings Detected</span>
+                                    <span className="result-card-meta">
+                                        {Object.values(result.encodings).flat().length} match{Object.values(result.encodings).flat().length !== 1 ? 'es' : ''}
+                                    </span>
+                                </div>
+                                <div className="result-card-body">
+                                    {Object.entries(result.encodings).map(([category, items]) => (
+                                        <div className="finding-category" key={category}>
+                                            <span className="finding-label">
+                                                {category === 'base64' && '📦 Base64'}
+                                                {category === 'hex_strings' && '🔢 Hex Strings'}
+                                                {category === 'xor_hints' && '🔑 XOR / Encryption'}
+                                                {category === 'rot13_flags' && '🔄 ROT13 Hidden Flags'}
+                                            </span>
+                                            {items.map((item, j) => (
+                                                <div className="section-item section-item--encoding" key={j}>{item}</div>
+                                            ))}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── YARA Matches ── */}
+                        {result.yara_matches && result.yara_matches.length > 0 && (
+                            <div className="result-card" style={{ marginTop: 20 }}>
+                                <div className="result-card-header result-card-header--yara">
+                                    <span>🎯 YARA Matches</span>
+                                    <span className="result-card-meta">
+                                        {result.yara_matches.length} rule{result.yara_matches.length !== 1 ? 's' : ''} triggered
+                                    </span>
+                                </div>
+                                <div className="result-card-body">
+                                    {result.yara_matches.map((rule, i) => (
+                                        <div className="yara-rule" key={i}>
+                                            <div className="yara-rule-header">
+                                                <span className="yara-rule-name">{rule.label}</span>
+                                                <span className="yara-rule-count">{rule.count} match{rule.count !== 1 ? 'es' : ''}</span>
+                                            </div>
+                                            <div className="yara-rule-desc">{rule.description}</div>
+                                            {rule.matches.map((m, j) => (
+                                                <div className="section-item section-item--yara" key={j}>{m}</div>
+                                            ))}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         <div className="results-grid">
                             {/* Strings */}
@@ -421,6 +621,9 @@ export default function App() {
                                         <span className="chat-bubble-label">
                                             {msg.role === 'user' ? 'You' : 'AI Mentor'}
                                         </span>
+                                        {msg.image && (
+                                            <img src={msg.image} alt="Attached screenshot" className="chat-image-preview-bubble" />
+                                        )}
                                         <div className="chat-bubble-content">
                                             {msg.content.split(/\n/).filter(l => l.trim()).map((line, j) => (
                                                 <div key={j}>{line}</div>
@@ -438,11 +641,37 @@ export default function App() {
                                 )}
                                 <div ref={chatEndRef} />
                             </div>
+                            {/* Image preview bar */}
+                            {chatImage && (
+                                <div className="chat-image-bar">
+                                    <img src={chatImagePreview} alt="Preview" className="chat-image-thumb" />
+                                    <span className="chat-image-name">{chatImage.name}</span>
+                                    <button className="chat-image-remove" onClick={clearChatImage} title="Remove image">
+                                        <span className="material-symbols-outlined">close</span>
+                                    </button>
+                                </div>
+                            )}
                             <div className="chat-input-row">
+                                <button
+                                    className="chat-image-btn"
+                                    onClick={() => chatImageRef.current?.click()}
+                                    disabled={chatLoading}
+                                    title="Attach screenshot"
+                                    type="button"
+                                >
+                                    📷
+                                </button>
+                                <input
+                                    ref={chatImageRef}
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/gif,image/webp"
+                                    onChange={onChatImageSelect}
+                                    style={{ display: 'none' }}
+                                />
                                 <input
                                     className="chat-input"
                                     type="text"
-                                    placeholder="Ask about this binary..."
+                                    placeholder={chatImage ? 'Add a message about your screenshot...' : 'Ask about this binary...'}
                                     value={chatInput}
                                     onChange={e => setChatInput(e.target.value.slice(0, MAX_CHAT_CHARS))}
                                     onKeyDown={onChatKeyDown}
@@ -453,7 +682,7 @@ export default function App() {
                                 <button
                                     className="chat-send-btn"
                                     onClick={sendChat}
-                                    disabled={chatLoading || !chatInput.trim()}
+                                    disabled={chatLoading || (!chatInput.trim() && !chatImage)}
                                     id="chat-send-btn"
                                 >
                                     {chatLoading ? '...' : '▶ Send'}
