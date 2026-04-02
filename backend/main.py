@@ -12,6 +12,8 @@ Security invariants
 • The Anthropic API key is read from the ANTHROPIC_API_KEY env var.
 • Chat messages are NEVER stored — history lives only in the client.
 • Extracted ZIP contents are NEVER executed and are deleted in try/finally.
+• VirusTotal API key is read from VIRUSTOTAL_API_KEY env var only.
+• File contents sent to VT are NEVER logged — only filename and scan status.
 """
 
 import logging
@@ -61,6 +63,11 @@ OLLAMA_MODELS = ["llama3.2", "qwen2.5-coder", "qwen2.5"]
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY") or ""
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY") or ""
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") or ""
+VIRUSTOTAL_API_KEY = os.environ.get("VIRUSTOTAL_API_KEY") or ""
+
+# CORS: read allowed origins from env (comma-separated), default to localhost
+_raw_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173")
+ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 # ── Startup debug: confirm API key status ─────────────────────────────
 if ANTHROPIC_API_KEY:
@@ -77,6 +84,11 @@ if OPENAI_API_KEY:
     print(f"[BinExplain] OPENAI_API_KEY loaded ✓  (length={len(OPENAI_API_KEY)})")
 else:
     print("[BinExplain] WARNING: OPENAI_API_KEY is NOT set — GPT-4o fallback will be disabled")
+
+if VIRUSTOTAL_API_KEY:
+    print(f"[BinExplain] VIRUSTOTAL_API_KEY loaded ✓  (length={len(VIRUSTOTAL_API_KEY)})")
+else:
+    print("[BinExplain] WARNING: VIRUSTOTAL_API_KEY is NOT set — VirusTotal scanning disabled")
 
 AI_SYSTEM_PROMPT = (
     "You are a CTF mentor helping beginners learn binary exploitation. "
@@ -209,7 +221,7 @@ async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # ← tighten to your frontend origin in production
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -934,6 +946,1127 @@ def _try_ollama_chat(messages: list[dict]) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# VirusTotal API v3 integration (background scanning)
+# ---------------------------------------------------------------------------
+import time as _time
+import threading
+import uuid
+
+# In-memory store for VT scan results.  Keys are scan_id (UUID strings).
+# Entries are auto-cleaned after 10 minutes to avoid memory leaks.
+_vt_scans: dict[str, dict] = {}
+_VT_SCAN_TTL = 600  # seconds
+
+
+def _cleanup_old_scans() -> None:
+    """Remove scan entries older than _VT_SCAN_TTL."""
+    now = _time.time()
+    expired = [k for k, v in _vt_scans.items() if now - v.get("_created", 0) > _VT_SCAN_TTL]
+    for k in expired:
+        _vt_scans.pop(k, None)
+
+
+def _parse_vt_analysis(analysis_result: dict) -> dict:
+    """
+    Parse a completed VirusTotal analysis response into our result dict.
+    """
+    attrs = analysis_result.get("data", {}).get("attributes", {})
+    stats = attrs.get("stats", {})
+    results_map = attrs.get("results", {})
+
+    detection_count = stats.get("malicious", 0) + stats.get("suspicious", 0)
+    total_engines = sum(stats.values())
+
+    # Find the first threat name from detections
+    threat_names = []
+    for engine, detail in results_map.items():
+        if detail.get("category") in ("malicious", "suspicious"):
+            result_name = detail.get("result", "")
+            if result_name:
+                threat_names.append(result_name)
+    threat_name = threat_names[0] if threat_names else None
+
+    # Build behavior summary from category counts
+    behavior_parts = []
+    if stats.get("malicious", 0) > 0:
+        behavior_parts.append(f"{stats['malicious']} engine(s) flagged as malicious")
+    if stats.get("suspicious", 0) > 0:
+        behavior_parts.append(f"{stats['suspicious']} engine(s) flagged as suspicious")
+    if stats.get("undetected", 0) > 0:
+        behavior_parts.append(f"{stats['undetected']} engine(s) found no threat")
+    behavior_summary = "; ".join(behavior_parts) if behavior_parts else "No detections"
+
+    # Determine status label
+    if detection_count == 0:
+        vt_status = "clean"
+    elif detection_count <= 5:
+        vt_status = "suspicious"
+    else:
+        vt_status = "malicious"
+
+    return {
+        "status": vt_status,
+        "detection_count": detection_count,
+        "total_engines": total_engines,
+        "threat_name": threat_name,
+        "behavior_summary": behavior_summary,
+    }
+
+
+def _vt_background_worker(scan_id: str, analysis_id: str) -> None:
+    """
+    Background thread: poll VirusTotal for results (max 60 seconds,
+    every 5 seconds).  Writes final result into _vt_scans[scan_id].
+    """
+    headers = {"x-apikey": VIRUSTOTAL_API_KEY}
+    analysis_url = f"https://www.virustotal.com/api/v3/analyses/{analysis_id}"
+    max_wait = 60
+    poll_interval = 5
+    elapsed = 0
+
+    while elapsed < max_wait:
+        _time.sleep(poll_interval)
+        elapsed += poll_interval
+
+        try:
+            poll_resp = requests.get(analysis_url, headers=headers, timeout=15)
+        except requests.RequestException:
+            continue
+
+        if poll_resp.status_code != 200:
+            continue
+
+        poll_data = poll_resp.json()
+        status = poll_data.get("data", {}).get("attributes", {}).get("status", "")
+
+        if status == "completed":
+            # Extract file ID for permalink
+            file_id = ""
+            meta = poll_data.get("meta", {})
+            file_info = meta.get("file_info", {})
+            file_id = file_info.get("sha256", "")
+            if not file_id:
+                links = poll_data.get("data", {}).get("links", {})
+                item_link = links.get("item", "")
+                if "/files/" in item_link:
+                    file_id = item_link.split("/files/")[-1]
+
+            permalink = f"https://www.virustotal.com/gui/file/{file_id}" if file_id else ""
+
+            result = _parse_vt_analysis(poll_data)
+            result["permalink"] = permalink
+            result["_created"] = _vt_scans[scan_id].get("_created", _time.time())
+            _vt_scans[scan_id] = result
+            return
+
+    # Timed out — mark as pending
+    _vt_scans[scan_id] = {
+        "status": "pending",
+        "message": "VirusTotal analysis is still in progress. Check back later.",
+        "permalink": _vt_scans.get(scan_id, {}).get("permalink", ""),
+        "_created": _vt_scans.get(scan_id, {}).get("_created", _time.time()),
+    }
+
+
+def _parse_vt_file_report(file_data: dict, sha256: str) -> dict | None:
+    """
+    Parse a VirusTotal GET /files/{hash} response into our result dict.
+
+    The /files/ endpoint returns last_analysis_stats and last_analysis_results
+    (different structure from the /analyses/ endpoint used during polling).
+
+    Returns None if the report has no analysis data yet.
+    """
+    attrs = file_data.get("data", {}).get("attributes", {})
+    stats = attrs.get("last_analysis_stats")
+    if not stats:
+        return None  # no analysis available yet
+
+    results_map = attrs.get("last_analysis_results", {})
+
+    detection_count = stats.get("malicious", 0) + stats.get("suspicious", 0)
+    total_engines = sum(stats.values())
+
+    # Find threat names
+    threat_names = []
+    for engine, detail in results_map.items():
+        if detail.get("category") in ("malicious", "suspicious"):
+            result_name = detail.get("result", "")
+            if result_name:
+                threat_names.append(result_name)
+    threat_name = threat_names[0] if threat_names else None
+
+    # Behavior summary
+    behavior_parts = []
+    if stats.get("malicious", 0) > 0:
+        behavior_parts.append(f"{stats['malicious']} engine(s) flagged as malicious")
+    if stats.get("suspicious", 0) > 0:
+        behavior_parts.append(f"{stats['suspicious']} engine(s) flagged as suspicious")
+    if stats.get("undetected", 0) > 0:
+        behavior_parts.append(f"{stats['undetected']} engine(s) found no threat")
+    behavior_summary = "; ".join(behavior_parts) if behavior_parts else "No detections"
+
+    # Status label
+    if detection_count == 0:
+        vt_status = "clean"
+    elif detection_count <= 5:
+        vt_status = "suspicious"
+    else:
+        vt_status = "malicious"
+
+    permalink = f"https://www.virustotal.com/gui/file/{sha256}"
+
+    return {
+        "status": vt_status,
+        "detection_count": detection_count,
+        "total_engines": total_engines,
+        "threat_name": threat_name,
+        "behavior_summary": behavior_summary,
+        "permalink": permalink,
+    }
+
+
+def _vt_lookup_by_hash(sha256: str, headers: dict) -> dict | None:
+    """
+    Try to fetch an existing VirusTotal report by SHA256 hash.
+
+    Returns parsed result dict if a report exists, None otherwise.
+    """
+    try:
+        resp = requests.get(
+            f"https://www.virustotal.com/api/v3/files/{sha256}",
+            headers=headers,
+            timeout=15,
+        )
+    except requests.RequestException:
+        return None
+
+    if resp.status_code != 200:
+        return None
+
+    return _parse_vt_file_report(resp.json(), sha256)
+
+
+def submit_virustotal(content: bytes, filename: str) -> dict:
+    """
+    Upload a binary to VirusTotal API v3 and return immediately with a
+    scan_id.  The actual polling happens in a background thread.
+
+    Optimized flow (saves API quota):
+    1. Compute SHA256 of file content
+    2. Try hash lookup first (GET /files/{sha256})
+    3. If report exists → return immediately (no upload needed)
+    4. If not found → upload file, get analysis ID
+    5. If 409 (AlreadyExistsError) → fall back to hash lookup
+    6. Start background polling thread for new uploads
+
+    Returns:
+    • {"status": "disabled"} if no API key
+    • {"status": "scanning", "scan_id": "..."} on new upload
+    • {"status": "clean/suspicious/malicious", ...} on existing report
+    • {"status": "error", "message": "..."} on failure
+
+    Security:
+    • NEVER logs file contents — only the filename and scan status.
+    • API key is read from VIRUSTOTAL_API_KEY env var.
+    """
+    import hashlib as _hashlib
+
+    if not VIRUSTOTAL_API_KEY:
+        return {"status": "disabled"}
+
+    # Cleanup old entries before adding new ones
+    _cleanup_old_scans()
+
+    headers = {"x-apikey": VIRUSTOTAL_API_KEY}
+
+    # ── Step 1: Compute SHA256 ─────────────────────────────────────────
+    sha256 = _hashlib.sha256(content).hexdigest()
+    logger.info("VirusTotal: file=%s sha256=%s", filename, sha256)
+
+    # ── Step 2: Try hash lookup first (saves API quota) ────────────────
+    existing = _vt_lookup_by_hash(sha256, headers)
+    if existing:
+        logger.info("VirusTotal: existing report found for %s (hash hit)", filename)
+        return existing
+
+    # ── Step 3: Upload file to VT ──────────────────────────────────────
+    try:
+        upload_resp = requests.post(
+            "https://www.virustotal.com/api/v3/files",
+            headers=headers,
+            files={"file": (filename, content)},
+            timeout=30,
+        )
+    except requests.RequestException as exc:
+        logger.warning("VirusTotal upload failed: %s", exc)
+        return {"status": "error", "message": f"Upload failed: {str(exc)[:200]}"}
+
+    # ── Step 4: Handle 409 AlreadyExistsError ──────────────────────────
+    if upload_resp.status_code == 409:
+        logger.info("VirusTotal: 409 AlreadyExistsError for %s — trying hash lookup", filename)
+        # The file was already submitted.  Fall back to hash lookup.
+        fallback = _vt_lookup_by_hash(sha256, headers)
+        if fallback:
+            return fallback
+
+        # If hash lookup also fails, return a permalink anyway
+        return {
+            "status": "pending",
+            "message": "File already submitted to VirusTotal. Report may still be processing.",
+            "permalink": f"https://www.virustotal.com/gui/file/{sha256}",
+        }
+
+    if upload_resp.status_code not in (200, 201):
+        logger.warning("VirusTotal upload returned %d", upload_resp.status_code)
+        return {
+            "status": "error",
+            "message": f"VirusTotal returned HTTP {upload_resp.status_code}",
+        }
+
+    upload_data = upload_resp.json()
+    analysis_id = upload_data.get("data", {}).get("id", "")
+    if not analysis_id:
+        return {"status": "error", "message": "No analysis ID returned by VirusTotal."}
+
+    # ── Step 5: Start background polling ───────────────────────────────
+    scan_id = str(uuid.uuid4())
+    _vt_scans[scan_id] = {
+        "status": "scanning",
+        "sha256": sha256,
+        "permalink": f"https://www.virustotal.com/gui/file/{sha256}",
+        "_created": _time.time(),
+    }
+
+    thread = threading.Thread(
+        target=_vt_background_worker,
+        args=(scan_id, analysis_id),
+        daemon=True,
+    )
+    thread.start()
+
+    return {"status": "scanning", "scan_id": scan_id}
+
+
+# ---------------------------------------------------------------------------
+# Checksec — binary security protections
+# ---------------------------------------------------------------------------
+import json as _json
+import struct as _struct
+
+
+def run_checksec(filepath: str) -> dict:
+    """
+    Detect security protections on a binary file.
+
+    Strategy:
+    1. Try running the system `checksec` tool (JSON output).
+    2. Fall back to pyelftools-based ELF header parsing.
+    3. Fall back to raw ELF header byte parsing.
+
+    Returns dict with: nx, pie, canary, relro, fortify — each True/False.
+    Returns all-None if the file is not an ELF binary.
+    """
+    # ── 1. Try system checksec ────────────────────────────────────────
+    try:
+        result = subprocess.run(
+            ["checksec", f"--file={filepath}", "--format=json"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            data = _json.loads(result.stdout)
+            # checksec JSON format: {filepath: {properties}}
+            info = list(data.values())[0] if data else {}
+            return {
+                "nx": info.get("nx", "").lower() != "no",
+                "pie": info.get("pie", "").lower() not in ("no", "no pie"),
+                "canary": info.get("canary", "").lower() != "no",
+                "relro": info.get("relro", "").lower() not in ("no", "no relro"),
+                "fortify": info.get("fortify_source", "").lower() != "no",
+            }
+    except (FileNotFoundError, subprocess.TimeoutExpired, _json.JSONDecodeError, Exception):
+        pass
+
+    # ── 2. Fall back to pyelftools ────────────────────────────────────
+    try:
+        from elftools.elf.elffile import ELFFile
+        from elftools.elf.segments import Segment
+        from elftools.elf.dynamic import DynamicSection
+
+        with open(filepath, "rb") as f:
+            elf = ELFFile(f)
+
+            # NX: check if any PT_GNU_STACK segment has PF_X flag
+            nx = True  # default: NX enabled
+            for seg in elf.iter_segments():
+                if seg.header.p_type == "PT_GNU_STACK":
+                    # PF_X = 0x1 — if executable flag is set, NX is disabled
+                    nx = not bool(seg.header.p_flags & 0x1)
+                    break
+
+            # PIE: ET_DYN = position-independent
+            pie = elf.header.e_type == "ET_DYN"
+
+            # RELRO: check for PT_GNU_RELRO segment
+            has_relro = any(
+                seg.header.p_type == "PT_GNU_RELRO"
+                for seg in elf.iter_segments()
+            )
+
+            # Full RELRO requires BIND_NOW in dynamic section
+            full_relro = False
+            if has_relro:
+                for section in elf.iter_sections():
+                    if isinstance(section, DynamicSection):
+                        for tag in section.iter_tags():
+                            if tag.entry.d_tag == "DT_BIND_NOW":
+                                full_relro = True
+                                break
+                            if tag.entry.d_tag == "DT_FLAGS" and (tag.entry.d_val & 0x8):
+                                full_relro = True
+                                break
+
+            relro = has_relro  # partial or full
+
+            # Canary: check for __stack_chk_fail in symbol table
+            canary = False
+            for section in elf.iter_sections():
+                if hasattr(section, "iter_symbols"):
+                    for sym in section.iter_symbols():
+                        if "__stack_chk_fail" in sym.name:
+                            canary = True
+                            break
+                    if canary:
+                        break
+
+            # Fortify: check for _chk functions (fortified versions)
+            fortify = False
+            fortify_funcs = ("__printf_chk", "__fprintf_chk", "__sprintf_chk",
+                             "__snprintf_chk", "__memcpy_chk", "__strcpy_chk",
+                             "__strcat_chk", "__read_chk")
+            for section in elf.iter_sections():
+                if hasattr(section, "iter_symbols"):
+                    for sym in section.iter_symbols():
+                        if any(fn in sym.name for fn in fortify_funcs):
+                            fortify = True
+                            break
+                    if fortify:
+                        break
+
+            return {
+                "nx": nx,
+                "pie": pie,
+                "canary": canary,
+                "relro": relro,
+                "fortify": fortify,
+            }
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+    # ── 3. Fall back to raw ELF header parsing ────────────────────────
+    try:
+        with open(filepath, "rb") as f:
+            header = f.read(64)
+
+        # Check ELF magic
+        if header[:4] != b"\x7fELF":
+            return {"nx": None, "pie": None, "canary": None, "relro": None, "fortify": None}
+
+        # e_type at offset 16 (2 bytes, little-endian)
+        e_type = _struct.unpack_from("<H", header, 16)[0]
+        pie = e_type == 3  # ET_DYN = 3
+
+        # Read the full binary to search for markers
+        with open(filepath, "rb") as f:
+            raw = f.read()
+
+        canary = b"__stack_chk_fail" in raw
+        fortify = any(fn.encode() in raw for fn in
+                      ("__printf_chk", "__sprintf_chk", "__memcpy_chk"))
+
+        # Check for PT_GNU_STACK in program headers
+        nx = True  # assume enabled
+        relro = False
+
+        return {
+            "nx": nx,
+            "pie": pie,
+            "canary": canary,
+            "relro": relro,
+            "fortify": fortify,
+        }
+    except Exception:
+        return {"nx": None, "pie": None, "canary": None, "relro": None, "fortify": None}
+
+
+# ---------------------------------------------------------------------------
+# Hex viewer — first N bytes of a binary
+# ---------------------------------------------------------------------------
+def get_hex_view(content: bytes, max_bytes: int = 512) -> list[dict]:
+    """
+    Return the first *max_bytes* of *content* as a list of hex-view rows.
+
+    Each row is a dict:
+      {"offset": "0x0000", "hex": "7f 45 4c 46 ...", "ascii": ".ELF..."}
+
+    16 bytes per row.  Non-printable chars are shown as '.' in the ASCII column.
+    """
+    data = content[:max_bytes]
+    rows: list[dict] = []
+
+    for i in range(0, len(data), 16):
+        chunk = data[i:i + 16]
+        offset = f"0x{i:04x}"
+        hex_str = " ".join(f"{b:02x}" for b in chunk)
+        # Pad last row to align columns
+        if len(chunk) < 16:
+            hex_str += "   " * (16 - len(chunk))
+        ascii_str = "".join(chr(b) if 0x20 <= b < 0x7f else "." for b in chunk)
+        rows.append({"offset": offset, "hex": hex_str, "ascii": ascii_str})
+
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# Disassembly — capstone-based .text section disassembly
+# ---------------------------------------------------------------------------
+def disassemble_binary(content: bytes, max_instructions: int = 50) -> list[dict]:
+    """
+    Disassemble the .text section of an ELF binary using capstone.
+
+    Steps:
+    1. Verify ELF magic bytes
+    2. Parse ELF header: class (32/64), endianness, e_machine
+    3. Parse section headers to locate .text section
+    4. Map architecture to capstone CS_ARCH/CS_MODE
+    5. Disassemble up to *max_instructions* instructions
+
+    Returns list of dicts: {"address": "0x...", "mnemonic": "push", "op_str": "ebp"}
+    Returns empty list if capstone unavailable, not ELF, or parsing fails.
+    """
+    try:
+        import capstone
+    except ImportError:
+        return []
+
+    # ── Verify ELF ─────────────────────────────────────────────────────
+    if len(content) < 64 or content[:4] != b"\x7fELF":
+        return []
+
+    try:
+        # ── Parse ELF header ───────────────────────────────────────────
+        ei_class = content[4]   # 1 = 32-bit, 2 = 64-bit
+        ei_data = content[5]    # 1 = LE, 2 = BE
+        is_32 = ei_class == 1
+        endian = "little" if ei_data == 1 else "big"
+
+        def read_u16(offset):
+            return int.from_bytes(content[offset:offset + 2], endian)
+
+        def read_u32(offset):
+            return int.from_bytes(content[offset:offset + 4], endian)
+
+        def read_u64(offset):
+            return int.from_bytes(content[offset:offset + 8], endian)
+
+        def read_addr(offset):
+            return read_u32(offset) if is_32 else read_u64(offset)
+
+        def read_off(offset):
+            return read_u32(offset) if is_32 else read_u64(offset)
+
+        e_machine = read_u16(18)
+
+        # ELF header field offsets differ for 32/64-bit
+        if is_32:
+            e_shoff = read_u32(32)       # section header table offset
+            e_shentsize = read_u16(46)   # section header entry size
+            e_shnum = read_u16(48)       # number of section headers
+            e_shstrndx = read_u16(50)    # section name string table index
+        else:
+            e_shoff = read_u64(40)
+            e_shentsize = read_u16(58)
+            e_shnum = read_u16(60)
+            e_shstrndx = read_u16(62)
+
+        if e_shoff == 0 or e_shnum == 0 or e_shentsize == 0:
+            return []
+
+        # ── Parse section headers to find .text ────────────────────────
+        # First, read the section name string table
+        if e_shstrndx >= e_shnum:
+            return []
+
+        shstrtab_off = e_shoff + e_shstrndx * e_shentsize
+        if is_32:
+            strtab_offset = read_u32(shstrtab_off + 16)
+            strtab_size = read_u32(shstrtab_off + 20)
+        else:
+            strtab_offset = read_u64(shstrtab_off + 24)
+            strtab_size = read_u64(shstrtab_off + 32)
+
+        if strtab_offset + strtab_size > len(content):
+            return []
+
+        strtab = content[strtab_offset:strtab_offset + strtab_size]
+
+        # Search for .text section
+        text_offset = 0
+        text_size = 0
+        text_addr = 0
+
+        for i in range(e_shnum):
+            sh_off = e_shoff + i * e_shentsize
+            if sh_off + e_shentsize > len(content):
+                break
+
+            sh_name_idx = read_u32(sh_off)
+
+            # Read section name from string table
+            if sh_name_idx < len(strtab):
+                end = strtab.index(b"\x00", sh_name_idx) if b"\x00" in strtab[sh_name_idx:] else sh_name_idx
+                name = strtab[sh_name_idx:end].decode("ascii", errors="replace")
+            else:
+                name = ""
+
+            if name == ".text":
+                if is_32:
+                    text_addr = read_u32(sh_off + 12)
+                    text_offset = read_u32(sh_off + 16)
+                    text_size = read_u32(sh_off + 20)
+                else:
+                    text_addr = read_u64(sh_off + 16)
+                    text_offset = read_u64(sh_off + 24)
+                    text_size = read_u64(sh_off + 32)
+                break
+
+        if text_size == 0:
+            return []
+
+        # ── Map architecture to capstone ───────────────────────────────
+        cs_arch = capstone.CS_ARCH_X86
+        cs_mode = capstone.CS_MODE_64
+
+        if is_32:
+            if e_machine == 3:     # EM_386 = x86
+                cs_arch = capstone.CS_ARCH_X86
+                cs_mode = capstone.CS_MODE_32
+            elif e_machine == 40:  # EM_ARM
+                cs_arch = capstone.CS_ARCH_ARM
+                cs_mode = capstone.CS_MODE_ARM
+            elif e_machine == 8:   # EM_MIPS
+                cs_arch = capstone.CS_ARCH_MIPS
+                cs_mode = capstone.CS_MODE_MIPS32
+            else:
+                cs_arch = capstone.CS_ARCH_X86
+                cs_mode = capstone.CS_MODE_32
+        else:
+            if e_machine == 62:    # EM_X86_64
+                cs_arch = capstone.CS_ARCH_X86
+                cs_mode = capstone.CS_MODE_64
+            elif e_machine == 183: # EM_AARCH64
+                cs_arch = capstone.CS_ARCH_ARM64
+                cs_mode = capstone.CS_MODE_ARM
+            elif e_machine == 8:   # EM_MIPS
+                cs_arch = capstone.CS_ARCH_MIPS
+                cs_mode = capstone.CS_MODE_MIPS64
+            else:
+                cs_arch = capstone.CS_ARCH_X86
+                cs_mode = capstone.CS_MODE_64
+
+        # Add endianness mode
+        if ei_data == 2:
+            cs_mode |= capstone.CS_MODE_BIG_ENDIAN
+        else:
+            cs_mode |= capstone.CS_MODE_LITTLE_ENDIAN
+
+        # ── Disassemble .text ──────────────────────────────────────────
+        text_data = content[text_offset:text_offset + min(text_size, 4096)]
+        md = capstone.Cs(cs_arch, cs_mode)
+
+        instructions = []
+        for insn in md.disasm(text_data, text_addr):
+            instructions.append({
+                "address": f"0x{insn.address:x}",
+                "mnemonic": insn.mnemonic,
+                "op_str": insn.op_str,
+            })
+            if len(instructions) >= max_instructions:
+                break
+
+        return instructions
+
+    except Exception:
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Pwntools exploit template generator
+# ---------------------------------------------------------------------------
+def generate_pwn_template(
+    filename: str,
+    content: bytes,
+    checksec: dict,
+    patterns: dict[str, list[str]],
+    strings_list: list[str],
+) -> str:
+    """
+    Generate a Python pwntools exploit template based on deep static analysis.
+
+    The template includes:
+    • Architecture detection from ELF magic bytes (class + e_machine)
+    • Automatic win function detection (win, get_flag, print_flag, shell, backdoor, secret)
+    • Architecture-correct cyclic pattern commands (32 vs 64-bit)
+    • Pre-filled menu interaction from actual detected menu strings
+    • One-liner offset finder using corefile
+    • Binary base address comments when PIE is disabled
+    • Pre-filled protections from checksec
+    • Payload scaffold based on detected exploit technique
+    """
+
+    # ── 1. Detect architecture from ELF header ─────────────────────────
+    arch = "amd64"  # default
+    bits = 64
+    endian = "little"
+    is_elf = False
+
+    if len(content) >= 20 and content[:4] == b"\x7fELF":
+        is_elf = True
+        ei_class = content[4]      # 1 = 32-bit, 2 = 64-bit
+        ei_data = content[5]       # 1 = little-endian, 2 = big-endian
+        endian = "little" if ei_data == 1 else "big"
+
+        e_machine = int.from_bytes(content[18:20], endian)
+
+        if ei_class == 1:
+            bits = 32
+            arch_map = {3: "i386", 40: "arm", 8: "mips"}
+            arch = arch_map.get(e_machine, "i386")
+        else:
+            bits = 64
+            arch_map = {62: "amd64", 183: "aarch64", 8: "mips64"}
+            arch = arch_map.get(e_machine, "amd64")
+
+    # ── 2. Win function detection (prioritized) ────────────────────────
+    win_function_names = [
+        "win", "get_flag", "print_flag", "read_flag", "cat_flag",
+        "shell", "get_shell", "spawn_shell",
+        "backdoor", "secret", "flag",
+        "system",  # only as custom function, not libc
+    ]
+    func_re = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]{2,40}$')
+    libc_funcs = {
+        "printf", "puts", "gets", "fgets", "scanf", "read", "write",
+        "malloc", "free", "realloc", "calloc", "system", "execve",
+        "open", "close", "strcpy", "strncpy", "strcmp", "strlen",
+        "memcpy", "memset", "memmove", "fopen", "fread", "fwrite",
+        "fclose", "setbuf", "setvbuf", "exit", "_exit", "atoi",
+        "strtol", "sprintf", "snprintf", "fprintf", "alarm",
+        "signal", "mprotect", "mmap", "munmap",
+    }
+
+    known_funcs: list[str] = []
+    custom_funcs: list[str] = []
+    win_func: str | None = None
+    all_win_candidates: list[str] = []
+
+    for s in strings_list:
+        s_stripped = s.strip()
+        if not func_re.match(s_stripped) or len(s_stripped) <= 2:
+            continue
+
+        if s_stripped in libc_funcs:
+            known_funcs.append(s_stripped)
+            continue
+
+        # Skip common ELF/compiler noise
+        if s_stripped in ("ELF", "GNU", "GCC", "GLIBC", "GLIBCXX", "CXXABI"):
+            continue
+
+        if s_stripped[0].isupper() or "_" in s_stripped:
+            custom_funcs.append(s_stripped)
+
+        # Check against win function names
+        s_low = s_stripped.lower()
+        for wname in win_function_names:
+            if wname == s_low or s_low.startswith(wname) or s_low.endswith(wname):
+                # Don't count 'system' from libc as win
+                if s_stripped != "system":
+                    all_win_candidates.append(s_stripped)
+                break
+
+    known_funcs = list(dict.fromkeys(known_funcs))[:15]
+    custom_funcs = list(dict.fromkeys(custom_funcs))[:15]
+    all_win_candidates = list(dict.fromkeys(all_win_candidates))
+
+    # Pick best win function by priority
+    if all_win_candidates:
+        # Prefer exact matches first
+        for wname in win_function_names:
+            for cand in all_win_candidates:
+                if cand.lower() == wname:
+                    win_func = cand
+                    break
+            if win_func:
+                break
+        if not win_func:
+            win_func = all_win_candidates[0]
+
+    # ── 3. Parse menu options from strings ─────────────────────────────
+    menu_re = re.compile(r'^(\d+)[).\]:\-]\s*(.+)', re.IGNORECASE)
+    menu_options: list[tuple[str, str]] = []  # (number, description)
+    menu_prompt: str | None = None
+
+    for s in strings_list:
+        s_stripped = s.strip()
+        m = menu_re.match(s_stripped)
+        if m:
+            num, desc = m.group(1), m.group(2).strip()
+            if len(desc) > 2 and len(desc) < 60:
+                menu_options.append((num, desc))
+
+        # Detect menu prompt characters
+        s_low = s_stripped.lower()
+        if any(p in s_low for p in ("choice", "option", "select", "enter your", ">>", "> ")):
+            if len(s_stripped) < 40:
+                menu_prompt = s_stripped
+
+    menu_options = menu_options[:8]  # cap
+
+    # ── 4. Build protections string ────────────────────────────────────
+    nx_val = checksec.get("nx")
+    pie_val = checksec.get("pie")
+    canary_val = checksec.get("canary")
+    relro_val = checksec.get("relro")
+    fortify_val = checksec.get("fortify")
+
+    prot_parts = []
+    if nx_val is not None:
+        prot_parts.append(f"NX={'Enabled' if nx_val else 'Disabled'}")
+    if pie_val is not None:
+        prot_parts.append(f"PIE={'Enabled' if pie_val else 'Disabled'}")
+    if canary_val is not None:
+        prot_parts.append(f"Canary={'Enabled' if canary_val else 'Disabled'}")
+    if relro_val is not None:
+        prot_parts.append(f"RELRO={'Enabled' if relro_val else 'Disabled'}")
+    if fortify_val is not None:
+        prot_parts.append(f"Fortify={'Enabled' if fortify_val else 'Disabled'}")
+    protections_line = ", ".join(prot_parts) if prot_parts else "Unknown"
+
+    # ── 5. Build hints from patterns ───────────────────────────────────
+    hints = []
+    if patterns.get("dangerous_functions"):
+        funcs = ", ".join(patterns["dangerous_functions"][:3])
+        hints.append(f"Dangerous function(s) detected: {funcs}")
+        if any("gets" in f for f in patterns["dangerous_functions"]):
+            hints.append("gets() detected — classic buffer overflow target")
+        if any("strcpy" in f for f in patterns["dangerous_functions"]):
+            hints.append("strcpy() detected — potential buffer overflow")
+        if any("system" in f for f in patterns["dangerous_functions"]):
+            hints.append("system() call found — possible ret2system target")
+
+    if patterns.get("flag_reads"):
+        hints.append("flag.txt / flag reference — find the win condition")
+
+    if patterns.get("win_conditions"):
+        hints.append("Win condition detected — redirect control flow here")
+
+    if patterns.get("memory_functions"):
+        hints.append("Heap functions (malloc/free) — consider heap exploitation")
+
+    if patterns.get("menu_driven"):
+        hints.append("Menu-driven program — look for UAF, double-free, or heap overflow")
+
+    if patterns.get("stack_protection"):
+        hints.append("Stack canary enabled — need canary leak or bypass")
+
+    if patterns.get("glibc_versions"):
+        ver = patterns["glibc_versions"][0]
+        hints.append(f"GLIBC version: {ver}")
+
+    if patterns.get("file_operations"):
+        hints.append("File operations detected — check for path traversal or read primitives")
+
+    # ── 6. Determine exploit technique ─────────────────────────────────
+    technique = "buffer_overflow"  # default
+    if patterns.get("memory_functions") and patterns.get("menu_driven"):
+        technique = "heap"
+    elif pie_val is False and nx_val is True and patterns.get("dangerous_functions"):
+        technique = "rop"
+    elif nx_val is False:
+        technique = "shellcode"
+
+    # ── 7. Architecture-specific values ────────────────────────────────
+    p32_or_64 = "p32" if bits == 32 else "p64"
+    cyclic_find_val = "0x61616161" if bits == 32 else "0x6161616161616161"
+    word_size = 4 if bits == 32 else 8
+
+    # ── 8. Assemble template ───────────────────────────────────────────
+    lines = [
+        "#!/usr/bin/env python3",
+        "from pwn import *",
+        "",
+        f"# Binary: {filename}",
+        f"# Architecture: {arch} ({bits}-bit, {'little' if endian == 'little' else 'big'}-endian)",
+        f"# Protections: {protections_line}",
+        "",
+        f'binary = "./{filename}"',
+        "elf = ELF(binary)",
+        f"context.arch = '{arch}'",
+        "context.log_level = 'info'",
+        "",
+    ]
+
+    # Libc loading hint
+    lines.append("# libc = ELF('./libc.so.6')  # uncomment if you have the target libc")
+    lines.append("")
+
+    # PIE disabled — add base address comment
+    if pie_val is False:
+        lines.append("# PIE is disabled — addresses are fixed:")
+        lines.append("# binary_base = elf.address  # default: 0x400000 (64-bit) or 0x8048000 (32-bit)")
+        if bits == 32:
+            lines.append("# elf.address = 0x8048000")
+        else:
+            lines.append("# elf.address = 0x400000")
+        lines.append("")
+
+    # Win function — FOUND banner
+    if win_func:
+        lines.append(f"# ╔══════════════════════════════════════════╗")
+        lines.append(f"# ║  WIN FUNCTION FOUND: {win_func:<20s} ║")
+        lines.append(f"# ╚══════════════════════════════════════════╝")
+        lines.append(f"win = elf.sym['{win_func}']  # WIN FUNCTION FOUND!")
+        if len(all_win_candidates) > 1:
+            others = [c for c in all_win_candidates if c != win_func]
+            lines.append(f"# Other candidates: {', '.join(others)}")
+        lines.append("")
+
+    # Known functions
+    if custom_funcs:
+        lines.append("# Custom functions detected in binary:")
+        for fn in custom_funcs[:10]:
+            lines.append(f"#   - {fn}")
+        lines.append("")
+
+    if known_funcs:
+        lines.append("# Known libc functions used:")
+        lines.append(f"#   {', '.join(known_funcs[:10])}")
+        lines.append("")
+
+    # Hints
+    if hints:
+        lines.append("# ═══ Analysis Hints ═══")
+        for h in hints:
+            lines.append(f"# → {h}")
+        lines.append("")
+
+    # ── Offset finder one-liner ────────────────────────────────────────
+    lines.append("# ═══ Find Offset ═══")
+    lines.append("# RUN THIS FIRST to find the buffer overflow offset:")
+    lines.append(f"# python3 -c \"from pwn import *; p=process('./{filename}'); p.sendline(cyclic(200)); p.wait(); core=p.corefile; print(cyclic_find(core.fault_addr))\"")
+    lines.append("")
+    lines.append(f"# Or manually:")
+    lines.append(f"# 1. Send cyclic(200) to the binary")
+    lines.append(f"# 2. Check crash address in debugger")
+    if bits == 32:
+        lines.append(f"# 3. offset = cyclic_find(0x61616161)  # 32-bit: 'aaaa' pattern")
+    else:
+        lines.append(f"# 3. offset = cyclic_find(0x6161616161616161)  # 64-bit: 'aaaaaaaa' pattern")
+    lines.append("")
+
+    # Connection setup
+    lines.extend([
+        "# ═══ Connection ═══",
+        "p = process(binary)",
+        '# p = remote("target.ctf.com", 1337)  # for remote exploit',
+        "",
+    ])
+
+    # ── Technique-specific scaffold ────────────────────────────────────
+    if technique == "shellcode":
+        lines.extend([
+            "# ═══ Shellcode Exploit (NX disabled) ═══",
+            "# NX is disabled — you can execute shellcode on the stack",
+            "shellcode = asm(shellcraft.sh())",
+            "",
+            f"offset = 0  # TODO: replace with value from cyclic_find({cyclic_find_val})",
+            "",
+            "payload = flat(",
+            "    shellcode,",
+            f"    b'A' * (offset - len(shellcode)),",
+            f"    # {p32_or_64}(stack_addr),  # return address → shellcode on stack",
+            ")",
+        ])
+    elif technique == "heap":
+        lines.extend([
+            "# ═══ Heap Exploit Template ═══",
+            "# Menu-driven program with heap operations detected",
+            "",
+        ])
+
+        # Generate menu helpers from parsed menu options
+        prompt_bytes = f"b'{menu_prompt}'" if menu_prompt else "b'> '"
+
+        if menu_options:
+            lines.append("# Detected menu options:")
+            for num, desc in menu_options:
+                lines.append(f"#   {num}) {desc}")
+            lines.append("")
+
+            # Generate wrapper functions based on detected menu text
+            func_names_generated = set()
+            for num, desc in menu_options[:4]:
+                # Derive function name from description
+                desc_lower = desc.lower()
+                if any(w in desc_lower for w in ("add", "create", "new", "alloc")):
+                    fname = "create"
+                elif any(w in desc_lower for w in ("delete", "remove", "free", "destroy")):
+                    fname = "delete"
+                elif any(w in desc_lower for w in ("show", "view", "print", "display", "read", "get")):
+                    fname = "show"
+                elif any(w in desc_lower for w in ("edit", "modify", "update", "change")):
+                    fname = "edit"
+                elif any(w in desc_lower for w in ("exit", "quit", "leave")):
+                    continue  # skip exit option
+                else:
+                    fname = f"option_{num}"
+
+                if fname in func_names_generated:
+                    fname = f"{fname}_{num}"
+                func_names_generated.add(fname)
+
+                lines.append(f"def {fname}(data=b'A'):")
+                lines.append(f"    p.sendlineafter({prompt_bytes}, b'{num}')")
+                lines.append(f"    # TODO: fill in expected prompts for '{desc}'")
+                lines.append(f"    # p.sendlineafter(b':', data)")
+                lines.append("")
+        else:
+            # Fallback generic menu helpers
+            lines.extend([
+                f"def create(size, data=b'A'):",
+                f"    p.sendlineafter({prompt_bytes}, b'1')",
+                "    p.sendlineafter(b'size', str(size).encode())",
+                "    p.sendafter(b'data', data)",
+                "",
+                "def delete(idx):",
+                f"    p.sendlineafter({prompt_bytes}, b'2')",
+                "    p.sendlineafter(b'index', str(idx).encode())",
+                "",
+                "def show(idx):",
+                f"    p.sendlineafter({prompt_bytes}, b'3')",
+                "    p.sendlineafter(b'index', str(idx).encode())",
+                "    return p.recvline()",
+                "",
+            ])
+
+        lines.extend([
+            "# TODO: Implement exploit",
+            "# Common techniques: UAF, tcache poisoning, fastbin dup, house-of-force",
+        ])
+    elif technique == "rop":
+        lines.extend([
+            "# ═══ ROP Exploit (NX enabled, no PIE) ═══",
+            "# Use ROP gadgets to build a chain",
+            "rop = ROP(elf)",
+            "",
+            f"offset = 0  # TODO: replace with value from cyclic_find({cyclic_find_val})",
+            "",
+        ])
+        if win_func:
+            lines.extend([
+                "# Direct ret2win — win function detected!",
+            ])
+            if bits == 64:
+                lines.extend([
+                    "# NOTE: 64-bit requires stack alignment (ret gadget before win)",
+                    "ret = rop.find_gadget(['ret'])[0]  # stack alignment",
+                    "",
+                    "payload = flat(",
+                    "    b'A' * offset,",
+                    "    p64(ret),       # stack alignment for movaps",
+                    f"    p64(win),       # → {win_func}",
+                    ")",
+                ])
+            else:
+                lines.extend([
+                    "payload = flat(",
+                    "    b'A' * offset,",
+                    f"    p32(win),       # → {win_func}",
+                    ")",
+                ])
+        else:
+            lines.extend([
+                "# Option 1: ret2system (if system@plt exists)",
+                f"# bin_sh = next(elf.search(b'/bin/sh'))",
+            ])
+            if bits == 64:
+                lines.extend([
+                    "# pop_rdi = rop.find_gadget(['pop rdi', 'ret'])[0]",
+                    "# ret = rop.find_gadget(['ret'])[0]",
+                    "# payload = flat(",
+                    "#     b'A' * offset,",
+                    "#     p64(ret),",
+                    "#     p64(pop_rdi),",
+                    "#     p64(bin_sh),",
+                    "#     p64(elf.plt['system']),",
+                    "# )",
+                ])
+            else:
+                lines.extend([
+                    "# payload = flat(",
+                    "#     b'A' * offset,",
+                    "#     p32(elf.plt['system']),",
+                    "#     p32(0xdeadbeef),  # fake return address",
+                    "#     p32(bin_sh),",
+                    "# )",
+                ])
+            lines.extend([
+                "",
+                "# Option 2: Auto-build ROP chain",
+                "payload = flat(",
+                f"    b'A' * offset,",
+                "    rop.chain(),",
+                ")",
+            ])
+    else:
+        # Generic buffer overflow
+        lines.extend([
+            "# ═══ Buffer Overflow Template ═══",
+            f"offset = 0  # TODO: replace with value from cyclic_find({cyclic_find_val})",
+            "",
+            "payload = flat(",
+            f"    b'A' * offset,",
+        ])
+        if win_func:
+            if bits == 64:
+                lines.append("    # NOTE: 64-bit may need ret gadget for stack alignment")
+                lines.append(f"    # ret = ROP(elf).find_gadget(['ret'])[0]")
+                lines.append(f"    # p64(ret),")
+                lines.append(f"    p64(win),       # → {win_func}")
+            else:
+                lines.append(f"    p32(win),       # → {win_func}")
+        else:
+            lines.append(f"    # {p32_or_64}(elf.sym['win_function']),  # replace with actual target")
+        lines.append(")")
+
+    # Send payload and interact
+    lines.extend([
+        "",
+        "# ═══ Send & Interact ═══",
+        "p.sendline(payload)",
+        "p.interactive()",
+        "",
+    ])
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Single-file analysis helper
 # ---------------------------------------------------------------------------
 def _analyze_single_file(
@@ -963,6 +2096,23 @@ def _analyze_single_file(
         encodings = detect_encodings(strings)
         yara = detect_yara_patterns(strings, content, entropy, len(strings))
 
+        # VirusTotal: submit and return immediately (background polling)
+        vt_result = submit_virustotal(content, filename)
+
+        # Checksec: detect binary security protections
+        checksec_result = run_checksec(tmp_path)
+
+        # Hex view: first 512 bytes
+        hex_view = get_hex_view(content)
+
+        # Pwntools exploit template
+        pwn_template = generate_pwn_template(
+            filename, content, checksec_result, patterns, strings,
+        )
+
+        # Disassembly: first 50 instructions of .text section
+        disassembly = disassemble_binary(content)
+
         result = {
             "filename": filename,
             "size_bytes": len(content),
@@ -977,6 +2127,11 @@ def _analyze_single_file(
             "entropy_label": _entropy_label(entropy),
             "encodings": encodings,
             "yara_matches": yara,
+            "virustotal": vt_result,
+            "checksec": checksec_result,
+            "hex_view": hex_view,
+            "pwn_template": pwn_template,
+            "disassembly": disassembly,
         }
         if detected_type:
             result["detected_type"] = detected_type
@@ -1160,6 +2315,58 @@ async def analyze(request: Request, file: UploadFile = File(...)):
 
     # ── 6. Analyze the single binary ─────────────────────────────────
     return _analyze_single_file(content, file.filename or "unknown", ext, detected_type)
+
+
+@app.get("/virustotal/{scan_id}")
+@limiter.limit("30/hour")
+async def get_virustotal_result(request: Request, scan_id: str):
+    """
+    Poll for VirusTotal scan results by scan_id.
+
+    Returns the current status of the background VT scan:
+    • {"status": "scanning"} — still in progress
+    • {"status": "clean/suspicious/malicious", ...} — completed
+    • {"status": "pending", ...} — VT timed out, check permalink
+    • 404 — unknown scan_id
+    """
+    if scan_id not in _vt_scans:
+        raise HTTPException(status_code=404, detail="Unknown scan ID.")
+
+    entry = _vt_scans[scan_id].copy()
+    # Strip internal fields
+    entry.pop("_created", None)
+    return entry
+
+
+# ---------------------------------------------------------------------------
+# POST /feedback — anonymous hint quality feedback
+# ---------------------------------------------------------------------------
+class FeedbackRequest(BaseModel):
+    vote: Literal["up", "down"]
+    filename: str = ""
+
+    @field_validator("filename")
+    @classmethod
+    def cap_filename(cls, v: str) -> str:
+        return v[:200]
+
+
+@app.post("/feedback")
+@limiter.limit("30/hour")
+async def submit_feedback(request: Request, body: FeedbackRequest):
+    """
+    Accept anonymous thumbs-up/down feedback on AI hints.
+
+    Nothing is stored — the vote is logged to stdout only for now.
+    Rate limited to 30/hour per IP to prevent abuse.
+    """
+    logger.info(
+        "[Feedback] vote=%s filename=%s ip=%s",
+        body.vote,
+        body.filename or "(none)",
+        get_remote_address(request),
+    )
+    return {"status": "ok", "message": "Thanks for your feedback!"}
 
 
 @app.post("/chat")
