@@ -1432,176 +1432,278 @@ def get_hex_view(content: bytes, max_bytes: int = 512) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Disassembly — capstone-based .text section disassembly
+# Disassembly — capstone-based function disassembly with symbol table parsing
 # ---------------------------------------------------------------------------
-def disassemble_binary(content: bytes, max_instructions: int = 50) -> list[dict]:
+def disassemble_binary(content: bytes) -> dict:
     """
-    Disassemble the .text section of an ELF binary using capstone.
+    Disassemble a specific function from an ELF binary using capstone.
 
-    Steps:
-    1. Verify ELF magic bytes
-    2. Parse ELF header: class (32/64), endianness, e_machine
-    3. Parse section headers to locate .text section
-    4. Map architecture to capstone CS_ARCH/CS_MODE
-    5. Disassemble up to *max_instructions* instructions
+    Strategy:
+    1. Parse ELF symbol table (.symtab / .dynsym) to find 'main'
+    2. If main found → disassemble from main's address, stop at ret after 10+ insns
+    3. If main not found → fall back to ELF entry point + first 50 instructions
 
-    Returns list of dicts: {"address": "0x...", "mnemonic": "push", "op_str": "ebp"}
-    Returns empty list if capstone unavailable, not ELF, or parsing fails.
+    Returns dict:
+      {
+        "function": "main" | "entry point" | "_start",
+        "instructions": [{"address": "0x...", "mnemonic": "push", "op_str": "rbp"}, ...]
+      }
+    Returns {"function": "", "instructions": []} on failure.
     """
+    empty = {"function": "", "instructions": []}
+
     try:
         import capstone
     except ImportError:
-        return []
+        return empty
 
-    # ── Verify ELF ─────────────────────────────────────────────────────
     if len(content) < 64 or content[:4] != b"\x7fELF":
-        return []
+        return empty
 
     try:
         # ── Parse ELF header ───────────────────────────────────────────
-        ei_class = content[4]   # 1 = 32-bit, 2 = 64-bit
-        ei_data = content[5]    # 1 = LE, 2 = BE
+        ei_class = content[4]
+        ei_data = content[5]
         is_32 = ei_class == 1
         endian = "little" if ei_data == 1 else "big"
 
-        def read_u16(offset):
-            return int.from_bytes(content[offset:offset + 2], endian)
+        def read_u16(off):
+            return int.from_bytes(content[off:off + 2], endian)
 
-        def read_u32(offset):
-            return int.from_bytes(content[offset:offset + 4], endian)
+        def read_u32(off):
+            return int.from_bytes(content[off:off + 4], endian)
 
-        def read_u64(offset):
-            return int.from_bytes(content[offset:offset + 8], endian)
-
-        def read_addr(offset):
-            return read_u32(offset) if is_32 else read_u64(offset)
-
-        def read_off(offset):
-            return read_u32(offset) if is_32 else read_u64(offset)
+        def read_u64(off):
+            return int.from_bytes(content[off:off + 8], endian)
 
         e_machine = read_u16(18)
 
-        # ELF header field offsets differ for 32/64-bit
+        # Entry point
         if is_32:
-            e_shoff = read_u32(32)       # section header table offset
-            e_shentsize = read_u16(46)   # section header entry size
-            e_shnum = read_u16(48)       # number of section headers
-            e_shstrndx = read_u16(50)    # section name string table index
+            e_entry = read_u32(24)
+            e_shoff = read_u32(32)
+            e_shentsize = read_u16(46)
+            e_shnum = read_u16(48)
+            e_shstrndx = read_u16(50)
         else:
+            e_entry = read_u64(24)
             e_shoff = read_u64(40)
             e_shentsize = read_u16(58)
             e_shnum = read_u16(60)
             e_shstrndx = read_u16(62)
 
         if e_shoff == 0 or e_shnum == 0 or e_shentsize == 0:
-            return []
+            return empty
 
-        # ── Parse section headers to find .text ────────────────────────
-        # First, read the section name string table
+        # ── Read section name string table ─────────────────────────────
         if e_shstrndx >= e_shnum:
-            return []
+            return empty
 
-        shstrtab_off = e_shoff + e_shstrndx * e_shentsize
+        shstrtab_hdr = e_shoff + e_shstrndx * e_shentsize
         if is_32:
-            strtab_offset = read_u32(shstrtab_off + 16)
-            strtab_size = read_u32(shstrtab_off + 20)
+            shstrtab_off = read_u32(shstrtab_hdr + 16)
+            shstrtab_sz = read_u32(shstrtab_hdr + 20)
         else:
-            strtab_offset = read_u64(shstrtab_off + 24)
-            strtab_size = read_u64(shstrtab_off + 32)
+            shstrtab_off = read_u64(shstrtab_hdr + 24)
+            shstrtab_sz = read_u64(shstrtab_hdr + 32)
 
-        if strtab_offset + strtab_size > len(content):
-            return []
+        if shstrtab_off + shstrtab_sz > len(content):
+            return empty
 
-        strtab = content[strtab_offset:strtab_offset + strtab_size]
+        shstrtab = content[shstrtab_off:shstrtab_off + shstrtab_sz]
 
-        # Search for .text section
-        text_offset = 0
-        text_size = 0
-        text_addr = 0
+        def _section_name(sh_off):
+            idx = read_u32(sh_off)
+            if idx >= len(shstrtab):
+                return ""
+            end = shstrtab.index(b"\x00", idx) if b"\x00" in shstrtab[idx:] else idx
+            return shstrtab[idx:end].decode("ascii", errors="replace")
+
+        # ── Scan all sections: find .text, .symtab, .strtab, .dynsym ──
+        text_offset = text_size = text_addr = 0
+        symtab_off = symtab_sz = symtab_entsize = 0
+        symtab_link = 0  # index of associated string table
+        dynsym_off = dynsym_sz = dynsym_entsize = 0
+        dynsym_link = 0
+        section_hdrs = []  # (offset, name) for resolving strtab links
 
         for i in range(e_shnum):
             sh_off = e_shoff + i * e_shentsize
             if sh_off + e_shentsize > len(content):
                 break
 
-            sh_name_idx = read_u32(sh_off)
+            name = _section_name(sh_off)
+            sh_type = read_u32(sh_off + 4)
 
-            # Read section name from string table
-            if sh_name_idx < len(strtab):
-                end = strtab.index(b"\x00", sh_name_idx) if b"\x00" in strtab[sh_name_idx:] else sh_name_idx
-                name = strtab[sh_name_idx:end].decode("ascii", errors="replace")
+            if is_32:
+                s_addr = read_u32(sh_off + 12)
+                s_offset = read_u32(sh_off + 16)
+                s_size = read_u32(sh_off + 20)
+                s_link = read_u32(sh_off + 24)
+                s_entsize = read_u32(sh_off + 36)
             else:
-                name = ""
+                s_addr = read_u64(sh_off + 16)
+                s_offset = read_u64(sh_off + 24)
+                s_size = read_u64(sh_off + 32)
+                s_link = read_u32(sh_off + 40)
+                s_entsize = read_u64(sh_off + 56)
+
+            section_hdrs.append({
+                "idx": i, "name": name, "type": sh_type,
+                "offset": s_offset, "size": s_size, "addr": s_addr,
+                "link": s_link, "entsize": s_entsize,
+            })
 
             if name == ".text":
-                if is_32:
-                    text_addr = read_u32(sh_off + 12)
-                    text_offset = read_u32(sh_off + 16)
-                    text_size = read_u32(sh_off + 20)
-                else:
-                    text_addr = read_u64(sh_off + 16)
-                    text_offset = read_u64(sh_off + 24)
-                    text_size = read_u64(sh_off + 32)
-                break
+                text_offset, text_size, text_addr = s_offset, s_size, s_addr
+            elif sh_type == 2:  # SHT_SYMTAB
+                symtab_off, symtab_sz = s_offset, s_size
+                symtab_entsize = s_entsize or (16 if is_32 else 24)
+                symtab_link = s_link
+            elif sh_type == 11:  # SHT_DYNSYM
+                dynsym_off, dynsym_sz = s_offset, s_size
+                dynsym_entsize = s_entsize or (16 if is_32 else 24)
+                dynsym_link = s_link
 
         if text_size == 0:
-            return []
+            return empty
+
+        # ── Helper: read string from a strtab section ──────────────────
+        def _read_strtab_string(link_idx, str_idx):
+            if link_idx >= len(section_hdrs):
+                return ""
+            st = section_hdrs[link_idx]
+            base = st["offset"]
+            sz = st["size"]
+            if str_idx >= sz:
+                return ""
+            start = base + str_idx
+            end = content.index(b"\x00", start) if b"\x00" in content[start:start + 256] else start
+            return content[start:end].decode("ascii", errors="replace")
+
+        # ── Search symbol tables for 'main' ────────────────────────────
+        main_addr = 0
+        main_size = 0
+        main_name = ""
+
+        def _find_main_in_symtab(sym_off, sym_sz, sym_entsz, link):
+            nonlocal main_addr, main_size, main_name
+            if sym_off == 0 or sym_sz == 0 or sym_entsz == 0:
+                return False
+            count = sym_sz // sym_entsz
+            for j in range(count):
+                ent = sym_off + j * sym_entsz
+                if ent + sym_entsz > len(content):
+                    break
+
+                if is_32:
+                    st_name = read_u32(ent)
+                    st_value = read_u32(ent + 4)
+                    st_size = read_u32(ent + 8)
+                    st_info = content[ent + 12]
+                else:
+                    st_name = read_u32(ent)
+                    st_info = content[ent + 4]
+                    st_value = read_u64(ent + 8)
+                    st_size = read_u64(ent + 16)
+
+                # Only look at FUNC type symbols (STT_FUNC = 2)
+                st_type = st_info & 0xf
+                if st_type != 2:
+                    continue
+
+                fname = _read_strtab_string(link, st_name)
+                if fname == "main":
+                    main_addr = st_value
+                    main_size = st_size
+                    main_name = "main"
+                    return True
+            return False
+
+        # Try .symtab first (has more symbols), then .dynsym
+        if not _find_main_in_symtab(symtab_off, symtab_sz, symtab_entsize, symtab_link):
+            _find_main_in_symtab(dynsym_off, dynsym_sz, dynsym_entsize, dynsym_link)
+
+        # ── Determine disassembly target ───────────────────────────────
+        if main_addr:
+            # Disassemble main function
+            target_addr = main_addr
+            target_name = "main"
+            max_insns = 100  # generous limit for main
+            stop_on_ret = True
+        else:
+            # Fall back to entry point
+            target_addr = e_entry
+            target_name = "_start (entry point)"
+            max_insns = 50
+            stop_on_ret = False
+
+        # Convert virtual address to file offset within .text
+        if target_addr < text_addr or target_addr >= text_addr + text_size:
+            # Target is outside .text — use entry point offset heuristic
+            # For non-PIE: entry is typically at 0x400000 + file_offset region
+            disasm_file_offset = text_offset
+            disasm_vaddr = text_addr
+        else:
+            offset_in_text = target_addr - text_addr
+            disasm_file_offset = text_offset + offset_in_text
+            disasm_vaddr = target_addr
+
+        # Limit how much data we read (main_size if known, else 2048 bytes)
+        read_limit = main_size if main_size > 0 else 2048
+        read_limit = min(read_limit, 8192)  # safety cap
+        disasm_data = content[disasm_file_offset:disasm_file_offset + read_limit]
+
+        if not disasm_data:
+            return empty
 
         # ── Map architecture to capstone ───────────────────────────────
         cs_arch = capstone.CS_ARCH_X86
         cs_mode = capstone.CS_MODE_64
 
         if is_32:
-            if e_machine == 3:     # EM_386 = x86
-                cs_arch = capstone.CS_ARCH_X86
-                cs_mode = capstone.CS_MODE_32
-            elif e_machine == 40:  # EM_ARM
-                cs_arch = capstone.CS_ARCH_ARM
-                cs_mode = capstone.CS_MODE_ARM
-            elif e_machine == 8:   # EM_MIPS
-                cs_arch = capstone.CS_ARCH_MIPS
-                cs_mode = capstone.CS_MODE_MIPS32
-            else:
-                cs_arch = capstone.CS_ARCH_X86
-                cs_mode = capstone.CS_MODE_32
+            arch_map = {3: (capstone.CS_ARCH_X86, capstone.CS_MODE_32),
+                        40: (capstone.CS_ARCH_ARM, capstone.CS_MODE_ARM),
+                        8: (capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS32)}
+            cs_arch, cs_mode = arch_map.get(e_machine, (capstone.CS_ARCH_X86, capstone.CS_MODE_32))
         else:
-            if e_machine == 62:    # EM_X86_64
-                cs_arch = capstone.CS_ARCH_X86
-                cs_mode = capstone.CS_MODE_64
-            elif e_machine == 183: # EM_AARCH64
-                cs_arch = capstone.CS_ARCH_ARM64
-                cs_mode = capstone.CS_MODE_ARM
-            elif e_machine == 8:   # EM_MIPS
-                cs_arch = capstone.CS_ARCH_MIPS
-                cs_mode = capstone.CS_MODE_MIPS64
-            else:
-                cs_arch = capstone.CS_ARCH_X86
-                cs_mode = capstone.CS_MODE_64
+            arch_map = {62: (capstone.CS_ARCH_X86, capstone.CS_MODE_64),
+                        183: (capstone.CS_ARCH_ARM64, capstone.CS_MODE_ARM),
+                        8: (capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS64)}
+            cs_arch, cs_mode = arch_map.get(e_machine, (capstone.CS_ARCH_X86, capstone.CS_MODE_64))
 
-        # Add endianness mode
         if ei_data == 2:
             cs_mode |= capstone.CS_MODE_BIG_ENDIAN
         else:
             cs_mode |= capstone.CS_MODE_LITTLE_ENDIAN
 
-        # ── Disassemble .text ──────────────────────────────────────────
-        text_data = content[text_offset:text_offset + min(text_size, 4096)]
+        # ── Disassemble ────────────────────────────────────────────────
         md = capstone.Cs(cs_arch, cs_mode)
-
         instructions = []
-        for insn in md.disasm(text_data, text_addr):
+
+        for insn in md.disasm(disasm_data, disasm_vaddr):
             instructions.append({
                 "address": f"0x{insn.address:x}",
                 "mnemonic": insn.mnemonic,
                 "op_str": insn.op_str,
             })
-            if len(instructions) >= max_instructions:
+
+            # Stop at ret after we've seen enough of the function (≥10 insns)
+            if stop_on_ret and len(instructions) >= 10:
+                mn = insn.mnemonic.lower()
+                if mn in ("ret", "retn", "retf"):
+                    break
+
+            if len(instructions) >= max_insns:
                 break
 
-        return instructions
+        return {
+            "function": target_name,
+            "instructions": instructions,
+        }
 
     except Exception:
-        return []
+        return empty
 
 
 # ---------------------------------------------------------------------------
@@ -2110,8 +2212,10 @@ def _analyze_single_file(
             filename, content, checksec_result, patterns, strings,
         )
 
-        # Disassembly: first 50 instructions of .text section
-        disassembly = disassemble_binary(content)
+        # Disassembly: main function or entry point
+        disasm_result = disassemble_binary(content)
+        disassembly = disasm_result.get("instructions", [])
+        disassembly_function = disasm_result.get("function", "")
 
         result = {
             "filename": filename,
@@ -2132,6 +2236,7 @@ def _analyze_single_file(
             "hex_view": hex_view,
             "pwn_template": pwn_template,
             "disassembly": disassembly,
+            "disassembly_function": disassembly_function,
         }
         if detected_type:
             result["detected_type"] = detected_type
