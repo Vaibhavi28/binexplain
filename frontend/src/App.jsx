@@ -832,7 +832,7 @@ export default function App() {
                                     id="disasm-toggle-btn"
                                 >
                                     <span className="disasm-toggle-icon">{disasmOpen ? '▼' : '▶'}</span>
-                                    <span>🔬 Disassembly — first {result.disassembly.length} instructions (.text section)</span>
+                                    <span>🔬 Disassembly — {result.disassembly_function || 'unknown'} ({result.disassembly.length} instructions)</span>
                                 </button>
                                 {disasmOpen && (
                                     <div className="disasm-body">
