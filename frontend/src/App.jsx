@@ -48,6 +48,22 @@ export default function App() {
     const chatImageRef = useRef(null);
     const analysisContextRef = useRef('');
 
+    /* ── VirusTotal polling state ── */
+    const [vtScanId, setVtScanId] = useState(null);
+    const [vtResult, setVtResult] = useState(null);
+
+    /* ── Hex viewer toggle ── */
+    const [hexViewOpen, setHexViewOpen] = useState(false);
+
+    /* ── Disassembly viewer toggle ── */
+    const [disasmOpen, setDisasmOpen] = useState(false);
+
+    /* ── AI Hints feedback ── */
+    const [feedbackGiven, setFeedbackGiven] = useState(null);
+
+    /* ── Rate limit countdown ── */
+    const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
+
     /* Auto-scroll chat to bottom on new messages */
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -65,6 +81,52 @@ export default function App() {
         return () => clearInterval(id);
     }, [loading]);
 
+    /* Poll VirusTotal for results every 5 seconds */
+    useEffect(() => {
+        if (!vtScanId) return;
+        let cancelled = false;
+
+        const poll = async () => {
+            try {
+                const res = await fetch(`${BACKEND_URL}/virustotal/${vtScanId}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (cancelled) return;
+
+                if (data.status !== 'scanning') {
+                    setVtResult(data);
+                    setVtScanId(null); // stop polling
+                }
+            } catch {
+                // Network error — keep polling
+            }
+        };
+
+        const id = setInterval(poll, 5000);
+        // Run immediately once
+        poll();
+
+        return () => {
+            cancelled = true;
+            clearInterval(id);
+        };
+    }, [vtScanId]);
+
+    /* Rate limit countdown timer */
+    useEffect(() => {
+        if (rateLimitSeconds <= 0) return;
+        const id = setInterval(() => {
+            setRateLimitSeconds(prev => {
+                if (prev <= 1) {
+                    setError('');
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+        return () => clearInterval(id);
+    }, [rateLimitSeconds]);
+
     /* Validate & stage a file */
     const stageFile = useCallback((f) => {
         setError('');
@@ -73,17 +135,17 @@ export default function App() {
         const ext = getExtension(f.name);
         // Allow extensionless files (auto-detected by backend via magic bytes)
         if (ext !== '' && !ALLOWED_EXTENSIONS.includes(ext)) {
-            setError(`Invalid file type "${ext}". Accepted: ${ALLOWED_EXTENSIONS.join(', ')} or no extension (auto-detect).`);
+            setError(`❌ Unsupported file type "${ext}". Accepted: ELF, EXE, BIN, SO, DLL, ZIP or extensionless binaries.`);
             return;
         }
         const sizeLimit = ext === '.zip' ? MAX_ZIP_SIZE : MAX_FILE_SIZE;
         const sizeLimitLabel = ext === '.zip' ? '10 MB' : '5 MB';
         if (f.size > sizeLimit) {
-            setError(`File is too large (${formatBytes(f.size)}). Maximum: ${sizeLimitLabel}.`);
+            setError(`📦 File too large (${formatBytes(f.size)}). Maximum size is ${sizeLimitLabel}.`);
             return;
         }
         if (f.size === 0) {
-            setError('File is empty.');
+            setError('❌ File is empty. Please select a valid binary.');
             return;
         }
         setFile(f);
@@ -128,15 +190,47 @@ export default function App() {
                 body: form,
             });
 
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                setError(data.detail || `Server error (${res.status})`);
+                if (res.status === 429) {
+                    // Rate limited — parse retry-after
+                    const retryAfter = res.headers.get('retry-after');
+                    let waitMin = 60;
+                    if (retryAfter) {
+                        const secs = parseInt(retryAfter, 10);
+                        if (!isNaN(secs)) {
+                            waitMin = secs;
+                            setRateLimitSeconds(secs);
+                        }
+                    } else {
+                        setRateLimitSeconds(waitMin);
+                    }
+                    const mins = Math.ceil(waitMin / 60);
+                    setError(`⏳ Rate limit reached — you can analyze 10 files per hour. Please wait ~${mins} minute${mins !== 1 ? 's' : ''} before trying again.`);
+                } else {
+                    setError(data.detail || `❌ Server error (${res.status})`);
+                }
                 return;
             }
 
+            setRateLimitSeconds(0);
+            setFeedbackGiven(null);
             setResult(data);
             setFile(null);
+
+            /* Start VT polling if scan was submitted */
+            if (data.virustotal?.status === 'scanning' && data.virustotal?.scan_id) {
+                setVtScanId(data.virustotal.scan_id);
+                setVtResult(null);
+            } else if (data.virustotal?.status === 'disabled') {
+                setVtScanId(null);
+                setVtResult(null);
+            } else {
+                // error or other immediate result
+                setVtScanId(null);
+                setVtResult(data.virustotal || null);
+            }
 
             /* Initialize chat with AI hints as first assistant message */
             if (data.hints) {
@@ -149,8 +243,8 @@ export default function App() {
         } catch (err) {
             setError(
                 err.message === 'Failed to fetch'
-                    ? 'Cannot reach the backend. Is it running on ' + BACKEND_URL + '?'
-                    : `Upload failed: ${err.message}`
+                    ? '🔌 Cannot connect to backend. Make sure it\'s running on ' + BACKEND_URL
+                    : `❌ Upload failed: ${err.message}`
             );
         } finally {
             setLoading(false);
@@ -285,6 +379,15 @@ export default function App() {
                     </p>
                 </header>
 
+                {/* ── VirusTotal Disclaimer (always visible before upload) ── */}
+                <div className="vt-disclaimer" id="vt-disclaimer">
+                    <span className="vt-disclaimer-icon">⚠️</span>
+                    <span>
+                        Files submitted to VirusTotal are stored permanently in their database.
+                        Do not upload sensitive or private binaries.
+                    </span>
+                </div>
+
                 {/* ── Upload Zone ── */}
                 <section>
                     <div
@@ -373,7 +476,16 @@ export default function App() {
                 )}
 
                 {/* ── Error ── */}
-                {error && <div className="error-box">✖ {error}</div>}
+                {error && (
+                    <div className={`error-box ${rateLimitSeconds > 0 ? 'error-box--rate-limit' : ''}`} id="error-display">
+                        <div className="error-text">{error}</div>
+                        {rateLimitSeconds > 0 && (
+                            <div className="error-countdown">
+                                ⏱️ Retry in: {Math.floor(rateLimitSeconds / 60)}:{String(rateLimitSeconds % 60).padStart(2, '0')}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* ═══ Results ═══ */}
                 {result && (
@@ -431,6 +543,41 @@ export default function App() {
                                         ))}
                                     </ul>
                                 )}
+                            </div>
+                        )}
+
+                        {/* ── Checksec Security Protections ── */}
+                        {result.checksec && result.checksec.nx !== null && (
+                            <div className="checksec-card" id="checksec-results">
+                                <div className="result-card-header result-card-header--checksec">
+                                    <span>🔒 Security Protections</span>
+                                    <span className="result-card-meta">checksec</span>
+                                </div>
+                                <div className="result-card-body">
+                                    <div className="checksec-badges">
+                                        {[
+                                            { key: 'nx', label: 'NX', desc: 'No-Execute' },
+                                            { key: 'pie', label: 'PIE', desc: 'Position Independent' },
+                                            { key: 'canary', label: 'Canary', desc: 'Stack Canary' },
+                                            { key: 'relro', label: 'RELRO', desc: 'Read-Only Relocations' },
+                                            { key: 'fortify', label: 'Fortify', desc: 'Fortify Source' },
+                                        ].map(({ key, label, desc }) => (
+                                            <div
+                                                className={`checksec-badge checksec-badge--${result.checksec[key] ? 'enabled' : 'disabled'}`}
+                                                key={key}
+                                                title={desc}
+                                            >
+                                                <span className="checksec-badge-icon">
+                                                    {result.checksec[key] ? '✓' : '✗'}
+                                                </span>
+                                                <span className="checksec-badge-label">{label}</span>
+                                                <span className="checksec-badge-status">
+                                                    {result.checksec[key] ? 'Enabled' : 'Disabled'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -529,6 +676,246 @@ export default function App() {
                             </div>
                         )}
 
+                        {/* ── VirusTotal Section (async) ── */}
+                        {/* Only show if VT is not disabled */}
+                        {result.virustotal?.status !== 'disabled' && (
+                            <div className={`vt-card vt-card--${vtResult?.status || 'scanning'}`} id="vt-results">
+                                <div className="result-card-header result-card-header--vt">
+                                    <span>🛡️ VirusTotal Scan</span>
+                                    <span className="result-card-meta">
+                                        {!vtResult && 'Scanning...'}
+                                        {vtResult?.status === 'pending' && 'Analysis in progress'}
+                                        {vtResult?.status === 'error' && 'Scan error'}
+                                        {vtResult?.status === 'clean' && 'No threats detected'}
+                                        {vtResult?.status === 'suspicious' && 'Low-confidence detections'}
+                                        {vtResult?.status === 'malicious' && 'Threats detected'}
+                                    </span>
+                                </div>
+                                <div className="result-card-body">
+                                    {/* Scanning spinner */}
+                                    {!vtResult && (
+                                        <div className="vt-scanning" id="vt-scanning">
+                                            <div className="vt-spinner" />
+                                            <span className="vt-scanning-text">Scanning across 70+ engines...</span>
+                                        </div>
+                                    )}
+
+                                    {/* Error */}
+                                    {vtResult?.status === 'error' && (
+                                        <div className="section-empty" style={{ color: 'var(--error)' }}>
+                                            {vtResult.message || 'VirusTotal scan encountered an error.'}
+                                        </div>
+                                    )}
+
+                                    {/* Pending */}
+                                    {vtResult?.status === 'pending' && (
+                                        <div className="vt-pending">
+                                            <div className="vt-pending-text">
+                                                ⏳ {vtResult.message || 'Analysis is still in progress.'}
+                                            </div>
+                                            {vtResult.permalink && (
+                                                <a
+                                                    href={vtResult.permalink}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="vt-link"
+                                                    id="vt-permalink"
+                                                >
+                                                    View on VirusTotal →
+                                                </a>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Completed results */}
+                                    {vtResult && ['clean', 'suspicious', 'malicious'].includes(vtResult.status) && (
+                                        <div className="vt-results-body">
+                                            {/* Detection Ratio */}
+                                            <div className="vt-detection-row">
+                                                <div className={`vt-ratio vt-ratio--${vtResult.status}`}>
+                                                    <span className="vt-ratio-count">{vtResult.detection_count}</span>
+                                                    <span className="vt-ratio-separator">/</span>
+                                                    <span className="vt-ratio-total">{vtResult.total_engines}</span>
+                                                </div>
+                                                <div className="vt-detection-info">
+                                                    <span className={`vt-verdict vt-verdict--${vtResult.status}`}>
+                                                        {vtResult.status === 'clean' && `✅ Clean — 0 / ${vtResult.total_engines} engines flagged`}
+                                                        {vtResult.status === 'suspicious' && `⚠️ Suspicious — ${vtResult.detection_count} / ${vtResult.total_engines} engines flagged`}
+                                                        {vtResult.status === 'malicious' && `🚨 Malicious — ${vtResult.detection_count} / ${vtResult.total_engines} engines flagged`}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Detection Bar */}
+                                            <div className="vt-bar-track">
+                                                <div
+                                                    className={`vt-bar-fill vt-bar-fill--${vtResult.status}`}
+                                                    style={{
+                                                        width: vtResult.total_engines > 0
+                                                            ? `${(vtResult.detection_count / vtResult.total_engines) * 100}%`
+                                                            : '0%'
+                                                    }}
+                                                />
+                                            </div>
+
+                                            {/* Threat Name */}
+                                            {vtResult.threat_name && (
+                                                <div className="vt-threat">
+                                                    <span className="vt-threat-label">Threat:</span>
+                                                    <span className="vt-threat-name">{vtResult.threat_name}</span>
+                                                </div>
+                                            )}
+
+                                            {/* Behavior Summary */}
+                                            {vtResult.behavior_summary && (
+                                                <div className="vt-behavior">
+                                                    {vtResult.behavior_summary}
+                                                </div>
+                                            )}
+
+                                            {/* Permalink */}
+                                            {vtResult.permalink && (
+                                                <a
+                                                    href={vtResult.permalink}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="vt-link"
+                                                    id="vt-permalink"
+                                                >
+                                                    View Full Report →
+                                                </a>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── Hex Viewer (collapsible) ── */}
+                        {result.hex_view && result.hex_view.length > 0 && (
+                            <div className="hex-viewer-card" id="hex-viewer">
+                                <button
+                                    className="hex-viewer-toggle"
+                                    onClick={() => setHexViewOpen(prev => !prev)}
+                                    type="button"
+                                    id="hex-toggle-btn"
+                                >
+                                    <span className="hex-viewer-toggle-icon">{hexViewOpen ? '▼' : '▶'}</span>
+                                    <span>🔍 Hex View — First {result.hex_view.length * 16} bytes</span>
+                                </button>
+                                {hexViewOpen && (
+                                    <div className="hex-viewer-body">
+                                        <div className="hex-row hex-row--header">
+                                            <span className="hex-col-offset">Offset</span>
+                                            <span className="hex-col-hex">00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f</span>
+                                            <span className="hex-col-ascii">ASCII</span>
+                                        </div>
+                                        {result.hex_view.map((row, i) => (
+                                            <div className="hex-row" key={i}>
+                                                <span className="hex-col-offset">{row.offset}</span>
+                                                <span className="hex-col-hex">{row.hex}</span>
+                                                <span className="hex-col-ascii">{row.ascii}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ── Disassembly Viewer (collapsible) ── */}
+                        {result.disassembly && result.disassembly.length > 0 && (
+                            <div className="disasm-card" id="disasm-viewer">
+                                <button
+                                    className="disasm-toggle"
+                                    onClick={() => setDisasmOpen(prev => !prev)}
+                                    type="button"
+                                    id="disasm-toggle-btn"
+                                >
+                                    <span className="disasm-toggle-icon">{disasmOpen ? '▼' : '▶'}</span>
+                                    <span>🔬 Disassembly — first {result.disassembly.length} instructions (.text section)</span>
+                                </button>
+                                {disasmOpen && (
+                                    <div className="disasm-body">
+                                        <div className="disasm-row disasm-row--header">
+                                            <span className="disasm-col-addr">Address</span>
+                                            <span className="disasm-col-mnemonic">Mnemonic</span>
+                                            <span className="disasm-col-operands">Operands</span>
+                                        </div>
+                                        {result.disassembly.map((insn, i) => {
+                                            const mn = insn.mnemonic.toLowerCase();
+                                            const isDangerous = ['call', 'jmp', 'je', 'jne', 'jz', 'jnz', 'jg', 'jl', 'jge', 'jle', 'ja', 'jb', 'ret', 'retn', 'syscall', 'int'].includes(mn);
+                                            const isPrologue = (mn === 'push' && insn.op_str.match(/[re]bp/)) ||
+                                                               (mn === 'mov' && insn.op_str.match(/[re]bp,\s*[re]sp/)) ||
+                                                               (mn === 'endbr64' || mn === 'endbr32');
+                                            return (
+                                                <div
+                                                    className={`disasm-row ${isDangerous ? 'disasm-row--danger' : ''} ${isPrologue ? 'disasm-row--prologue' : ''}`}
+                                                    key={i}
+                                                >
+                                                    <span className="disasm-col-addr">{insn.address}</span>
+                                                    <span className={`disasm-col-mnemonic ${isDangerous ? 'disasm-mnemonic--danger' : ''} ${isPrologue ? 'disasm-mnemonic--prologue' : ''}`}>{insn.mnemonic}</span>
+                                                    <span className="disasm-col-operands">{insn.op_str || ''}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ── Pwntools Exploit Template ── */}
+                        {result.pwn_template && result.extension !== '.zip' && (
+                            <div className="pwn-template-card" id="pwn-template">
+                                <div className="result-card-header result-card-header--pwn">
+                                    <span>⚡ Pwntools Exploit Template</span>
+                                    <div className="pwn-actions">
+                                        <button
+                                            className="pwn-action-btn"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(result.pwn_template);
+                                                const btn = document.getElementById('pwn-copy-btn');
+                                                if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => btn.textContent = '📋 Copy Template', 1500); }
+                                            }}
+                                            id="pwn-copy-btn"
+                                            type="button"
+                                        >
+                                            📋 Copy Template
+                                        </button>
+                                        <button
+                                            className="pwn-action-btn"
+                                            onClick={() => {
+                                                const blob = new Blob([result.pwn_template], { type: 'text/x-python' });
+                                                const url = URL.createObjectURL(blob);
+                                                const a = document.createElement('a');
+                                                a.href = url;
+                                                a.download = 'exploit.py';
+                                                a.click();
+                                                URL.revokeObjectURL(url);
+                                            }}
+                                            id="pwn-download-btn"
+                                            type="button"
+                                        >
+                                            ⬇️ Download exploit.py
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="pwn-template-body">
+                                    <pre className="pwn-code">{result.pwn_template.split('\n').map((line, i) => (
+                                        <div className="pwn-line" key={i}>
+                                            <span className="pwn-line-num">{String(i + 1).padStart(3, ' ')}</span>
+                                            <span className={`pwn-line-text${
+                                                line.trimStart().startsWith('#') ? ' pwn-comment' :
+                                                line.includes('from pwn') || line.includes('#!/') ? ' pwn-import' :
+                                                line.includes('def ') ? ' pwn-func' :
+                                                /\b(flat|process|remote|cyclic|asm|shellcraft|ELF|ROP)\b/.test(line) ? ' pwn-keyword' :
+                                                ''
+                                            }`}>{line || ' '}</span>
+                                        </div>
+                                    ))}</pre>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="results-grid">
                             {/* Strings */}
                             <div className="result-card">
@@ -601,6 +988,53 @@ export default function App() {
                                         ))
                                     ) : (
                                         <div className="section-empty">AI hints unavailable</div>
+                                    )}
+
+                                    {/* Thumbs Up / Down Feedback */}
+                                    {result.hints && (
+                                        <div className="hints-feedback" id="hints-feedback">
+                                            {feedbackGiven ? (
+                                                <div className="hints-feedback-thanks">✅ Thanks for your feedback!</div>
+                                            ) : (
+                                                <>
+                                                    <span className="hints-feedback-label">Were these hints helpful?</span>
+                                                    <button
+                                                        className="hints-feedback-btn hints-feedback-btn--up"
+                                                        onClick={async () => {
+                                                            setFeedbackGiven('up');
+                                                            try {
+                                                                await fetch(`${BACKEND_URL}/feedback`, {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({ vote: 'up', filename: result.filename }),
+                                                                });
+                                                            } catch { /* silent */ }
+                                                        }}
+                                                        type="button"
+                                                        id="feedback-up-btn"
+                                                    >
+                                                        👍 Helpful
+                                                    </button>
+                                                    <button
+                                                        className="hints-feedback-btn hints-feedback-btn--down"
+                                                        onClick={async () => {
+                                                            setFeedbackGiven('down');
+                                                            try {
+                                                                await fetch(`${BACKEND_URL}/feedback`, {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({ vote: 'down', filename: result.filename }),
+                                                                });
+                                                            } catch { /* silent */ }
+                                                        }}
+                                                        type="button"
+                                                        id="feedback-down-btn"
+                                                    >
+                                                        👎 Not helpful
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </div>
