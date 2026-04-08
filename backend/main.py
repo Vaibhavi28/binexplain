@@ -14,6 +14,7 @@ Security invariants
 • Extracted ZIP contents are NEVER executed and are deleted in try/finally.
 • VirusTotal API key is read from VIRUSTOTAL_API_KEY env var only.
 • File contents sent to VT are NEVER logged — only filename and scan status.
+• ZIP passwords are NEVER stored or logged — used only for extraction, then discarded.
 """
 
 import logging
@@ -33,7 +34,7 @@ import openai
 import requests
 from typing import Literal
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
@@ -71,24 +72,24 @@ ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 # ── Startup debug: confirm API key status ─────────────────────────────
 if ANTHROPIC_API_KEY:
-    print(f"[BinExplain] ANTHROPIC_API_KEY loaded ✓  (length={len(ANTHROPIC_API_KEY)})")
+    print(f"[BinExplain] ANTHROPIC_API_KEY loaded (OK)  (length={len(ANTHROPIC_API_KEY)})")
 else:
-    print("[BinExplain] WARNING: ANTHROPIC_API_KEY is NOT set — Claude hints will be disabled")
+    print("[BinExplain] WARNING: ANTHROPIC_API_KEY is NOT set -- Claude hints will be disabled")
 
 if GROQ_API_KEY:
-    print(f"[BinExplain] GROQ_API_KEY loaded ✓  (length={len(GROQ_API_KEY)})")
+    print(f"[BinExplain] GROQ_API_KEY loaded (OK)  (length={len(GROQ_API_KEY)})")
 else:
-    print("[BinExplain] WARNING: GROQ_API_KEY is NOT set — Groq fallback will be disabled")
+    print("[BinExplain] WARNING: GROQ_API_KEY is NOT set -- Groq fallback will be disabled")
 
 if OPENAI_API_KEY:
-    print(f"[BinExplain] OPENAI_API_KEY loaded ✓  (length={len(OPENAI_API_KEY)})")
+    print(f"[BinExplain] OPENAI_API_KEY loaded (OK)  (length={len(OPENAI_API_KEY)})")
 else:
-    print("[BinExplain] WARNING: OPENAI_API_KEY is NOT set — GPT-4o fallback will be disabled")
+    print("[BinExplain] WARNING: OPENAI_API_KEY is NOT set -- GPT-4o fallback will be disabled")
 
 if VIRUSTOTAL_API_KEY:
-    print(f"[BinExplain] VIRUSTOTAL_API_KEY loaded ✓  (length={len(VIRUSTOTAL_API_KEY)})")
+    print(f"[BinExplain] VIRUSTOTAL_API_KEY loaded (OK)  (length={len(VIRUSTOTAL_API_KEY)})")
 else:
-    print("[BinExplain] WARNING: VIRUSTOTAL_API_KEY is NOT set — VirusTotal scanning disabled")
+    print("[BinExplain] WARNING: VIRUSTOTAL_API_KEY is NOT set -- VirusTotal scanning disabled")
 
 AI_SYSTEM_PROMPT = (
     "You are a CTF mentor helping beginners learn binary exploitation. "
@@ -2249,7 +2250,11 @@ def _analyze_single_file(
 # ---------------------------------------------------------------------------
 # ZIP analysis helper
 # ---------------------------------------------------------------------------
-def _analyze_zip(content: bytes, original_filename: str) -> dict:
+def _analyze_zip(
+    content: bytes,
+    original_filename: str,
+    password: str | None = None,
+) -> dict:
     """
     Extract a ZIP archive into a temp directory, analyze every binary
     file found inside, and return results for each file.
@@ -2259,6 +2264,7 @@ def _analyze_zip(content: bytes, original_filename: str) -> dict:
     • Rejects ZIPs with > MAX_ZIP_FILES entries (zip-bomb protection).
     • Never executes any extracted file.
     • Always deletes the temp directory in try/finally.
+    • Password is NEVER stored or logged — used only for extraction.
     """
     import io
 
@@ -2266,6 +2272,20 @@ def _analyze_zip(content: bytes, original_filename: str) -> dict:
         zf = zipfile.ZipFile(io.BytesIO(content))
     except zipfile.BadZipFile:
         raise HTTPException(status_code=400, detail="File is not a valid ZIP archive.")
+
+    # ── Detect password-protected ZIP ─────────────────────────────────
+    _has_encrypted = any(
+        info.flag_bits & 0x1  # bit 0 = encrypted
+        for info in zf.infolist()
+    )
+    if _has_encrypted and not password:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": "This ZIP archive is password-protected.",
+                "error_code": "password_required",
+            },
+        )
 
     # ── Zip-bomb protection ───────────────────────────────────────────
     entries = zf.namelist()
@@ -2286,7 +2306,109 @@ def _analyze_zip(content: bytes, original_filename: str) -> dict:
     tmp_dir: str | None = None
     try:
         tmp_dir = tempfile.mkdtemp(prefix="binexplain_zip_", dir=tempfile.gettempdir())
-        zf.extractall(tmp_dir)
+
+        # Extract with optional password
+        pwd_bytes = password.encode("utf-8") if password else None
+        try:
+            zf.extractall(tmp_dir, pwd=pwd_bytes)
+        except NotImplementedError:
+            # stdlib zipfile can't handle AES encryption (compress_type 99).
+            # Fall back to pyzipper which supports AES decryption.
+            try:
+                import pyzipper
+            except ImportError:
+                raise HTTPException(
+                    status_code=400,
+                    detail="This ZIP uses AES encryption which requires the 'pyzipper' package. Please install it.",
+                )
+            try:
+                pzf = pyzipper.AESZipFile(io.BytesIO(content))
+                pzf.extractall(tmp_dir, pwd=pwd_bytes)
+            except RuntimeError as exc:
+                exc_msg = str(exc).lower()
+                if "password" in exc_msg or "bad password" in exc_msg or "wrong password" in exc_msg or "crc" in exc_msg:
+                    if password:
+                        return JSONResponse(
+                            status_code=422,
+                            content={
+                                "detail": "Incorrect password for this ZIP archive.",
+                                "error_code": "wrong_password",
+                            },
+                        )
+                    else:
+                        return JSONResponse(
+                            status_code=422,
+                            content={
+                                "detail": "This ZIP archive is password-protected.",
+                                "error_code": "password_required",
+                            },
+                        )
+                raise HTTPException(status_code=400, detail=f"Failed to extract ZIP: {str(exc)[:200]}")
+            except Exception as exc:
+                exc_msg = str(exc).lower()
+                if "password" in exc_msg or "bad password" in exc_msg or "wrong password" in exc_msg:
+                    if password:
+                        return JSONResponse(
+                            status_code=422,
+                            content={
+                                "detail": "Incorrect password for this ZIP archive.",
+                                "error_code": "wrong_password",
+                            },
+                        )
+                    else:
+                        return JSONResponse(
+                            status_code=422,
+                            content={
+                                "detail": "This ZIP archive is password-protected.",
+                                "error_code": "password_required",
+                            },
+                        )
+                raise
+        except RuntimeError as exc:
+            # zipfile raises RuntimeError for wrong password / missing password
+            exc_msg = str(exc).lower()
+            if "password" in exc_msg or "bad password" in exc_msg or "encrypted" in exc_msg:
+                if password:
+                    return JSONResponse(
+                        status_code=422,
+                        content={
+                            "detail": "Incorrect password for this ZIP archive.",
+                            "error_code": "wrong_password",
+                        },
+                    )
+                else:
+                    return JSONResponse(
+                        status_code=422,
+                        content={
+                            "detail": "This ZIP archive is password-protected.",
+                            "error_code": "password_required",
+                        },
+                    )
+            raise HTTPException(status_code=400, detail=f"Failed to extract ZIP: {str(exc)[:200]}")
+        except Exception as exc:
+            # pyzipper or other extraction errors for wrong password
+            exc_msg = str(exc).lower()
+            if "password" in exc_msg or "bad password" in exc_msg or "wrong password" in exc_msg:
+                if password:
+                    return JSONResponse(
+                        status_code=422,
+                        content={
+                            "detail": "Incorrect password for this ZIP archive.",
+                            "error_code": "wrong_password",
+                        },
+                    )
+                else:
+                    return JSONResponse(
+                        status_code=422,
+                        content={
+                            "detail": "This ZIP archive is password-protected.",
+                            "error_code": "password_required",
+                        },
+                    )
+            raise
+        finally:
+            # Clear password from memory immediately after extraction
+            pwd_bytes = None
 
         results: list[dict] = []
         skipped: list[dict] = []
@@ -2385,7 +2507,11 @@ async def health():
 
 @app.post("/analyze")
 @limiter.limit("10/hour")
-async def analyze(request: Request, file: UploadFile = File(...)):
+async def analyze(
+    request: Request,
+    file: UploadFile = File(...),
+    password: str | None = Form(default=None),
+):
     """
     Accept a binary file upload, validate it strictly, extract readable
     strings via static analysis, and return the results as JSON.
@@ -2394,9 +2520,14 @@ async def analyze(request: Request, file: UploadFile = File(...)):
     • Named binary files (.bin, .elf, .exe, .so, .dll, .out, .o)
     • Extensionless files (auto-detected via magic bytes — ELF, PE, Mach-O)
     • ZIP archives (extracts and analyzes each binary inside)
+    • Password-protected ZIP archives (password provided via form field)
 
     The uploaded file is saved to a temporary location and **always**
     deleted after processing — even when an error occurs.
+
+    Security:
+    • Password is NEVER stored or logged — used only for ZIP extraction.
+    • Wrong password attempts are counted in the rate limit.
     """
     # ── 1. Validate extension (before reading the full body) ──────────
     ext = _validate_extension(file.filename)
@@ -2408,7 +2539,13 @@ async def analyze(request: Request, file: UploadFile = File(...)):
     # ── 3. Handle ZIP archives ────────────────────────────────────────
     if ext == ".zip":
         _validate_mime(content, ext)
-        return _analyze_zip(content, file.filename or "archive.zip")
+        # Pass password (never logged) — clear from locals immediately after
+        zip_password = password
+        password = None  # clear from function scope
+        try:
+            return _analyze_zip(content, file.filename or "archive.zip", password=zip_password)
+        finally:
+            zip_password = None  # clear from memory
 
     # ── 4. Auto-detect extensionless files via magic bytes ────────────
     detected_type = ""

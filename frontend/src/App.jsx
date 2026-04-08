@@ -21,8 +21,13 @@ function formatBytes(bytes) {
 }
 
 function getExtension(name) {
+    if (!name) return '';
     const dot = name.lastIndexOf('.');
-    return dot === -1 ? '' : name.slice(dot).toLowerCase();
+    // No dot, or dot is the first char with nothing after (e.g. ".bashrc" or "file.")
+    if (dot <= 0) return '';
+    const ext = name.slice(dot).toLowerCase();
+    // Trailing dot (e.g. "file.") → treat as extensionless
+    return ext === '.' ? '' : ext;
 }
 
 /* ── App ───────────────────────────────────────────────────────────── */
@@ -47,6 +52,13 @@ export default function App() {
     const chatEndRef = useRef(null);
     const chatImageRef = useRef(null);
     const analysisContextRef = useRef('');
+
+    /* ── Password modal state (for protected ZIPs) ── */
+    const [passwordModal, setPasswordModal] = useState(false);
+    const [passwordInput, setPasswordInput] = useState('');
+    const [passwordError, setPasswordError] = useState('');
+    const [passwordLoading, setPasswordLoading] = useState(false);
+    const passwordFileRef = useRef(null);
 
     /* ── VirusTotal polling state ── */
     const [vtScanId, setVtScanId] = useState(null);
@@ -132,14 +144,22 @@ export default function App() {
         setError('');
         setResult(null);
 
+        if (!f || !f.name) {
+            setError('❌ Invalid file. Please select a valid binary.');
+            return;
+        }
+
         const ext = getExtension(f.name);
+        const isZip = ext === '.zip' || (f.type && f.type === 'application/zip') || (f.type && f.type === 'application/x-zip-compressed');
+
         // Allow extensionless files (auto-detected by backend via magic bytes)
-        if (ext !== '' && !ALLOWED_EXTENSIONS.includes(ext)) {
+        // Allow .zip files explicitly (backend supports them)
+        if (ext !== '' && !isZip && !ALLOWED_EXTENSIONS.includes(ext)) {
             setError(`❌ Unsupported file type "${ext}". Accepted: ELF, EXE, BIN, SO, DLL, ZIP or extensionless binaries.`);
             return;
         }
-        const sizeLimit = ext === '.zip' ? MAX_ZIP_SIZE : MAX_FILE_SIZE;
-        const sizeLimitLabel = ext === '.zip' ? '10 MB' : '5 MB';
+        const sizeLimit = (ext === '.zip' || isZip) ? MAX_ZIP_SIZE : MAX_FILE_SIZE;
+        const sizeLimitLabel = (ext === '.zip' || isZip) ? '10 MB' : '5 MB';
         if (f.size > sizeLimit) {
             setError(`📦 File too large (${formatBytes(f.size)}). Maximum size is ${sizeLimitLabel}.`);
             return;
@@ -193,6 +213,16 @@ export default function App() {
             const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
+                // Password-protected ZIP detection
+                if (res.status === 422 && data.error_code === 'password_required') {
+                    passwordFileRef.current = file;
+                    setPasswordModal(true);
+                    setPasswordInput('');
+                    setPasswordError('');
+                    setFile(null);
+                    return;
+                }
+
                 if (res.status === 429) {
                     // Rate limited — parse retry-after
                     const retryAfter = res.headers.get('retry-after');
@@ -248,6 +278,88 @@ export default function App() {
             );
         } finally {
             setLoading(false);
+        }
+    };
+
+    /* Upload with password (re-send file for protected ZIPs) */
+    const uploadWithPassword = async () => {
+        const zipFile = passwordFileRef.current;
+        if (!zipFile || !passwordInput) return;
+
+        setPasswordLoading(true);
+        setPasswordError('');
+
+        try {
+            const form = new FormData();
+            form.append('file', zipFile);
+            form.append('password', passwordInput);
+
+            const res = await fetch(`${BACKEND_URL}/analyze`, {
+                method: 'POST',
+                body: form,
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                if (res.status === 422 && data.error_code === 'wrong_password') {
+                    setPasswordError('Incorrect password. Please try again.');
+                    setPasswordInput('');
+                    return;
+                }
+                if (res.status === 422 && data.error_code === 'password_required') {
+                    setPasswordError('Password is required for this archive.');
+                    return;
+                }
+                if (res.status === 429) {
+                    setPasswordModal(false);
+                    setPasswordInput('');
+                    passwordFileRef.current = null;
+                    setError('⏳ Rate limit reached. Please wait before trying again.');
+                    return;
+                }
+                setPasswordError(data.detail || `Error (${res.status})`);
+                return;
+            }
+
+            // Success — close modal, clear password, show results
+            setPasswordModal(false);
+            setPasswordInput('');
+            setPasswordError('');
+            passwordFileRef.current = null;
+
+            setRateLimitSeconds(0);
+            setFeedbackGiven(null);
+            setResult(data);
+
+            /* Start VT polling if scan was submitted */
+            if (data.virustotal?.status === 'scanning' && data.virustotal?.scan_id) {
+                setVtScanId(data.virustotal.scan_id);
+                setVtResult(null);
+            } else if (data.virustotal?.status === 'disabled') {
+                setVtScanId(null);
+                setVtResult(null);
+            } else {
+                setVtScanId(null);
+                setVtResult(data.virustotal || null);
+            }
+
+            /* Initialize chat with AI hints */
+            if (data.hints) {
+                setChatMessages([{ role: 'assistant', content: data.hints }]);
+                analysisContextRef.current = data.hints;
+            } else {
+                setChatMessages([]);
+                analysisContextRef.current = '';
+            }
+        } catch (err) {
+            setPasswordError(
+                err.message === 'Failed to fetch'
+                    ? 'Cannot connect to backend.'
+                    : err.message
+            );
+        } finally {
+            setPasswordLoading(false);
         }
     };
 
@@ -1132,6 +1244,87 @@ export default function App() {
                     immediately after analysis. No binaries are ever executed.
                 </footer>
             </div>
+
+            {/* ── Password Modal (for protected ZIPs) ── */}
+            {passwordModal && (
+                <div className="pwd-overlay" id="password-modal-overlay" onClick={() => {
+                    if (!passwordLoading) {
+                        setPasswordModal(false);
+                        setPasswordInput('');
+                        setPasswordError('');
+                        passwordFileRef.current = null;
+                    }
+                }}>
+                    <div className="pwd-modal" id="password-modal" onClick={e => e.stopPropagation()}>
+                        <div className="pwd-modal-header">
+                            <span className="pwd-modal-icon">🔒</span>
+                            <h2 className="pwd-modal-title">Password Protected ZIP</h2>
+                        </div>
+                        <p className="pwd-modal-desc">
+                            This archive is encrypted. Enter the password to unlock and analyze its contents.
+                        </p>
+
+                        {passwordError && (
+                            <div className="pwd-modal-error" id="password-error">
+                                <span className="pwd-modal-error-icon">⚠️</span>
+                                {passwordError}
+                            </div>
+                        )}
+
+                        <div className="pwd-input-group">
+                            <input
+                                className="pwd-input"
+                                id="password-input"
+                                type="password"
+                                placeholder="Enter ZIP password..."
+                                value={passwordInput}
+                                onChange={e => setPasswordInput(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && passwordInput && !passwordLoading) {
+                                        uploadWithPassword();
+                                    }
+                                }}
+                                disabled={passwordLoading}
+                                autoFocus
+                                maxLength={256}
+                            />
+                        </div>
+
+                        <div className="pwd-modal-actions">
+                            <button
+                                className="pwd-btn pwd-btn--cancel"
+                                id="password-cancel-btn"
+                                onClick={() => {
+                                    setPasswordModal(false);
+                                    setPasswordInput('');
+                                    setPasswordError('');
+                                    passwordFileRef.current = null;
+                                }}
+                                disabled={passwordLoading}
+                                type="button"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="pwd-btn pwd-btn--submit"
+                                id="password-submit-btn"
+                                onClick={uploadWithPassword}
+                                disabled={!passwordInput || passwordLoading}
+                                type="button"
+                            >
+                                {passwordLoading ? (
+                                    <>
+                                        <span className="pwd-spinner" />
+                                        Unlocking...
+                                    </>
+                                ) : (
+                                    '🔓 Unlock & Analyze'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

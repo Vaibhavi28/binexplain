@@ -224,3 +224,88 @@ class TestCalculateRiskScore:
         assert isinstance(result["score"], int)
         assert isinstance(result["level"], str)
         assert isinstance(result["reasons"], list)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Password-Protected ZIP Tests
+# ═══════════════════════════════════════════════════════════════════════
+
+class TestPasswordProtectedZip:
+    """Test password-protected ZIP archive handling."""
+
+    def _make_password_zip(self, password: str | None = None) -> bytes:
+        """Create a minimal password-protected ZIP containing a test ELF binary."""
+        import pyzipper
+
+        buf = io.BytesIO()
+        if password:
+            with pyzipper.AESZipFile(
+                buf, "w",
+                compression=pyzipper.ZIP_DEFLATED,
+                encryption=pyzipper.WZ_AES,
+            ) as zf:
+                zf.setpassword(password.encode("utf-8"))
+                zf.writestr("test.elf", MINIMAL_ELF)
+        else:
+            import zipfile
+            with zipfile.ZipFile(buf, "w") as zf:
+                zf.writestr("test.elf", MINIMAL_ELF)
+        return buf.getvalue()
+
+    def _make_legacy_password_zip(self, password: str) -> bytes:
+        """Create a legacy (ZipCrypto) password-protected ZIP."""
+        import pyzipper
+
+        buf = io.BytesIO()
+        with pyzipper.AESZipFile(
+            buf, "w",
+            compression=pyzipper.ZIP_DEFLATED,
+            encryption=pyzipper.WZ_AES,
+        ) as zf:
+            zf.setpassword(password.encode("utf-8"))
+            zf.writestr("binary.elf", MINIMAL_ELF)
+        return buf.getvalue()
+
+    def test_detects_password_required(self):
+        """Password-protected ZIP without password should return password_required."""
+        try:
+            import pyzipper
+        except ImportError:
+            pytest.skip("pyzipper not installed")
+
+        content = self._make_password_zip("secret123")
+        response = client.post(
+            "/analyze",
+            files={"file": ("protected.zip", content)},
+        )
+        assert response.status_code == 422
+        data = response.json()
+        assert data["error_code"] == "password_required"
+
+    def test_wrong_password_returns_error(self):
+        """Wrong password should return wrong_password error code."""
+        try:
+            import pyzipper
+        except ImportError:
+            pytest.skip("pyzipper not installed")
+
+        content = self._make_password_zip("correct_pass")
+        response = client.post(
+            "/analyze",
+            files={"file": ("protected.zip", content)},
+            data={"password": "wrong_pass"},
+        )
+        assert response.status_code == 422
+        data = response.json()
+        assert data["error_code"] == "wrong_password"
+
+    def test_unprotected_zip_works_without_password(self):
+        """Unprotected ZIP should work without providing a password."""
+        content = self._make_password_zip(None)  # no password
+        response = client.post(
+            "/analyze",
+            files={"file": ("normal.zip", content)},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "results" in data or "filename" in data
