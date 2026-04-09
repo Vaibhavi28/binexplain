@@ -2469,6 +2469,114 @@ def generate_pwn_template(
 
 
 # ---------------------------------------------------------------------------
+# Deep Static Analysis Helpers
+# ---------------------------------------------------------------------------
+import io
+from elftools.elf.elffile import ELFFile
+
+def get_function_list(elffile):
+    functions = []
+    symtab = elffile.get_section_by_name('.symtab')
+    if not symtab:
+        symtab = elffile.get_section_by_name('.dynsym')
+    if symtab:
+        for symbol in symtab.iter_symbols():
+            if symbol['st_info']['type'] == 'STT_FUNC' and symbol.name:
+                functions.append({
+                    "name": symbol.name,
+                    "address": hex(symbol['st_value']),
+                    "size": symbol['st_size']
+                })
+    return functions
+
+def get_section_map(elffile):
+    sections = []
+    for section in elffile.iter_sections():
+        if section.name:
+            sections.append({
+                "name": section.name,
+                "size": section['sh_size'],
+                "type": section['sh_type'],
+                "address": hex(section['sh_addr'])
+            })
+    return sections
+
+def get_imports_exports(elffile):
+    imports = []
+    exports = []
+    
+    dynsym = elffile.get_section_by_name('.dynsym')
+    if dynsym:
+        for symbol in dynsym.iter_symbols():
+            if symbol['st_shndx'] == 'SHN_UNDEF':
+                if symbol.name:
+                    imports.append(symbol.name)
+            elif symbol['st_info']['type'] == 'STT_FUNC':
+                if symbol.name:
+                    exports.append(symbol.name)
+    
+    return {"imports": imports, "exports": exports}
+
+def calculate_cvss_score(patterns: dict[str, list[str]], flags_detected: list[str], checksec: dict):
+    base_score = 0.0
+    
+    nx = checksec.get("nx", True)
+    canary = checksec.get("canary", True)
+    pie = checksec.get("pie", True)
+    
+    vuln_score = 0.0
+    if nx is False: vuln_score += 2.5
+    if canary is False: vuln_score += 2.0
+    if pie is False: vuln_score += 1.5
+    
+    if patterns.get("dangerous_functions"):
+        vuln_score += 3.0
+    if patterns.get("flag_reads") or flags_detected:
+        vuln_score += 2.0
+    if patterns.get("memory_functions"):
+        vuln_score += 1.0
+        
+    score = min(vuln_score, 10.0)
+    
+    if score >= 9.0:
+        severity = "Critical"
+    elif score >= 7.0:
+        severity = "High"
+    elif score >= 4.0:
+        severity = "Medium"
+    elif score > 0.0:
+        severity = "Low"
+    else:
+        severity = "None"
+        
+    return {"cvss_score": round(score, 1), "cvss_severity": severity}
+
+def analyze_data_flow(disassembly: list[dict], patterns: dict):
+    flows = []
+    input_funcs = ["gets", "fgets", "scanf", "read"]
+    dangerous_sinks = ["system", "execve", "strcpy", "sprintf"]
+    
+    found_inputs = []
+    for insn in disassembly:
+        if insn["mnemonic"] == "call":
+            op = insn["op_str"]
+            for fun in input_funcs:
+                if fun in op:
+                    found_inputs.append(fun)
+            for fun in dangerous_sinks:
+                if fun in op and found_inputs:
+                    flows.append(f"Input enters at {found_inputs[-1]}() → passes through registers/stack → potentially flows into dangerous sink {fun}()")
+                    
+    if found_inputs and not flows:
+        flows.append(f"Input enters at {found_inputs[-1]}() → stored in stack/heap wrapper → no immediate dangerous sink branch detected in this block.")
+        
+    if not flows:
+        flows.append("No obvious linear data flow from input to sink found in disassembled block.")
+        
+    return flows
+
+
+# ---------------------------------------------------------------------------
 # Single-file analysis helper
 # ---------------------------------------------------------------------------
 def _analyze_single_file(
@@ -2517,6 +2625,24 @@ def _analyze_single_file(
         disassembly = disasm_result.get("instructions", [])
         disassembly_function = disasm_result.get("function", "")
 
+        # Deep static analysis for ELFs
+        function_list = []
+        section_map = []
+        imports_exports = {"imports": [], "exports": []}
+        data_flows = []
+        cvss = {"cvss_score": 0.0, "cvss_severity": "None"}
+        
+        if ext in (".elf", ".so", "") and content.startswith(b"\x7fELF"):
+            try:
+                elffile = ELFFile(io.BytesIO(content))
+                function_list = get_function_list(elffile)
+                section_map = get_section_map(elffile)
+                imports_exports = get_imports_exports(elffile)
+                data_flows = analyze_data_flow(disassembly, patterns)
+                cvss = calculate_cvss_score(patterns, flags, checksec_result)
+            except Exception as e:
+                logger.warning("Failed to parse ELF for deep analysis: %s", e)
+
         result = {
             "filename": filename,
             "size_bytes": len(content),
@@ -2526,7 +2652,8 @@ def _analyze_single_file(
             "patterns": patterns,
             "flags_detected": flags,
             "hints": hints,
-            "risk_score": risk,
+            "cvss_score": cvss["cvss_score"],
+            "cvss_severity": cvss["cvss_severity"],
             "entropy": entropy,
             "entropy_label": _entropy_label(entropy),
             "encodings": encodings,
@@ -2537,6 +2664,10 @@ def _analyze_single_file(
             "pwn_template": pwn_template,
             "disassembly": disassembly,
             "disassembly_function": disassembly_function,
+            "function_list": function_list,
+            "section_map": section_map,
+            "imports_exports": imports_exports,
+            "data_flows": data_flows,
         }
         if detected_type:
             result["detected_type"] = detected_type

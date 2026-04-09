@@ -133,7 +133,11 @@ export default function App() {
 
     /* ── Accordion section open/close state ── */
     const [openSections, setOpenSections] = useState({
-        risk: false,
+        cvss: false,
+        functions: false,
+        sections: false,
+        imports: false,
+        dataFlows: false,
         checksec: false,
         entropy: false,
         yara: false,
@@ -902,47 +906,141 @@ export default function App() {
                         {/* ── Accordion Results Stack ── */}
                         <div className="accordion-stack">
 
-                            {/* 📊 Risk Score */}
-                            {result.risk_score && (
+                            {/* 📊 CVSS Score */}
+                            {result.cvss_score !== undefined && (
                                 <AccordionCard
-                                    id="risk-score"
+                                    id="cvss-score"
                                     icon="📊"
-                                    title="Risk Score"
-                                    summary={`${result.risk_score.score}/100 ${result.risk_score.level}`}
-                                    open={openSections.risk}
-                                    onToggle={() => toggleSection('risk')}
-                                    variant={`risk-${result.risk_score.level.toLowerCase()}`}
+                                    title="CVSS 3.1 Scoring"
+                                    summary={`${result.cvss_score}/10.0 ${result.cvss_severity}`}
+                                    open={openSections.cvss}
+                                    onToggle={() => toggleSection('cvss')}
+                                    variant={`cvss-${result.cvss_severity.toLowerCase()}`}
                                 >
-                                    <div className={`risk-card risk-card--${result.risk_score.level.toLowerCase()}`}>
+                                    <div className={`risk-card risk-card--${result.cvss_severity.toLowerCase()}`}>
                                         <div className="risk-header">
                                             <div className="risk-score-circle">
-                                                <span className="risk-score-number">{result.risk_score.score}</span>
-                                                <span className="risk-score-max">/100</span>
+                                                <span className="risk-score-number">{result.cvss_score}</span>
+                                                <span className="risk-score-max">/10.0</span>
                                             </div>
                                             <div className="risk-info">
-                                                <span className={`risk-badge risk-badge--${result.risk_score.level.toLowerCase()}`}>
-                                                    {result.risk_score.level === 'Clean' && '✓ '}
-                                                    {result.risk_score.level === 'Warning' && '⚠ '}
-                                                    {result.risk_score.level === 'Critical' && '🔴 '}
-                                                    {result.risk_score.level}
+                                                <span className={`risk-badge risk-badge--${result.cvss_severity.toLowerCase()}`}>
+                                                    {result.cvss_severity}
                                                 </span>
-                                                <span className="risk-label">Risk Assessment</span>
+                                                <span className="risk-label">Base Score Equivalent</span>
                                             </div>
                                         </div>
                                         <div className="risk-bar-track">
                                             <div
-                                                className={`risk-bar-fill risk-bar-fill--${result.risk_score.level.toLowerCase()}`}
-                                                style={{ width: `${result.risk_score.score}%` }}
+                                                className={`risk-bar-fill risk-bar-fill--${result.cvss_severity.toLowerCase()}`}
+                                                style={{ width: `${(result.cvss_score / 10.0) * 100}%` }}
                                             />
                                         </div>
-                                        {result.risk_score.reasons && result.risk_score.reasons.length > 0 && (
-                                            <ul className="risk-reasons">
-                                                {result.risk_score.reasons.map((reason, i) => (
-                                                    <li key={i} className="risk-reason">{reason}</li>
-                                                ))}
-                                            </ul>
-                                        )}
                                     </div>
+                                </AccordionCard>
+                            )}
+
+                            {/* 📜 Function List */}
+                            {result.function_list && result.function_list.length > 0 && (
+                                <AccordionCard
+                                    id="function-list"
+                                    icon="📜"
+                                    title="Function List"
+                                    summary={`${result.function_list.length} functions`}
+                                    open={openSections.functions}
+                                    onToggle={() => toggleSection('functions')}
+                                    variant="functions"
+                                >
+                                    <div className="table-container">
+                                        <table className="info-table">
+                                            <thead><tr><th>Address</th><th>Size</th><th>Name</th></tr></thead>
+                                            <tbody>
+                                                {result.function_list.map((fn, i) => (
+                                                    <tr key={i}>
+                                                        <td style={{fontFamily: 'monospace', color: 'var(--primary)'}}>{fn.address}</td>
+                                                        <td style={{color: 'var(--on-surface-variant)'}}>{fn.size}</td>
+                                                        <td>{fn.name}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </AccordionCard>
+                            )}
+
+                            {/* 🗺️ Section Map */}
+                            {result.section_map && result.section_map.length > 0 && (
+                                <AccordionCard
+                                    id="section-map"
+                                    icon="🗺️"
+                                    title="Section Map"
+                                    summary={`${result.section_map.length} sections`}
+                                    open={openSections.sections}
+                                    onToggle={() => toggleSection('sections')}
+                                    variant="sections"
+                                >
+                                    <div className="table-container">
+                                        <table className="info-table">
+                                            <thead><tr><th>Address</th><th>Type</th><th>Size</th><th>Name</th></tr></thead>
+                                            <tbody>
+                                                {result.section_map.map((sec, i) => (
+                                                    <tr key={i}>
+                                                        <td style={{fontFamily: 'monospace', color: 'var(--primary)'}}>{sec.address}</td>
+                                                        <td>{sec.type}</td>
+                                                        <td style={{color: 'var(--on-surface-variant)'}}>{sec.size}</td>
+                                                        <td style={{fontWeight: 'bold'}}>{sec.name}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </AccordionCard>
+                            )}
+
+                            {/* 🚪 Imports / Exports */}
+                            {(result.imports_exports?.imports?.length > 0 || result.imports_exports?.exports?.length > 0) && (
+                                <AccordionCard
+                                    id="imports-exports"
+                                    icon="🚪"
+                                    title="Imports & Exports"
+                                    summary={`${result.imports_exports.imports.length} imports, ${result.imports_exports.exports.length} exports`}
+                                    open={openSections.imports}
+                                    onToggle={() => toggleSection('imports')}
+                                    variant="imports"
+                                >
+                                    <div className="two-column-layout">
+                                        <div className="column">
+                                            <h4 className="column-title">Imports</h4>
+                                            <ul className="info-list">
+                                                {result.imports_exports.imports.map((imp, i) => <li key={i}>{imp}</li>)}
+                                            </ul>
+                                        </div>
+                                        <div className="column">
+                                            <h4 className="column-title">Exports</h4>
+                                            <ul className="info-list">
+                                                {result.imports_exports.exports.map((exp, i) => <li key={i}>{exp}</li>)}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </AccordionCard>
+                            )}
+
+                            {/* 🌊 Data Flow Analysis */}
+                            {result.data_flows && result.data_flows.length > 0 && (
+                                <AccordionCard
+                                    id="data-flows"
+                                    icon="🌊"
+                                    title="Data Flow Analysis"
+                                    summary={`${result.data_flows.length} flows`}
+                                    open={openSections.dataFlows}
+                                    onToggle={() => toggleSection('dataFlows')}
+                                    variant="data-flows"
+                                >
+                                    <ul className="data-flow-list">
+                                        {result.data_flows.map((flow, i) => (
+                                            <li key={i} className="data-flow-item">{flow}</li>
+                                        ))}
+                                    </ul>
                                 </AccordionCard>
                             )}
 
