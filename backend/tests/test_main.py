@@ -235,10 +235,11 @@ class TestPasswordProtectedZip:
 
     def _make_password_zip(self, password: str | None = None) -> bytes:
         """Create a minimal password-protected ZIP containing a test ELF binary."""
-        import pyzipper
+        
 
         buf = io.BytesIO()
         if password:
+            import pyzipper
             with pyzipper.AESZipFile(
                 buf, "w",
                 compression=pyzipper.ZIP_DEFLATED,
