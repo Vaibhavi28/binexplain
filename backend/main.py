@@ -3229,63 +3229,101 @@ async def analyze_image(
     # Content bytes no longer needed
     del content
 
-    # ── Build Claude Vision message ───────────────────────────────────
-    user_content: list[dict] = []
-
-    # Add context about the binary being analyzed
+    # ── Build Prompts ─────────────────────────────────────────────────
     if context:
-        user_content.append({
-            "type": "text",
-            "text": (
-                "Here is the analysis context of the binary I'm working on:\n\n"
-                + context[:3000]
-                + "\n\nNow here is my screenshot — please analyze it and tell me what to do next:"
-            ),
-        })
+        prompt_text = (
+            "Here is the analysis context of the binary I'm working on:\n\n"
+            + context[:3000]
+            + "\n\nNow here is my screenshot — please analyze it and tell me what to do next:"
+        )
     else:
-        user_content.append({
-            "type": "text",
-            "text": "I'm working on a CTF binary challenge. Here is my screenshot — please analyze it and tell me what to do next:",
-        })
+        prompt_text = "I'm working on a CTF binary challenge. Here is my screenshot — please analyze it and tell me what to do next:"
 
-    # Add the image
-    user_content.append({
-        "type": "image",
-        "source": {
-            "type": "base64",
-            "media_type": mime_type,
-            "data": image_b64,
-        },
-    })
+    ai_response = None
 
     # ── Call Claude Vision ────────────────────────────────────────────
-    if not ANTHROPIC_API_KEY:
-        # Clean up base64 from memory
-        del image_b64
-        raise HTTPException(
-            status_code=503,
-            detail="Image analysis requires an Anthropic API key. Please set ANTHROPIC_API_KEY in your .env file.",
-        )
+    if ANTHROPIC_API_KEY:
+        try:
+            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1024,
+                system=IMAGE_ANALYSIS_PROMPT,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt_text},
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": mime_type,
+                                "data": image_b64,
+                            }
+                        }
+                    ]
+                }],
+            )
+            ai_response = response.content[0].text
+        except Exception as exc:
+            logger.error("Claude Vision call failed: %s", exc)
 
-    try:
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        response = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
-            system=IMAGE_ANALYSIS_PROMPT,
-            messages=[{"role": "user", "content": user_content}],
-        )
-        ai_response = response.content[0].text
-    except Exception as exc:
-        logger.error("Claude Vision call failed: %s", exc)
-        del image_b64
-        raise HTTPException(
-            status_code=503,
-            detail=f"Image analysis failed: {str(exc)[:200]}",
-        )
-    finally:
-        # Ensure base64 is cleared from memory
-        image_b64 = ""
+    # ── Fallback 1: GPT-4o-mini (Vision) ──────────────────────────────
+    if not ai_response and OPENAI_API_KEY:
+        try:
+            client = openai.OpenAI(api_key=OPENAI_API_KEY)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                max_tokens=1024,
+                messages=[
+                    {"role": "system", "content": IMAGE_ANALYSIS_PROMPT},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt_text},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:{mime_type};base64,{image_b64}"}
+                            }
+                        ]
+                    }
+                ]
+            )
+            val = response.choices[0].message.content
+            if val and val.strip():
+                ai_response = val.strip()
+        except Exception as exc:
+            logger.error("GPT-4o Vision call failed: %s", exc)
+
+    # ── Fallback 2: Ollama (llava) ────────────────────────────────────
+    if not ai_response:
+        try:
+            resp = requests.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json={
+                    "model": "llava",
+                    "prompt": prompt_text,
+                    "images": [image_b64],
+                    "system": IMAGE_ANALYSIS_PROMPT,
+                    "stream": False,
+                },
+                timeout=120,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                val = data.get("response", "").strip()
+                if val:
+                    ai_response = val
+        except Exception as exc:
+            logger.error("Ollama llava call failed: %s", exc)
+
+    # Ensure base64 is cleared from memory
+    image_b64 = ""
+    del image_b64
+
+    # ── Fallback Message ──────────────────────────────────────────────
+    if not ai_response:
+        ai_response = "Image analysis unavailable — try describing what you see in chat instead"
 
     return {"response": ai_response}
 
