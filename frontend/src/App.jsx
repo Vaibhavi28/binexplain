@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
 /* ── Config ────────────────────────────────────────────────────────── */
 const BACKEND_URL = 'http://localhost:8000';
@@ -30,9 +30,65 @@ function getExtension(name) {
     return ext === '.' ? '' : ext;
 }
 
+/* ── Accordion Card ────────────────────────────────────────────────── */
+function AccordionCard({ id, icon, title, summary, open, onToggle, variant, children }) {
+    const bodyRef = useRef(null);
+    const [height, setHeight] = useState(open ? 'auto' : '0px');
+    const [measured, setMeasured] = useState(false);
+
+    useEffect(() => {
+        if (!bodyRef.current) return;
+        if (open) {
+            setHeight(`${bodyRef.current.scrollHeight}px`);
+            // After transition, switch to auto so inner content can resize
+            const t = setTimeout(() => setHeight('auto'), 210);
+            return () => clearTimeout(t);
+        } else {
+            // Force a reflow so the browser sees the current height before transitioning to 0
+            if (measured) {
+                setHeight(`${bodyRef.current.scrollHeight}px`);
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => setHeight('0px'));
+                });
+            } else {
+                setHeight('0px');
+            }
+        }
+        setMeasured(true);
+    }, [open]);
+
+    return (
+        <div className={`accordion-card${variant ? ` accordion-card--${variant}` : ''}`} id={id}>
+            <button
+                className={`accordion-header${open ? ' accordion-header--open' : ''}`}
+                onClick={onToggle}
+                type="button"
+                aria-expanded={open}
+                id={id ? `${id}-toggle` : undefined}
+            >
+                <span className={`accordion-arrow${open ? ' accordion-arrow--open' : ''}`}>▶</span>
+                <span className="accordion-icon">{icon}</span>
+                <span className="accordion-title">{title}</span>
+                {summary && <span className="accordion-summary">{summary}</span>}
+            </button>
+            <div
+                className="accordion-body-wrapper"
+                ref={bodyRef}
+                style={{ height, overflow: height === 'auto' ? 'visible' : 'hidden' }}
+            >
+                <div className="accordion-body">
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* ── App ───────────────────────────────────────────────────────────── */
 const MAX_CHAT_CHARS = 2000;
 const MAX_CHAT_MESSAGES = 10;
+const MAX_SOURCE_CODE_CHARS = 10000;
+const SOURCE_CODE_EXTENSIONS = ['.c', '.cpp', '.h', '.hpp', '.py', '.js', '.rs', '.go', '.java'];
 
 export default function App() {
     const [file, setFile] = useState(null);
@@ -42,6 +98,17 @@ export default function App() {
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
     const inputRef = useRef(null);
+
+    /* ── Analysis mode toggle ── */
+    const [analysisMode, setAnalysisMode] = useState('binary');  // 'binary' | 'source'
+
+    /* ── Source code analysis state ── */
+    const [sourceCode, setSourceCode] = useState('');
+    const [sourceFile, setSourceFile] = useState(null);
+    const [sourceResult, setSourceResult] = useState(null);
+    const [sourceLoading, setSourceLoading] = useState(false);
+    const [sourceError, setSourceError] = useState('');
+    const sourceInputRef = useRef(null);
 
     /* ── Chat state (lives in React only — lost on refresh by design) ── */
     const [chatMessages, setChatMessages] = useState([]);
@@ -64,17 +131,54 @@ export default function App() {
     const [vtScanId, setVtScanId] = useState(null);
     const [vtResult, setVtResult] = useState(null);
 
-    /* ── Hex viewer toggle ── */
-    const [hexViewOpen, setHexViewOpen] = useState(false);
-
-    /* ── Disassembly viewer toggle ── */
-    const [disasmOpen, setDisasmOpen] = useState(false);
+    /* ── Accordion section open/close state ── */
+    const [openSections, setOpenSections] = useState({
+        risk: false,
+        checksec: false,
+        entropy: false,
+        yara: false,
+        vt: false,
+        hex: false,
+        disasm: false,
+        strings: false,
+        flags: false,
+        findings: false,
+        encodings: false,
+        pwn: false,
+        hints: true,   // open by default
+        chat: true,    // open by default
+        // Source code sections
+        srcLang: false,
+        srcVuln: true,    // open by default
+        srcDanger: false,
+        srcHints: true,   // open by default
+        srcSteps: false,
+        srcCode: false,
+    });
 
     /* ── AI Hints feedback ── */
     const [feedbackGiven, setFeedbackGiven] = useState(null);
 
     /* ── Rate limit countdown ── */
     const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
+
+    /* Toggle an accordion section */
+    const toggleSection = useCallback((key) => {
+        setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+    }, []);
+
+    /* Build checksec summary for header (e.g. "NX✓ PIE✗ Canary✓") */
+    const checksecSummary = useMemo(() => {
+        if (!result?.checksec || result.checksec.nx === null) return '';
+        const badges = [
+            { key: 'nx', label: 'NX' },
+            { key: 'pie', label: 'PIE' },
+            { key: 'canary', label: 'Canary' },
+            { key: 'relro', label: 'RELRO' },
+            { key: 'fortify', label: 'Fortify' },
+        ];
+        return badges.map(b => `${b.label}${result.checksec[b.key] ? '✓' : '✗'}`).join(' ');
+    }, [result?.checksec]);
 
     /* Auto-scroll chat to bottom on new messages */
     useEffect(() => {
@@ -476,6 +580,79 @@ export default function App() {
             sendChat();
         }
     };
+    /* ── Source code handlers ─────────────────────────────────────────── */
+    const stageSourceFile = (f) => {
+        if (!f) return;
+        const ext = '.' + f.name.split('.').pop()?.toLowerCase();
+        if (!SOURCE_CODE_EXTENSIONS.includes(ext)) {
+            setSourceError(`Unsupported extension "${ext}". Accepted: ${SOURCE_CODE_EXTENSIONS.join(', ')}`);
+            return;
+        }
+        if (f.size > MAX_SOURCE_CODE_CHARS * 2) {
+            setSourceError(`File too large. Maximum ~${MAX_SOURCE_CODE_CHARS} characters.`);
+            return;
+        }
+        setSourceError('');
+        setSourceFile(f);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target.result;
+            if (text.length > MAX_SOURCE_CODE_CHARS) {
+                setSourceError(`File content exceeds ${MAX_SOURCE_CODE_CHARS} character limit.`);
+                setSourceFile(null);
+                return;
+            }
+            setSourceCode(text);
+        };
+        reader.readAsText(f);
+    };
+
+    const analyzeSourceCode = async () => {
+        if (!sourceCode.trim()) {
+            setSourceError('Please paste or upload source code first.');
+            return;
+        }
+        setSourceLoading(true);
+        setSourceError('');
+        setSourceResult(null);
+        try {
+            const resp = await fetch(`${BACKEND_URL}/analyze-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    code: sourceCode.slice(0, MAX_SOURCE_CODE_CHARS),
+                    filename: sourceFile?.name || '',
+                }),
+            });
+            if (resp.status === 429) {
+                const data = await resp.json().catch(() => ({}));
+                setSourceError(data.detail || 'Rate limit exceeded. Try again later.');
+                return;
+            }
+            if (!resp.ok) {
+                const data = await resp.json().catch(() => ({}));
+                setSourceError(data.detail || `Server error (${resp.status})`);
+                return;
+            }
+            const data = await resp.json();
+            setSourceResult(data);
+        } catch (err) {
+            setSourceError(err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message);
+        } finally {
+            setSourceLoading(false);
+        }
+    };
+
+    const switchMode = (mode) => {
+        setAnalysisMode(mode);
+        if (mode === 'binary') {
+            setSourceResult(null);
+            setSourceError('');
+        } else {
+            setResult(null);
+            setError('');
+        }
+    };
 
     /* ── Render ──────────────────────────────────────────────────────── */
     return (
@@ -491,14 +668,32 @@ export default function App() {
                     </p>
                 </header>
 
-                {/* ── VirusTotal Disclaimer (always visible before upload) ── */}
-                <div className="vt-disclaimer" id="vt-disclaimer">
-                    <span className="vt-disclaimer-icon">⚠️</span>
-                    <span>
-                        Files submitted to VirusTotal are stored permanently in their database.
-                        Do not upload sensitive or private binaries.
-                    </span>
+                {/* ── Mode Toggle ── */}
+                <div className="mode-toggle">
+                    <button
+                        className={`mode-btn ${analysisMode === 'binary' ? 'active' : ''}`}
+                        onClick={() => switchMode('binary')}
+                    >
+                        🔬 Binary Analysis
+                    </button>
+                    <button
+                        className={`mode-btn ${analysisMode === 'source' ? 'active' : ''}`}
+                        onClick={() => switchMode('source')}
+                    >
+                        📝 Source Code Analysis
+                    </button>
                 </div>
+
+                {analysisMode === 'binary' ? (
+                    <>
+                        {/* ── VirusTotal Disclaimer (always visible before upload) ── */}
+                        <div className="vt-disclaimer" id="vt-disclaimer">
+                            <span className="vt-disclaimer-icon">⚠️</span>
+                            <span>
+                                Files submitted to VirusTotal are stored permanently in their database.
+                                Do not upload sensitive or private binaries.
+                            </span>
+                        </div>
 
                 {/* ── Upload Zone ── */}
                 <section>
@@ -598,9 +793,89 @@ export default function App() {
                         )}
                     </div>
                 )}
+                </>
+                ) : (
+                    <>
+                        {/* ── Source Code Upload & Paste Zone ── */}
+                        <section className="source-input-section">
+                            <div className="source-upload-wrapper">
+                                <div
+                                    className="dropzone-inner source-dropzone"
+                                    onClick={() => sourceInputRef.current?.click()}
+                                    role="button"
+                                    tabIndex={0}
+                                >
+                                    <div className="dropzone-icon-container">
+                                        <span className="material-symbols-outlined dropzone-icon">code</span>
+                                    </div>
+                                    <h3 className="dropzone-title">Upload Source File</h3>
+                                    <p className="dropzone-desc">
+                                        Accepted: {SOURCE_CODE_EXTENSIONS.join(', ')}
+                                    </p>
+                                    <input
+                                        ref={sourceInputRef}
+                                        type="file"
+                                        className="file-input"
+                                        onChange={(e) => stageSourceFile(e.target.files[0])}
+                                    />
+                                </div>
+                                {sourceFile && (
+                                    <div className="staged-file-bar source-staged">
+                                        <div className="staged-file-info">
+                                            <span className="material-symbols-outlined">description</span>
+                                            <span>{sourceFile.name}</span>
+                                        </div>
+                                        <button className="staged-file-remove" onClick={() => { setSourceFile(null); setSourceCode(''); }} title="Remove file">
+                                            <span className="material-symbols-outlined">close</span>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
 
-                {/* ═══ Results ═══ */}
-                {result && (
+                            <div className="source-divider"><span>OR PASTE CODE</span></div>
+
+                            <div className="source-textarea-wrapper">
+                                <textarea
+                                    className="source-textarea"
+                                    placeholder="Paste your C, Python, JavaScript, Rust, or Go code here..."
+                                    value={sourceCode}
+                                    onChange={(e) => setSourceCode(e.target.value)}
+                                    maxLength={MAX_SOURCE_CODE_CHARS}
+                                />
+                                <div className="char-counter">
+                                    {sourceCode.length} / {MAX_SOURCE_CODE_CHARS}
+                                </div>
+                            </div>
+                            
+                            <button 
+                                className="analyze-btn" 
+                                onClick={analyzeSourceCode} 
+                                disabled={sourceLoading || (!sourceCode.trim() && !sourceFile)}
+                            >
+                                {sourceLoading ? 'Analyzing...' : '▶ Analyze Code'}
+                            </button>
+
+                            {sourceLoading && (
+                                <div className="terminal-loading">
+                                    <div className="terminal-line">
+                                        <span className="prompt">&gt;</span>
+                                        <span className="text">Analyzing source code...</span>
+                                        <span className="cursor-blink" />
+                                    </div>
+                                </div>
+                            )}
+
+                            {sourceError && (
+                                <div className="error-box">
+                                    <div className="error-text">{sourceError}</div>
+                                </div>
+                            )}
+                        </section>
+                    </>
+                )}
+
+                {/* ═══ Binary Results ═══ */}
+                {analysisMode === 'binary' && result && (
                     <>
                         {/* File info bar */}
                         <div className="analysis-meta-bar">
@@ -624,48 +899,64 @@ export default function App() {
                             </div>
                         </div>
 
-                        {/* ── Risk Score Badge ── */}
-                        {result.risk_score && (
-                            <div className={`risk-card risk-card--${result.risk_score.level.toLowerCase()}`}>
-                                <div className="risk-header">
-                                    <div className="risk-score-circle">
-                                        <span className="risk-score-number">{result.risk_score.score}</span>
-                                        <span className="risk-score-max">/100</span>
-                                    </div>
-                                    <div className="risk-info">
-                                        <span className={`risk-badge risk-badge--${result.risk_score.level.toLowerCase()}`}>
-                                            {result.risk_score.level === 'Clean' && '✓ '}
-                                            {result.risk_score.level === 'Warning' && '⚠ '}
-                                            {result.risk_score.level === 'Critical' && '🔴 '}
-                                            {result.risk_score.level}
-                                        </span>
-                                        <span className="risk-label">Risk Assessment</span>
-                                    </div>
-                                </div>
-                                <div className="risk-bar-track">
-                                    <div
-                                        className={`risk-bar-fill risk-bar-fill--${result.risk_score.level.toLowerCase()}`}
-                                        style={{ width: `${result.risk_score.score}%` }}
-                                    />
-                                </div>
-                                {result.risk_score.reasons && result.risk_score.reasons.length > 0 && (
-                                    <ul className="risk-reasons">
-                                        {result.risk_score.reasons.map((reason, i) => (
-                                            <li key={i} className="risk-reason">{reason}</li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
-                        )}
+                        {/* ── Accordion Results Stack ── */}
+                        <div className="accordion-stack">
 
-                        {/* ── Checksec Security Protections ── */}
-                        {result.checksec && result.checksec.nx !== null && (
-                            <div className="checksec-card" id="checksec-results">
-                                <div className="result-card-header result-card-header--checksec">
-                                    <span>🔒 Security Protections</span>
-                                    <span className="result-card-meta">checksec</span>
-                                </div>
-                                <div className="result-card-body">
+                            {/* 📊 Risk Score */}
+                            {result.risk_score && (
+                                <AccordionCard
+                                    id="risk-score"
+                                    icon="📊"
+                                    title="Risk Score"
+                                    summary={`${result.risk_score.score}/100 ${result.risk_score.level}`}
+                                    open={openSections.risk}
+                                    onToggle={() => toggleSection('risk')}
+                                    variant={`risk-${result.risk_score.level.toLowerCase()}`}
+                                >
+                                    <div className={`risk-card risk-card--${result.risk_score.level.toLowerCase()}`}>
+                                        <div className="risk-header">
+                                            <div className="risk-score-circle">
+                                                <span className="risk-score-number">{result.risk_score.score}</span>
+                                                <span className="risk-score-max">/100</span>
+                                            </div>
+                                            <div className="risk-info">
+                                                <span className={`risk-badge risk-badge--${result.risk_score.level.toLowerCase()}`}>
+                                                    {result.risk_score.level === 'Clean' && '✓ '}
+                                                    {result.risk_score.level === 'Warning' && '⚠ '}
+                                                    {result.risk_score.level === 'Critical' && '🔴 '}
+                                                    {result.risk_score.level}
+                                                </span>
+                                                <span className="risk-label">Risk Assessment</span>
+                                            </div>
+                                        </div>
+                                        <div className="risk-bar-track">
+                                            <div
+                                                className={`risk-bar-fill risk-bar-fill--${result.risk_score.level.toLowerCase()}`}
+                                                style={{ width: `${result.risk_score.score}%` }}
+                                            />
+                                        </div>
+                                        {result.risk_score.reasons && result.risk_score.reasons.length > 0 && (
+                                            <ul className="risk-reasons">
+                                                {result.risk_score.reasons.map((reason, i) => (
+                                                    <li key={i} className="risk-reason">{reason}</li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                </AccordionCard>
+                            )}
+
+                            {/* 🔒 Security Protections */}
+                            {result.checksec && result.checksec.nx !== null && (
+                                <AccordionCard
+                                    id="checksec-results"
+                                    icon="🔒"
+                                    title="Security Protections"
+                                    summary={checksecSummary}
+                                    open={openSections.checksec}
+                                    onToggle={() => toggleSection('checksec')}
+                                    variant="checksec"
+                                >
                                     <div className="checksec-badges">
                                         {[
                                             { key: 'nx', label: 'NX', desc: 'No-Execute' },
@@ -689,62 +980,102 @@ export default function App() {
                                             </div>
                                         ))}
                                     </div>
-                                </div>
-                            </div>
-                        )}
+                                </AccordionCard>
+                            )}
 
-                        {/* ── Entropy Bar ── */}
-                        {result.entropy !== undefined && (
-                            <div className={`entropy-card entropy-card--${
-                                result.entropy < 5 ? 'low' :
-                                result.entropy < 6.5 ? 'medium' :
-                                result.entropy < 7 ? 'high' : 'veryhigh'
-                            }`}>
-                                <div className="entropy-header">
-                                    <div className="entropy-score-group">
-                                        <span className="entropy-score">{result.entropy.toFixed(3)}</span>
-                                        <span className="entropy-max">/8.0</span>
+                            {/* 🧬 Shannon Entropy */}
+                            {result.entropy !== undefined && (
+                                <AccordionCard
+                                    id="entropy-card"
+                                    icon="🧬"
+                                    title="Shannon Entropy"
+                                    summary={`${result.entropy.toFixed(3)}/8.0 ${result.entropy_label}`}
+                                    open={openSections.entropy}
+                                    onToggle={() => toggleSection('entropy')}
+                                    variant={`entropy-${
+                                        result.entropy < 5 ? 'low' :
+                                        result.entropy < 6.5 ? 'medium' :
+                                        result.entropy < 7 ? 'high' : 'veryhigh'
+                                    }`}
+                                >
+                                    <div className={`entropy-card entropy-card--${
+                                        result.entropy < 5 ? 'low' :
+                                        result.entropy < 6.5 ? 'medium' :
+                                        result.entropy < 7 ? 'high' : 'veryhigh'
+                                    }`}>
+                                        <div className="entropy-header">
+                                            <div className="entropy-score-group">
+                                                <span className="entropy-score">{result.entropy.toFixed(3)}</span>
+                                                <span className="entropy-max">/8.0</span>
+                                            </div>
+                                            <div className="entropy-info">
+                                                <span className={`entropy-badge entropy-badge--${
+                                                    result.entropy < 5 ? 'low' :
+                                                    result.entropy < 6.5 ? 'medium' :
+                                                    result.entropy < 7 ? 'high' : 'veryhigh'
+                                                }`}>
+                                                    {result.entropy_label}
+                                                </span>
+                                                <span className="entropy-label-text">Shannon Entropy</span>
+                                            </div>
+                                        </div>
+                                        <div className="entropy-bar-track">
+                                            <div
+                                                className={`entropy-bar-fill entropy-bar-fill--${
+                                                    result.entropy < 5 ? 'low' :
+                                                    result.entropy < 6.5 ? 'medium' :
+                                                    result.entropy < 7 ? 'high' : 'veryhigh'
+                                                }`}
+                                                style={{ width: `${(result.entropy / 8) * 100}%` }}
+                                            />
+                                        </div>
+                                        <div className="entropy-hint">
+                                            {result.entropy < 5 && 'Normal binary — code and data sections are readable.'}
+                                            {result.entropy >= 5 && result.entropy < 6.5 && 'Moderate density — may contain compressed resources.'}
+                                            {result.entropy >= 6.5 && result.entropy < 7 && 'High density — sections may be compressed or obfuscated.'}
+                                            {result.entropy >= 7 && '⚠ Very high entropy — binary is likely packed, encrypted, or compressed. Consider unpacking first.'}
+                                        </div>
                                     </div>
-                                    <div className="entropy-info">
-                                        <span className={`entropy-badge entropy-badge--${
-                                            result.entropy < 5 ? 'low' :
-                                            result.entropy < 6.5 ? 'medium' :
-                                            result.entropy < 7 ? 'high' : 'veryhigh'
-                                        }`}>
-                                            {result.entropy_label}
-                                        </span>
-                                        <span className="entropy-label-text">Shannon Entropy</span>
-                                    </div>
-                                </div>
-                                <div className="entropy-bar-track">
-                                    <div
-                                        className={`entropy-bar-fill entropy-bar-fill--${
-                                            result.entropy < 5 ? 'low' :
-                                            result.entropy < 6.5 ? 'medium' :
-                                            result.entropy < 7 ? 'high' : 'veryhigh'
-                                        }`}
-                                        style={{ width: `${(result.entropy / 8) * 100}%` }}
-                                    />
-                                </div>
-                                <div className="entropy-hint">
-                                    {result.entropy < 5 && 'Normal binary — code and data sections are readable.'}
-                                    {result.entropy >= 5 && result.entropy < 6.5 && 'Moderate density — may contain compressed resources.'}
-                                    {result.entropy >= 6.5 && result.entropy < 7 && 'High density — sections may be compressed or obfuscated.'}
-                                    {result.entropy >= 7 && '⚠ Very high entropy — binary is likely packed, encrypted, or compressed. Consider unpacking first.'}
-                                </div>
-                            </div>
-                        )}
+                                </AccordionCard>
+                            )}
 
-                        {/* ── Encodings Detected ── */}
-                        {result.encodings && Object.keys(result.encodings).length > 0 && (
-                            <div className="result-card" style={{ marginTop: 20 }}>
-                                <div className="result-card-header result-card-header--encodings">
-                                    <span>🔐 Encodings Detected</span>
-                                    <span className="result-card-meta">
-                                        {Object.values(result.encodings).flat().length} match{Object.values(result.encodings).flat().length !== 1 ? 'es' : ''}
-                                    </span>
-                                </div>
-                                <div className="result-card-body">
+                            {/* 🎯 YARA Matches — only if matches exist */}
+                            {result.yara_matches && result.yara_matches.length > 0 && (
+                                <AccordionCard
+                                    id="yara-matches"
+                                    icon="🎯"
+                                    title="YARA Matches"
+                                    summary={`${result.yara_matches.length} rule${result.yara_matches.length !== 1 ? 's' : ''} triggered`}
+                                    open={openSections.yara}
+                                    onToggle={() => toggleSection('yara')}
+                                    variant="yara"
+                                >
+                                    {result.yara_matches.map((rule, i) => (
+                                        <div className="yara-rule" key={i}>
+                                            <div className="yara-rule-header">
+                                                <span className="yara-rule-name">{rule.label}</span>
+                                                <span className="yara-rule-count">{rule.count} match{rule.count !== 1 ? 'es' : ''}</span>
+                                            </div>
+                                            <div className="yara-rule-desc">{rule.description}</div>
+                                            {rule.matches.map((m, j) => (
+                                                <div className="section-item section-item--yara" key={j}>{m}</div>
+                                            ))}
+                                        </div>
+                                    ))}
+                                </AccordionCard>
+                            )}
+
+                            {/* 🔐 Encodings Detected */}
+                            {result.encodings && Object.keys(result.encodings).length > 0 && (
+                                <AccordionCard
+                                    id="encodings-card"
+                                    icon="🔐"
+                                    title="Encodings Detected"
+                                    summary={`${Object.values(result.encodings).flat().length} match${Object.values(result.encodings).flat().length !== 1 ? 'es' : ''}`}
+                                    open={openSections.encodings}
+                                    onToggle={() => toggleSection('encodings')}
+                                    variant="encodings"
+                                >
                                     {Object.entries(result.encodings).map(([category, items]) => (
                                         <div className="finding-category" key={category}>
                                             <span className="finding-label">
@@ -758,52 +1089,26 @@ export default function App() {
                                             ))}
                                         </div>
                                     ))}
-                                </div>
-                            </div>
-                        )}
+                                </AccordionCard>
+                            )}
 
-                        {/* ── YARA Matches ── */}
-                        {result.yara_matches && result.yara_matches.length > 0 && (
-                            <div className="result-card" style={{ marginTop: 20 }}>
-                                <div className="result-card-header result-card-header--yara">
-                                    <span>🎯 YARA Matches</span>
-                                    <span className="result-card-meta">
-                                        {result.yara_matches.length} rule{result.yara_matches.length !== 1 ? 's' : ''} triggered
-                                    </span>
-                                </div>
-                                <div className="result-card-body">
-                                    {result.yara_matches.map((rule, i) => (
-                                        <div className="yara-rule" key={i}>
-                                            <div className="yara-rule-header">
-                                                <span className="yara-rule-name">{rule.label}</span>
-                                                <span className="yara-rule-count">{rule.count} match{rule.count !== 1 ? 'es' : ''}</span>
-                                            </div>
-                                            <div className="yara-rule-desc">{rule.description}</div>
-                                            {rule.matches.map((m, j) => (
-                                                <div className="section-item section-item--yara" key={j}>{m}</div>
-                                            ))}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* ── VirusTotal Section (async) ── */}
-                        {/* Only show if VT is not disabled */}
-                        {result.virustotal?.status !== 'disabled' && (
-                            <div className={`vt-card vt-card--${vtResult?.status || 'scanning'}`} id="vt-results">
-                                <div className="result-card-header result-card-header--vt">
-                                    <span>🛡️ VirusTotal Scan</span>
-                                    <span className="result-card-meta">
-                                        {!vtResult && 'Scanning...'}
-                                        {vtResult?.status === 'pending' && 'Analysis in progress'}
-                                        {vtResult?.status === 'error' && 'Scan error'}
-                                        {vtResult?.status === 'clean' && 'No threats detected'}
-                                        {vtResult?.status === 'suspicious' && 'Low-confidence detections'}
-                                        {vtResult?.status === 'malicious' && 'Threats detected'}
-                                    </span>
-                                </div>
-                                <div className="result-card-body">
+                            {/* 🛡️ VirusTotal */}
+                            {result.virustotal?.status !== 'disabled' && (
+                                <AccordionCard
+                                    id="vt-results"
+                                    icon="🛡️"
+                                    title="VirusTotal Scan"
+                                    summary={
+                                        !vtResult ? 'Scanning...' :
+                                        vtResult.status === 'pending' ? 'Analysis in progress' :
+                                        vtResult.status === 'error' ? 'Scan error' :
+                                        vtResult.status === 'clean' ? `0/${vtResult.total_engines} engines flagged` :
+                                        `${vtResult.detection_count}/${vtResult.total_engines} engines flagged`
+                                    }
+                                    open={openSections.vt}
+                                    onToggle={() => toggleSection('vt')}
+                                    variant={`vt-${vtResult?.status || 'scanning'}`}
+                                >
                                     {/* Scanning spinner */}
                                     {!vtResult && (
                                         <div className="vt-scanning" id="vt-scanning">
@@ -826,13 +1131,7 @@ export default function App() {
                                                 ⏳ {vtResult.message || 'Analysis is still in progress.'}
                                             </div>
                                             {vtResult.permalink && (
-                                                <a
-                                                    href={vtResult.permalink}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="vt-link"
-                                                    id="vt-permalink"
-                                                >
+                                                <a href={vtResult.permalink} target="_blank" rel="noopener noreferrer" className="vt-link" id="vt-permalink">
                                                     View on VirusTotal →
                                                 </a>
                                             )}
@@ -842,7 +1141,6 @@ export default function App() {
                                     {/* Completed results */}
                                     {vtResult && ['clean', 'suspicious', 'malicious'].includes(vtResult.status) && (
                                         <div className="vt-results-body">
-                                            {/* Detection Ratio */}
                                             <div className="vt-detection-row">
                                                 <div className={`vt-ratio vt-ratio--${vtResult.status}`}>
                                                     <span className="vt-ratio-count">{vtResult.detection_count}</span>
@@ -857,8 +1155,6 @@ export default function App() {
                                                     </span>
                                                 </div>
                                             </div>
-
-                                            {/* Detection Bar */}
                                             <div className="vt-bar-track">
                                                 <div
                                                     className={`vt-bar-fill vt-bar-fill--${vtResult.status}`}
@@ -869,53 +1165,36 @@ export default function App() {
                                                     }}
                                                 />
                                             </div>
-
-                                            {/* Threat Name */}
                                             {vtResult.threat_name && (
                                                 <div className="vt-threat">
                                                     <span className="vt-threat-label">Threat:</span>
                                                     <span className="vt-threat-name">{vtResult.threat_name}</span>
                                                 </div>
                                             )}
-
-                                            {/* Behavior Summary */}
                                             {vtResult.behavior_summary && (
-                                                <div className="vt-behavior">
-                                                    {vtResult.behavior_summary}
-                                                </div>
+                                                <div className="vt-behavior">{vtResult.behavior_summary}</div>
                                             )}
-
-                                            {/* Permalink */}
                                             {vtResult.permalink && (
-                                                <a
-                                                    href={vtResult.permalink}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="vt-link"
-                                                    id="vt-permalink"
-                                                >
+                                                <a href={vtResult.permalink} target="_blank" rel="noopener noreferrer" className="vt-link" id="vt-permalink">
                                                     View Full Report →
                                                 </a>
                                             )}
                                         </div>
                                     )}
-                                </div>
-                            </div>
-                        )}
+                                </AccordionCard>
+                            )}
 
-                        {/* ── Hex Viewer (collapsible) ── */}
-                        {result.hex_view && result.hex_view.length > 0 && (
-                            <div className="hex-viewer-card" id="hex-viewer">
-                                <button
-                                    className="hex-viewer-toggle"
-                                    onClick={() => setHexViewOpen(prev => !prev)}
-                                    type="button"
-                                    id="hex-toggle-btn"
+                            {/* 🔍 Hex View */}
+                            {result.hex_view && result.hex_view.length > 0 && (
+                                <AccordionCard
+                                    id="hex-viewer"
+                                    icon="🔍"
+                                    title="Hex View"
+                                    summary={`First ${result.hex_view.length * 16} bytes`}
+                                    open={openSections.hex}
+                                    onToggle={() => toggleSection('hex')}
+                                    variant="hex"
                                 >
-                                    <span className="hex-viewer-toggle-icon">{hexViewOpen ? '▼' : '▶'}</span>
-                                    <span>🔍 Hex View — First {result.hex_view.length * 16} bytes</span>
-                                </button>
-                                {hexViewOpen && (
                                     <div className="hex-viewer-body">
                                         <div className="hex-row hex-row--header">
                                             <span className="hex-col-offset">Offset</span>
@@ -930,23 +1209,20 @@ export default function App() {
                                             </div>
                                         ))}
                                     </div>
-                                )}
-                            </div>
-                        )}
+                                </AccordionCard>
+                            )}
 
-                        {/* ── Disassembly Viewer (collapsible) ── */}
-                        {result.disassembly && result.disassembly.length > 0 && (
-                            <div className="disasm-card" id="disasm-viewer">
-                                <button
-                                    className="disasm-toggle"
-                                    onClick={() => setDisasmOpen(prev => !prev)}
-                                    type="button"
-                                    id="disasm-toggle-btn"
+                            {/* 🔬 Disassembly */}
+                            {result.disassembly && result.disassembly.length > 0 && (
+                                <AccordionCard
+                                    id="disasm-viewer"
+                                    icon="🔬"
+                                    title="Disassembly"
+                                    summary={`${result.disassembly_function || 'main'}\u00a0— ${result.disassembly.length} instructions`}
+                                    open={openSections.disasm}
+                                    onToggle={() => toggleSection('disasm')}
+                                    variant="disasm"
                                 >
-                                    <span className="disasm-toggle-icon">{disasmOpen ? '▼' : '▶'}</span>
-                                    <span>🔬 Disassembly — {result.disassembly_function || 'unknown'} ({result.disassembly.length} instructions)</span>
-                                </button>
-                                {disasmOpen && (
                                     <div className="disasm-body">
                                         <div className="disasm-row disasm-row--header">
                                             <span className="disasm-col-addr">Address</span>
@@ -971,16 +1247,100 @@ export default function App() {
                                             );
                                         })}
                                     </div>
-                                )}
-                            </div>
-                        )}
+                                </AccordionCard>
+                            )}
 
-                        {/* ── Pwntools Exploit Template ── */}
-                        {result.pwn_template && result.extension !== '.zip' && (
-                            <div className="pwn-template-card" id="pwn-template">
-                                <div className="result-card-header result-card-header--pwn">
-                                    <span>⚡ Pwntools Exploit Template</span>
-                                    <div className="pwn-actions">
+                            {/* 📋 Strings */}
+                            <AccordionCard
+                                id="strings-card"
+                                icon="📋"
+                                title="Strings"
+                                summary={`${result.strings_count} string${result.strings_count !== 1 ? 's' : ''} extracted`}
+                                open={openSections.strings}
+                                onToggle={() => toggleSection('strings')}
+                                variant="strings"
+                            >
+                                <div className="result-card-body">
+                                    {result.strings.length === 0 ? (
+                                        <div className="no-strings">No printable strings found.</div>
+                                    ) : (
+                                        result.strings.map((s, i) => (
+                                            <div className="string-line" key={i}>
+                                                <span className="string-index">{String(i + 1).padStart(4, '0')}</span>
+                                                {s}
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </AccordionCard>
+
+                            {/* 🚩 Flags Detected */}
+                            <AccordionCard
+                                id="flags-card"
+                                icon="🚩"
+                                title="Flags Detected"
+                                summary={
+                                    result.flags_detected && result.flags_detected.length > 0
+                                        ? `${result.flags_detected.length} flag${result.flags_detected.length !== 1 ? 's' : ''} found`
+                                        : 'None detected'
+                                }
+                                open={openSections.flags}
+                                onToggle={() => toggleSection('flags')}
+                                variant="flags"
+                            >
+                                <div className="result-card-body">
+                                    {result.flags_detected && result.flags_detected.length > 0 ? (
+                                        result.flags_detected.map((flag, i) => (
+                                            <div className="section-item section-item--flag" key={i}>{flag}</div>
+                                        ))
+                                    ) : (
+                                        <div className="section-empty">No flags detected in strings</div>
+                                    )}
+                                </div>
+                            </AccordionCard>
+
+                            {/* 🔍 Interesting Findings */}
+                            <AccordionCard
+                                id="findings-card"
+                                icon="🔍"
+                                title="Interesting Findings"
+                                summary={
+                                    result.patterns && Object.keys(result.patterns).length > 0
+                                        ? `${Object.keys(result.patterns).length} categor${Object.keys(result.patterns).length !== 1 ? 'ies' : 'y'}`
+                                        : 'No patterns'
+                                }
+                                open={openSections.findings}
+                                onToggle={() => toggleSection('findings')}
+                                variant="findings"
+                            >
+                                <div className="result-card-body">
+                                    {result.patterns && Object.keys(result.patterns).length > 0 ? (
+                                        Object.entries(result.patterns).map(([category, items]) => (
+                                            <div className="finding-category" key={category}>
+                                                <span className="finding-label">{category.replace(/_/g, ' ')}:</span>
+                                                {items.map((item, j) => (
+                                                    <div className="section-item section-item--finding" key={j}>{item}</div>
+                                                ))}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="section-empty">No interesting patterns detected</div>
+                                    )}
+                                </div>
+                            </AccordionCard>
+
+                            {/* ⚡ Pwntools Template */}
+                            {result.pwn_template && result.extension !== '.zip' && (
+                                <AccordionCard
+                                    id="pwn-template"
+                                    icon="⚡"
+                                    title="Pwntools Template"
+                                    summary="Ready to download"
+                                    open={openSections.pwn}
+                                    onToggle={() => toggleSection('pwn')}
+                                    variant="pwn"
+                                >
+                                    <div className="pwn-template-actions">
                                         <button
                                             className="pwn-action-btn"
                                             onClick={() => {
@@ -1010,89 +1370,33 @@ export default function App() {
                                             ⬇️ Download exploit.py
                                         </button>
                                     </div>
-                                </div>
-                                <div className="pwn-template-body">
-                                    <pre className="pwn-code">{result.pwn_template.split('\n').map((line, i) => (
-                                        <div className="pwn-line" key={i}>
-                                            <span className="pwn-line-num">{String(i + 1).padStart(3, ' ')}</span>
-                                            <span className={`pwn-line-text${
-                                                line.trimStart().startsWith('#') ? ' pwn-comment' :
-                                                line.includes('from pwn') || line.includes('#!/') ? ' pwn-import' :
-                                                line.includes('def ') ? ' pwn-func' :
-                                                /\b(flat|process|remote|cyclic|asm|shellcraft|ELF|ROP)\b/.test(line) ? ' pwn-keyword' :
-                                                ''
-                                            }`}>{line || ' '}</span>
-                                        </div>
-                                    ))}</pre>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="results-grid">
-                            {/* Strings */}
-                            <div className="result-card">
-                                <div className="result-card-header result-card-header--strings">
-                                    <span>$ strings {result.filename}</span>
-                                    <span className="result-card-meta">
-                                        {result.strings_count} string{result.strings_count !== 1 ? 's' : ''}
-                                    </span>
-                                </div>
-                                <div className="result-card-body">
-                                    {result.strings.length === 0 ? (
-                                        <div className="no-strings">No printable strings found.</div>
-                                    ) : (
-                                        result.strings.map((s, i) => (
-                                            <div className="string-line" key={i}>
-                                                <span className="string-index">{String(i + 1).padStart(4, '0')}</span>
-                                                {s}
+                                    <div className="pwn-template-body">
+                                        <pre className="pwn-code">{result.pwn_template.split('\n').map((line, i) => (
+                                            <div className="pwn-line" key={i}>
+                                                <span className="pwn-line-num">{String(i + 1).padStart(3, ' ')}</span>
+                                                <span className={`pwn-line-text${
+                                                    line.trimStart().startsWith('#') ? ' pwn-comment' :
+                                                    line.includes('from pwn') || line.includes('#!/') ? ' pwn-import' :
+                                                    line.includes('def ') ? ' pwn-func' :
+                                                    /\b(flat|process|remote|cyclic|asm|shellcraft|ELF|ROP)\b/.test(line) ? ' pwn-keyword' :
+                                                    ''
+                                                }`}>{line || ' '}</span>
                                             </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
+                                        ))}</pre>
+                                    </div>
+                                </AccordionCard>
+                            )}
 
-                            {/* 🚩 Flags Detected */}
-                            <div className="result-card">
-                                <div className="result-card-header result-card-header--flags">
-                                    <span>🚩 Flags Detected</span>
-                                </div>
-                                <div className="result-card-body">
-                                    {result.flags_detected && result.flags_detected.length > 0 ? (
-                                        result.flags_detected.map((flag, i) => (
-                                            <div className="section-item section-item--flag" key={i}>{flag}</div>
-                                        ))
-                                    ) : (
-                                        <div className="section-empty">No flags detected in strings</div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* 🔍 Interesting Findings */}
-                            <div className="result-card">
-                                <div className="result-card-header result-card-header--findings">
-                                    <span>🔍 Interesting Findings</span>
-                                </div>
-                                <div className="result-card-body">
-                                    {result.patterns && Object.keys(result.patterns).length > 0 ? (
-                                        Object.entries(result.patterns).map(([category, items]) => (
-                                            <div className="finding-category" key={category}>
-                                                <span className="finding-label">{category.replace(/_/g, ' ')}:</span>
-                                                {items.map((item, j) => (
-                                                    <div className="section-item section-item--finding" key={j}>{item}</div>
-                                                ))}
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="section-empty">No interesting patterns detected</div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* 💡 AI Hints */}
-                            <div className="result-card">
-                                <div className="result-card-header result-card-header--hints">
-                                    <span>💡 AI Hints</span>
-                                </div>
+                            {/* 💡 AI Hints + Kill Chain — open by default */}
+                            <AccordionCard
+                                id="ai-hints"
+                                icon="💡"
+                                title="AI Hints + Kill Chain"
+                                summary={result.hints ? 'Analysis available' : 'Unavailable'}
+                                open={openSections.hints}
+                                onToggle={() => toggleSection('hints')}
+                                variant="hints"
+                            >
                                 <div className="result-card-body">
                                     {result.hints ? (
                                         result.hints.split(/\n/).filter(line => line.trim()).map((line, i) => (
@@ -1149,92 +1453,242 @@ export default function App() {
                                         </div>
                                     )}
                                 </div>
+                            </AccordionCard>
+
+                            {/* 💬 Follow-up Chat — open by default */}
+                            <AccordionCard
+                                id="chat-section"
+                                icon="💬"
+                                title="Follow-up Chat"
+                                summary={chatMessages.length > 0 ? `${chatMessages.length} message${chatMessages.length !== 1 ? 's' : ''}` : 'Ask questions'}
+                                open={openSections.chat}
+                                onToggle={() => toggleSection('chat')}
+                                variant="chat"
+                            >
+                                <div className="chat-messages" id="chat-messages">
+                                    {chatMessages.map((msg, i) => (
+                                        <div
+                                            className={`chat-bubble chat-bubble--${msg.role}`}
+                                            key={i}
+                                        >
+                                            <span className="chat-bubble-label">
+                                                {msg.role === 'user' ? 'You' : 'AI Mentor'}
+                                            </span>
+                                            {msg.image && (
+                                                <img src={msg.image} alt="Attached screenshot" className="chat-image-preview-bubble" />
+                                            )}
+                                            <div className="chat-bubble-content">
+                                                {msg.content.split(/\n/).filter(l => l.trim()).map((line, j) => (
+                                                    <div key={j}>{line}</div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {chatLoading && (
+                                        <div className="chat-bubble chat-bubble--assistant">
+                                            <span className="chat-bubble-label">AI Mentor</span>
+                                            <div className="chat-bubble-content">
+                                                <span className="chat-typing">Thinking<span className="chat-dots">...</span></span>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div ref={chatEndRef} />
+                                </div>
+                                {/* Image preview bar */}
+                                {chatImage && (
+                                    <div className="chat-image-bar">
+                                        <img src={chatImagePreview} alt="Preview" className="chat-image-thumb" />
+                                        <span className="chat-image-name">{chatImage.name}</span>
+                                        <button className="chat-image-remove" onClick={clearChatImage} title="Remove image">
+                                            <span className="material-symbols-outlined">close</span>
+                                        </button>
+                                    </div>
+                                )}
+                                <div className="chat-input-row">
+                                    <button
+                                        className="chat-image-btn"
+                                        onClick={() => chatImageRef.current?.click()}
+                                        disabled={chatLoading}
+                                        title="Attach screenshot"
+                                        type="button"
+                                    >
+                                        📷
+                                    </button>
+                                    <input
+                                        ref={chatImageRef}
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/gif,image/webp"
+                                        onChange={onChatImageSelect}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <input
+                                        className="chat-input"
+                                        type="text"
+                                        placeholder={chatImage ? 'Add a message about your screenshot...' : 'Ask about this binary...'}
+                                        value={chatInput}
+                                        onChange={e => setChatInput(e.target.value.slice(0, MAX_CHAT_CHARS))}
+                                        onKeyDown={onChatKeyDown}
+                                        disabled={chatLoading}
+                                        maxLength={MAX_CHAT_CHARS}
+                                        id="chat-input"
+                                    />
+                                    <button
+                                        className="chat-send-btn"
+                                        onClick={sendChat}
+                                        disabled={chatLoading || (!chatInput.trim() && !chatImage)}
+                                        id="chat-send-btn"
+                                    >
+                                        {chatLoading ? '...' : '▶ Send'}
+                                    </button>
+                                </div>
+                            </AccordionCard>
+                        </div>
+                    </>
+                )}
+
+                {/* ═══ Source Code Results ═══ */}
+                {analysisMode === 'source' && sourceResult && (
+                    <>
+                        <div className="analysis-meta-bar">
+                            <div className="meta-item">
+                                <span className="meta-label">File:</span>
+                                <span style={{ fontFamily: 'Courier New, monospace', fontSize: 13, color: 'var(--on-surface)' }}>
+                                    {sourceResult.filename}
+                                </span>
+                            </div>
+                            <div className="meta-item">
+                                <span className="meta-label">Code:</span>
+                                <span>{sourceResult.line_count} lines ({formatBytes(sourceResult.char_count)})</span>
                             </div>
                         </div>
 
-                        {/* 💬 Follow-up Chat */}
-                        <section className="chat-container">
-                            <div className="chat-title-bar">
-                                <span className="material-symbols-outlined chat-title-icon">forum</span>
-                                <span className="chat-title-text">Ask Follow-Up Questions</span>
-                            </div>
-                            <div className="chat-messages" id="chat-messages">
-                                {chatMessages.map((msg, i) => (
-                                    <div
-                                        className={`chat-bubble chat-bubble--${msg.role}`}
-                                        key={i}
-                                    >
-                                        <span className="chat-bubble-label">
-                                            {msg.role === 'user' ? 'You' : 'AI Mentor'}
-                                        </span>
-                                        {msg.image && (
-                                            <img src={msg.image} alt="Attached screenshot" className="chat-image-preview-bubble" />
-                                        )}
-                                        <div className="chat-bubble-content">
-                                            {msg.content.split(/\n/).filter(l => l.trim()).map((line, j) => (
-                                                <div key={j}>{line}</div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                                {chatLoading && (
-                                    <div className="chat-bubble chat-bubble--assistant">
-                                        <span className="chat-bubble-label">AI Mentor</span>
-                                        <div className="chat-bubble-content">
-                                            <span className="chat-typing">Thinking<span className="chat-dots">...</span></span>
-                                        </div>
-                                    </div>
-                                )}
-                                <div ref={chatEndRef} />
-                            </div>
-                            {/* Image preview bar */}
-                            {chatImage && (
-                                <div className="chat-image-bar">
-                                    <img src={chatImagePreview} alt="Preview" className="chat-image-thumb" />
-                                    <span className="chat-image-name">{chatImage.name}</span>
-                                    <button className="chat-image-remove" onClick={clearChatImage} title="Remove image">
-                                        <span className="material-symbols-outlined">close</span>
-                                    </button>
+                        <div className="accordion-stack">
+                            {/* 1. Language */}
+                            <AccordionCard
+                                title="Language Detected"
+                                icon="language"
+                                sectionKey="srcLang"
+                                summary={sourceResult.language}
+                                variant="source-lang"
+                                openSections={openSections}
+                                toggleSection={toggleSection}
+                            >
+                                <div className="section-padding">
+                                    <p>Identified via static heuristic matching.</p>
                                 </div>
-                            )}
-                            <div className="chat-input-row">
-                                <button
-                                    className="chat-image-btn"
-                                    onClick={() => chatImageRef.current?.click()}
-                                    disabled={chatLoading}
-                                    title="Attach screenshot"
-                                    type="button"
-                                >
-                                    📷
-                                </button>
-                                <input
-                                    ref={chatImageRef}
-                                    type="file"
-                                    accept="image/png,image/jpeg,image/gif,image/webp"
-                                    onChange={onChatImageSelect}
-                                    style={{ display: 'none' }}
-                                />
-                                <input
-                                    className="chat-input"
-                                    type="text"
-                                    placeholder={chatImage ? 'Add a message about your screenshot...' : 'Ask about this binary...'}
-                                    value={chatInput}
-                                    onChange={e => setChatInput(e.target.value.slice(0, MAX_CHAT_CHARS))}
-                                    onKeyDown={onChatKeyDown}
-                                    disabled={chatLoading}
-                                    maxLength={MAX_CHAT_CHARS}
-                                    id="chat-input"
-                                />
-                                <button
-                                    className="chat-send-btn"
-                                    onClick={sendChat}
-                                    disabled={chatLoading || (!chatInput.trim() && !chatImage)}
-                                    id="chat-send-btn"
-                                >
-                                    {chatLoading ? '...' : '▶ Send'}
-                                </button>
-                            </div>
-                        </section>
+                            </AccordionCard>
+
+                            {/* 2. Vulnerabilities */}
+                            <AccordionCard
+                                title="Vulnerabilities"
+                                icon="warning"
+                                sectionKey="srcVuln"
+                                summary={`${sourceResult.vulnerabilities.split('\n').filter(l => l.startsWith('•')).length || 0} found`}
+                                variant="source-vuln"
+                                openSections={openSections}
+                                toggleSection={toggleSection}
+                            >
+                                <div className="flag-list">
+                                    {sourceResult.vulnerabilities ? (
+                                        sourceResult.vulnerabilities.split('\n').filter(val => val.trim()).map((line, i) => (
+                                            <div key={i} className="flag-item">
+                                                <span className="flag-icon">⚠️</span>
+                                                <span className="flag-text">{line.replace(/^•\s*/, '')}</span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="section-empty">No obvious vulnerabilities detected.</div>
+                                    )}
+                                </div>
+                            </AccordionCard>
+
+                            {/* 3. Dangerous Functions */}
+                            <AccordionCard
+                                title="Dangerous Functions"
+                                icon="pest_control"
+                                sectionKey="srcDanger"
+                                summary={`${sourceResult.dangerous_functions.length || 0} detected`}
+                                variant="source-danger"
+                                openSections={openSections}
+                                toggleSection={toggleSection}
+                            >
+                                <div className="flag-list">
+                                    {sourceResult.dangerous_functions.length > 0 ? (
+                                        sourceResult.dangerous_functions.map((fn, i) => (
+                                            <div key={i} className="flag-item">
+                                                <span className="flag-icon">🔴</span>
+                                                <span className="flag-text">
+                                                    Line {fn.line}: <strong>{fn.function}</strong> &mdash; {fn.description}
+                                                </span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="section-empty">No dangerous function calls detected.</div>
+                                    )}
+                                </div>
+                            </AccordionCard>
+
+                            {/* 4. AI Hints */}
+                            <AccordionCard
+                                title="CTF Hints"
+                                icon="lightbulb"
+                                sectionKey="srcHints"
+                                summary="Strategic guidance"
+                                variant="source-hints"
+                                openSections={openSections}
+                                toggleSection={toggleSection}
+                            >
+                                <div className="ai-hints-body">
+                                    <div className="ai-bullets">
+                                        {sourceResult.hints ? (
+                                            sourceResult.hints.split('\n').filter(val => val.trim()).map((line, i) => (
+                                                <div key={i} className="ai-bullet">
+                                                    <span className="bullet-point"></span>
+                                                    <span dangerouslySetInnerHTML={{ __html: line.replace(/^•\s*/, '').replace(/`(.*?)`/g, '<code class="inline-code">$1</code>') }} />
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="section-empty">No hints generated.</div>
+                                        )}
+                                    </div>
+                                    {sourceResult.next_steps && (
+                                        <div className="ai-kill-chain">
+                                            <div className="kill-chain-header">
+                                                <span className="material-symbols-outlined">play_circle</span>
+                                                Next Steps
+                                            </div>
+                                            <div className="ai-bullets">
+                                                {sourceResult.next_steps.split('\n').filter(val => val.trim()).map((line, i) => (
+                                                    <div key={i} className="ai-bullet" style={{ color: 'var(--on-surface-variant)' }}>
+                                                        <span className="bullet-point" style={{ background: 'var(--on-surface-variant)' }}></span>
+                                                        <span dangerouslySetInnerHTML={{ __html: line.replace(/^•\s*/, '').replace(/`(.*?)`/g, '<code class="inline-code">$1</code>') }} />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </AccordionCard>
+
+                            {/* 5. Source Code View */}
+                            <AccordionCard
+                                title="Source Code"
+                                icon="code"
+                                sectionKey="srcCode"
+                                summary="View full source"
+                                variant="source-code"
+                                openSections={openSections}
+                                toggleSection={toggleSection}
+                            >
+                                <div className="hex-viewer-body">
+                                    <pre className="hex-pre">
+                                        <code>{sourceCode}</code>
+                                    </pre>
+                                </div>
+                            </AccordionCard>
+
+                            {/* 6. Chat Component reused entirely */}
+                        </div>
                     </>
                 )}
 

@@ -328,6 +328,131 @@ body {
   transform: scale(0.95);
 }
 
+/* ── Analysis Mode Toggle ──────────────────────────────────────────── */
+.mode-toggle {
+  display: flex;
+  background: var(--surface-container);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 24px;
+  border: 1px solid var(--outline-variant);
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  color: var(--on-surface-variant);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--on-surface);
+}
+
+.mode-btn.active {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+/* ── Source Code Input Section ─────────────────────────────────────── */
+.source-input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.source-dropzone {
+  border-style: dashed;
+  min-height: auto;
+  padding: 32px 20px !important;
+}
+
+.source-staged {
+  margin-top: 8px;
+}
+
+.source-divider {
+  text-align: center;
+  position: relative;
+  margin: 8px 0;
+}
+
+.source-divider::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  border-bottom: 1px dashed var(--outline-variant);
+  z-index: 0;
+}
+
+.source-divider span {
+  background: var(--background);
+  padding: 0 12px;
+  color: var(--on-surface-variant);
+  font-size: 10px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  position: relative;
+  z-index: 1;
+}
+
+.source-textarea-wrapper {
+  position: relative;
+  border: 1px solid var(--outline-variant);
+  border-radius: 4px;
+  background: var(--surface-container);
+  transition: border-color 0.2s;
+}
+
+.source-textarea-wrapper:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 10px rgba(156, 255, 147, 0.15);
+}
+
+.source-textarea {
+  width: 100%;
+  height: 250px;
+  background: transparent;
+  border: none;
+  color: var(--on-surface);
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  padding: 16px;
+  resize: vertical;
+  outline: none;
+  line-height: 1.5;
+}
+
+.source-textarea::placeholder {
+  color: var(--on-surface-variant);
+  opacity: 0.5;
+}
+
+.char-counter {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-size: 10px;
+  font-family: 'Courier New', monospace;
+  color: var(--on-surface-variant);
+  background: var(--surface-container);
+  padding: 2px 6px;
+  border-radius: 2px;
+  opacity: 0.8;
+}
+
 /* ── Terminal Loading ──────────────────────────────────────────────── */
 .terminal-loading {
   margin-top: 16px;
@@ -769,6 +894,209 @@ body {
   grid-template-columns: 1fr;
   gap: 24px;
   margin-top: 24px;
+}
+
+/* ── Accordion Card System ─────────────────────────────────────────── */
+.accordion-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.accordion-card {
+  border-radius: 2px;
+  background: var(--surface-container);
+  border: 1px solid rgba(68, 72, 79, 0.2);
+  overflow: hidden;
+  animation: risk-fade-in 0.4s ease-out;
+}
+
+/* ── Variant left-border colors ── */
+.accordion-card--risk-clean    { border-left: 4px solid #4ade80; }
+.accordion-card--risk-warning  { border-left: 4px solid #fbbf24; }
+.accordion-card--risk-critical { border-left: 4px solid #f87171; }
+.accordion-card--checksec      { border-left: 4px solid #3b82f6; }
+.accordion-card--entropy-low      { border-left: 4px solid #22d3ee; }
+.accordion-card--entropy-medium   { border-left: 4px solid #fbbf24; }
+.accordion-card--entropy-high     { border-left: 4px solid #fb923c; }
+.accordion-card--entropy-veryhigh { border-left: 4px solid #f87171; }
+.accordion-card--yara          { border-left: 4px solid #f97316; }
+.accordion-card--encodings     { border-left: 4px solid #a855f7; }
+.accordion-card--vt-scanning   { border-left: 4px solid #3b82f6; }
+.accordion-card--vt-clean      { border-left: 4px solid #22c55e; }
+.accordion-card--vt-suspicious { border-left: 4px solid #f59e0b; }
+.accordion-card--vt-malicious  { border-left: 4px solid #ef4444; }
+.accordion-card--vt-pending    { border-left: 4px solid #3b82f6; }
+.accordion-card--vt-error      { border-left: 4px solid var(--outline-variant); }
+.accordion-card--hex           { border-left: 4px solid #3b82f6; }
+.accordion-card--disasm        { border-left: 4px solid #22d3ee; }
+.accordion-card--strings       { border-left: 4px solid var(--primary); }
+.accordion-card--flags         { border-left: 4px solid var(--error); }
+.accordion-card--findings      { border-left: 4px solid var(--secondary); }
+.accordion-card--pwn           { border-left: 4px solid #f59e0b; }
+.accordion-card--hints         { border-left: 4px solid var(--secondary-dim); }
+.accordion-card--chat          { border-left: 4px solid var(--primary); }
+.accordion-card--source-lang   { border-left: 4px solid #60a5fa; }
+.accordion-card--source-vuln   { border-left: 4px solid #ef4444; }
+.accordion-card--source-danger { border-left: 4px solid #f97316; }
+.accordion-card--source-hints  { border-left: 4px solid #facc15; }
+.accordion-card--source-code   { border-left: 4px solid #94a3b8; }
+
+/* ── Accordion Header Button ── */
+.accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 20px;
+  background: rgba(255, 255, 255, 0.015);
+  border: none;
+  color: var(--on-surface);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: left;
+}
+
+.accordion-header:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.accordion-header--open {
+  border-bottom: 1px solid rgba(68, 72, 79, 0.2);
+}
+
+/* ── Arrow Indicator ── */
+.accordion-arrow {
+  font-size: 10px;
+  color: var(--on-surface-variant);
+  opacity: 0.6;
+  transition: transform 200ms ease;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.accordion-arrow--open {
+  transform: rotate(90deg);
+}
+
+/* ── Icon & Title ── */
+.accordion-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.accordion-title {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.accordion-summary {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+  opacity: 0.65;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'Courier New', monospace;
+  text-transform: none;
+}
+
+/* ── Accordion Body (animated) ── */
+.accordion-body-wrapper {
+  transition: height 200ms ease;
+}
+
+.accordion-body {
+  padding: 0;
+}
+
+/* ── Variant header tint colors ── */
+.accordion-card--risk-clean .accordion-header    { color: #4ade80; }
+.accordion-card--risk-warning .accordion-header  { color: #fbbf24; }
+.accordion-card--risk-critical .accordion-header { color: #f87171; }
+.accordion-card--checksec .accordion-header      { color: #60a5fa; }
+.accordion-card--entropy-low .accordion-header      { color: #22d3ee; }
+.accordion-card--entropy-medium .accordion-header   { color: #fbbf24; }
+.accordion-card--entropy-high .accordion-header     { color: #fb923c; }
+.accordion-card--entropy-veryhigh .accordion-header { color: #f87171; }
+.accordion-card--yara .accordion-header          { color: #fb923c; }
+.accordion-card--encodings .accordion-header     { color: #c084fc; }
+.accordion-card--vt-scanning .accordion-header   { color: #60a5fa; }
+.accordion-card--vt-clean .accordion-header      { color: #4ade80; }
+.accordion-card--vt-suspicious .accordion-header { color: #fbbf24; }
+.accordion-card--vt-malicious .accordion-header  { color: #f87171; }
+.accordion-card--vt-pending .accordion-header    { color: #60a5fa; }
+.accordion-card--vt-error .accordion-header      { color: var(--on-surface-variant); }
+.accordion-card--hex .accordion-header           { color: #60a5fa; }
+.accordion-card--disasm .accordion-header        { color: #67e8f9; }
+.accordion-card--strings .accordion-header       { color: var(--primary); }
+.accordion-card--flags .accordion-header         { color: var(--error); }
+.accordion-card--findings .accordion-header      { color: var(--secondary); }
+.accordion-card--pwn .accordion-header           { color: #fbbf24; }
+.accordion-card--hints .accordion-header         { color: var(--secondary); }
+.accordion-card--chat .accordion-header          { color: var(--primary); }
+.accordion-card--source-lang .accordion-header   { color: #60a5fa; }
+.accordion-card--source-vuln .accordion-header   { color: #ef4444; }
+.accordion-card--source-danger .accordion-header { color: #f97316; }
+.accordion-card--source-hints .accordion-header  { color: #facc15; }
+.accordion-card--source-code .accordion-header   { color: #cbd5e1; }
+
+/* ── Pwn template action bar inside accordion ── */
+.pwn-template-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(68, 72, 79, 0.15);
+}
+
+/* ── Inner card resets when used inside accordion ── */
+.accordion-body .risk-card,
+.accordion-body .entropy-card {
+  margin-top: 0;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none;
+}
+
+.accordion-body .checksec-badges {
+  padding: 20px 24px;
+}
+
+.accordion-body .hex-viewer-body,
+.accordion-body .disasm-body {
+  border-radius: 0;
+}
+
+.accordion-body .vt-scanning,
+.accordion-body .vt-pending,
+.accordion-body .vt-results-body,
+.accordion-body .section-empty {
+  padding: 20px 24px;
+}
+
+.accordion-body .yara-rule {
+  padding: 12px 24px;
+}
+
+.accordion-body .finding-category {
+  padding: 0 24px;
+}
+
+.accordion-body .section-item--encoding {
+  padding-left: 40px;
 }
 
 /* ── YARA Matches Card ─────────────────────────────────────────────── */

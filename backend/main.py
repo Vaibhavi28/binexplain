@@ -57,6 +57,15 @@ MIN_STRING_LENGTH = 4  # minimum printable-ASCII run to extract
 MAX_STRINGS_FOR_AI = 100  # cap strings sent to Claude to avoid token abuse
 MAX_CHAT_MESSAGES = 10    # max conversation turns kept per request
 MAX_CHAT_CHARS = 2000     # max characters per single chat message
+MAX_SOURCE_CODE_CHARS = 10000  # max characters for source code analysis
+SOURCE_CODE_EXTENSIONS: set[str] = {
+    ".c", ".cpp", ".h", ".hpp",  # C/C++
+    ".py",                        # Python
+    ".js",                        # JavaScript
+    ".rs",                        # Rust
+    ".go",                        # Go
+    ".java",                      # Java
+}
 
 OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODELS = ["llama3.2", "qwen2.5-coder", "qwen2.5"]
@@ -144,6 +153,45 @@ CHAT_SYSTEM_PROMPT = (
     "🔥 Try this first: `checksec ./binary`"
 )
 
+SOURCE_CODE_SYSTEM_PROMPT = (
+    "You are a security-focused code reviewer and CTF mentor helping beginners analyze source code "
+    "for vulnerabilities.\n\n"
+    "Given source code, respond using ONLY the format below.\n\n"
+    "ABSOLUTE RULES — you must follow every single one:\n"
+    "1. Start with a single line: LANGUAGE: <detected language>\n"
+    "2. Then a blank line, then VULNERABILITIES: on its own line, followed by • bullet points.\n"
+    "   Each • bullet = one vulnerability with the line number(s) if identifiable, what's wrong, and why it's dangerous.\n"
+    "   Maximum 8 bullets. If no vulnerabilities found, write: • No obvious vulnerabilities detected.\n"
+    "3. Then a blank line, then DANGEROUS FUNCTIONS: on its own line, followed by • bullet points.\n"
+    "   Each • lists a dangerous function call found and why it's risky.\n"
+    "   Maximum 6 bullets. If none found, write: • No dangerous function calls detected.\n"
+    "4. Then a blank line, then CTF HINTS: on its own line, followed by • bullet points.\n"
+    "   Each • = one specific actionable hint for a CTF player (how to exploit, what to look for).\n"
+    "   Maximum 5 bullets.\n"
+    "5. Then a blank line, then NEXT STEPS: on its own line, followed by • bullet points.\n"
+    "   Each • = one concrete command or action to take next, with examples.\n"
+    "   Maximum 4 bullets.\n"
+    "6. NEVER use markdown headers (#), numbered lists (1. 2. 3.), bold (**), or italic (*).\n"
+    "7. Do NOT write anything before LANGUAGE: or any prose paragraphs anywhere.\n\n"
+    "EXAMPLE (follow this format exactly):\n"
+    "LANGUAGE: C\n\n"
+    "VULNERABILITIES:\n"
+    "• Line 12: gets(buffer) — unbounded read into stack buffer, classic buffer overflow.\n"
+    "• Line 18: strcpy(dest, src) — no bounds checking, can overflow dest.\n"
+    "• Line 25: printf(user_input) — format string vulnerability, attacker can read/write memory.\n\n"
+    "DANGEROUS FUNCTIONS:\n"
+    "• gets() — never use, no way to limit input length.\n"
+    "• system() — executes shell commands, can be hijacked via buffer overflow.\n\n"
+    "CTF HINTS:\n"
+    "• The buffer on line 12 is 64 bytes — overflow it to overwrite the return address.\n"
+    "• Look for a win() function that reads flag.txt — redirect execution there.\n"
+    "• The format string on line 25 can leak stack addresses with %p.\n\n"
+    "NEXT STEPS:\n"
+    "• Compile with: gcc -fno-stack-protector -no-pie -o vuln vuln.c\n"
+    "• Test overflow: python3 -c 'print(\"A\"*100)' | ./vuln\n"
+    "• Find offset: cyclic 100 | ./vuln then cyclic -l <crash_value>\n"
+)
+
 logger = logging.getLogger("binexplain")
 
 
@@ -165,6 +213,25 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     context: str = ""
+
+
+class CodeAnalysisRequest(BaseModel):
+    code: str
+    filename: str = ""
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, v: str) -> str:
+        if len(v) > MAX_SOURCE_CODE_CHARS:
+            raise ValueError(f"Source code exceeds {MAX_SOURCE_CODE_CHARS} character limit.")
+        if not v.strip():
+            raise ValueError("Source code is empty.")
+        return v
+
+    @field_validator("filename")
+    @classmethod
+    def cap_filename(cls, v: str) -> str:
+        return v[:200]
 
 # Expected magic-byte prefixes for known binary formats
 FILE_SIGNATURES: dict[str, bytes] = {
@@ -944,6 +1011,238 @@ def _try_ollama_chat(messages: list[dict]) -> str | None:
             logger.warning("Ollama chat model '%s' failed: %s", model, exc)
             continue
     return None
+
+
+# ---------------------------------------------------------------------------
+# Source code analysis
+# ---------------------------------------------------------------------------
+# Dangerous function patterns by language family
+_DANGEROUS_PATTERNS: dict[str, list[tuple[str, str]]] = {
+    "c": [
+        (r'\bgets\s*\(', "gets() — unbounded read, classic buffer overflow"),
+        (r'\bstrcpy\s*\(', "strcpy() — no bounds check, can overflow destination"),
+        (r'\bstrcat\s*\(', "strcat() — no bounds check on concatenation"),
+        (r'\bsprintf\s*\(', "sprintf() — no bounds check on formatted output"),
+        (r'\bscanf\s*\(\s*"%s"', "scanf(\"%s\") — no width limit, buffer overflow"),
+        (r'\bsystem\s*\(', "system() — shell command execution, potential injection"),
+        (r'\bexecve?\s*\(', "exec() — direct process execution"),
+        (r'\bprintf\s*\(\s*[a-zA-Z_]', "printf(var) — possible format string vulnerability"),
+        (r'\bmalloc\s*\(.*\)\s*;(?!.*if)', "malloc() — unchecked return value (possible NULL deref)"),
+        (r'\bfree\s*\(', "free() — check for double-free or use-after-free"),
+    ],
+    "python": [
+        (r'\beval\s*\(', "eval() — arbitrary code execution from user input"),
+        (r'\bexec\s*\(', "exec() — arbitrary code execution"),
+        (r'\b__import__\s*\(', "__import__() — dynamic import, potential code injection"),
+        (r'\bos\.system\s*\(', "os.system() — shell command injection"),
+        (r'\bsubprocess\.\w+\s*\(.*shell\s*=\s*True', "subprocess(shell=True) — shell injection"),
+        (r'\bpickle\.loads?\s*\(', "pickle.load() — deserialization attack vector"),
+        (r'\byaml\.load\s*\((?!.*Loader)', "yaml.load() without SafeLoader — code execution"),
+        (r'\binput\s*\(.*\)\s*$', "input() — in Python 2 this executes code"),
+    ],
+    "javascript": [
+        (r'\beval\s*\(', "eval() — arbitrary code execution"),
+        (r'\bnew\s+Function\s*\(', "new Function() — dynamic code execution"),
+        (r'\bsetTimeout\s*\(\s*["\']', "setTimeout(string) — implicit eval"),
+        (r'\binnerHTML\s*=', "innerHTML assignment — XSS vulnerability"),
+        (r'\bdocument\.write\s*\(', "document.write() — potential XSS"),
+        (r'\b(child_process|exec|spawn)', "child_process — command injection risk"),
+    ],
+    "rust": [
+        (r'\bunsafe\s*\{', "unsafe block — bypasses Rust's memory safety guarantees"),
+        (r'\.unwrap\s*\(\s*\)', ".unwrap() — can panic on None/Err, potential DoS"),
+        (r'\bstd::process::Command', "Command execution — shell injection risk"),
+        (r'\braw\s+pointer', "Raw pointer usage — manual memory management"),
+    ],
+    "go": [
+        (r'\bexec\.Command\s*\(', "exec.Command() — OS command execution"),
+        (r'\bunsafe\.Pointer', "unsafe.Pointer — bypasses Go's type safety"),
+        (r'\bcgo\b', "CGo — interfacing with C, inherits C's memory unsafety"),
+        (r'\bos\.Exec\s*\(', "os.Exec() — replaces current process"),
+    ],
+}
+
+# Language extension map
+_EXT_TO_LANG: dict[str, str] = {
+    ".c": "c", ".h": "c", ".cpp": "c", ".hpp": "c", ".cc": "c",
+    ".py": "python",
+    ".js": "javascript", ".ts": "javascript", ".jsx": "javascript",
+    ".rs": "rust",
+    ".go": "go",
+    ".java": "c",  # Java shares many C-family patterns
+}
+
+
+def _detect_language_from_code(code: str) -> str:
+    """
+    Heuristically detect the programming language from code content.
+    """
+    first_lines = code[:2000].lower()
+    if "#include" in first_lines or "int main" in first_lines or "void " in first_lines:
+        return "c"
+    if "def " in first_lines and ("import " in first_lines or "print(" in first_lines):
+        return "python"
+    if "function " in first_lines or "const " in first_lines or "=>" in first_lines:
+        return "javascript"
+    if "fn " in first_lines and ("let " in first_lines or "mut " in first_lines):
+        return "rust"
+    if "func " in first_lines and "package " in first_lines:
+        return "go"
+    if "class " in first_lines and "public " in first_lines:
+        return "c"  # Java / C#
+    return "unknown"
+
+
+def _find_dangerous_functions(code: str, lang: str) -> list[dict]:
+    """
+    Scan source code for dangerous function patterns.
+    Returns list of {function, description, line} dicts.
+    """
+    patterns = _DANGEROUS_PATTERNS.get(lang, [])
+    if not patterns:
+        # Try all pattern sets if language unknown
+        for _patterns in _DANGEROUS_PATTERNS.values():
+            patterns.extend(_patterns)
+
+    results: list[dict] = []
+    lines = code.split("\n")
+    seen: set[str] = set()
+
+    for i, line in enumerate(lines, 1):
+        stripped = line.strip()
+        if stripped.startswith("//") or stripped.startswith("#") or stripped.startswith("*"):
+            continue  # skip comments
+        for pattern, description in patterns:
+            if re.search(pattern, line) and description not in seen:
+                results.append({
+                    "function": description.split("(")[0].split("—")[0].strip(),
+                    "description": description,
+                    "line": i,
+                })
+                seen.add(description)
+    return results[:20]  # cap
+
+
+def analyze_source_code(code: str, filename: str = "") -> dict:
+    """
+    Analyze source code for vulnerabilities and dangerous patterns.
+
+    Security:
+    • Code is NEVER stored to disk or executed.
+    • Code is only sent to AI APIs in memory.
+    • No temp files are created.
+    """
+    # Detect language
+    ext = Path(filename).suffix.lower() if filename else ""
+    lang = _EXT_TO_LANG.get(ext, "")
+    if not lang:
+        lang = _detect_language_from_code(code)
+
+    lang_display = {
+        "c": "C/C++", "python": "Python", "javascript": "JavaScript",
+        "rust": "Rust", "go": "Go", "unknown": "Unknown",
+    }.get(lang, lang.title())
+
+    # Static pattern matching
+    dangerous = _find_dangerous_functions(code, lang)
+
+    # Build AI prompt
+    line_count = len(code.split("\n"))
+    user_message = (
+        f"Analyze this source code ({lang_display}, {line_count} lines, filename: {filename or 'unknown'}):\n\n"
+        f"```\n{code[:MAX_SOURCE_CODE_CHARS]}\n```"
+    )
+
+    # Try AI providers (Claude → Groq → OpenAI → Ollama)
+    ai_response = ""
+
+    if ANTHROPIC_API_KEY:
+        try:
+            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+            message = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1500,
+                system=SOURCE_CODE_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_message}],
+            )
+            ai_response = message.content[0].text
+        except Exception as exc:
+            logger.warning("Anthropic source code analysis failed: %s", exc)
+
+    if not ai_response:
+        result = _try_groq(
+            messages=[{"role": "user", "content": user_message}],
+            system_prompt=SOURCE_CODE_SYSTEM_PROMPT,
+        )
+        if result:
+            ai_response = result
+
+    if not ai_response:
+        result = _try_openai(
+            messages=[{"role": "user", "content": user_message}],
+            system_prompt=SOURCE_CODE_SYSTEM_PROMPT,
+        )
+        if result:
+            ai_response = result
+
+    if not ai_response:
+        result = _try_ollama(user_message)
+        if result:
+            ai_response = result
+
+    if not ai_response:
+        ai_response = (
+            "AI analysis unavailable — set ANTHROPIC_API_KEY, GROQ_API_KEY, or OPENAI_API_KEY "
+            "to enable AI-powered code review."
+        )
+
+    # Parse AI response into sections
+    sections = {
+        "language": lang_display,
+        "vulnerabilities": "",
+        "dangerous_functions_ai": "",
+        "hints": "",
+        "next_steps": "",
+    }
+
+    current_section = None
+    for line in ai_response.split("\n"):
+        line_stripped = line.strip()
+        upper = line_stripped.upper()
+
+        if upper.startswith("LANGUAGE:"):
+            detected = line_stripped[len("LANGUAGE:"):].strip()
+            if detected:
+                sections["language"] = detected
+            continue
+        elif upper.startswith("VULNERABILITIES:"):
+            current_section = "vulnerabilities"
+            continue
+        elif upper.startswith("DANGEROUS FUNCTIONS:"):
+            current_section = "dangerous_functions_ai"
+            continue
+        elif upper.startswith("CTF HINTS:"):
+            current_section = "hints"
+            continue
+        elif upper.startswith("NEXT STEPS:"):
+            current_section = "next_steps"
+            continue
+
+        if current_section and line_stripped:
+            sections[current_section] += line + "\n"
+
+    return {
+        "language": sections["language"],
+        "line_count": line_count,
+        "char_count": len(code),
+        "filename": filename or "(pasted)",
+        "dangerous_functions": dangerous,
+        "vulnerabilities": sections["vulnerabilities"].strip(),
+        "dangerous_functions_ai": sections["dangerous_functions_ai"].strip(),
+        "hints": sections["hints"].strip(),
+        "next_steps": sections["next_steps"].strip(),
+        "raw_ai_response": ai_response,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -2557,6 +2856,25 @@ async def analyze(
 
     # ── 6. Analyze the single binary ─────────────────────────────────
     return _analyze_single_file(content, file.filename or "unknown", ext, detected_type)
+
+
+@app.post("/analyze-code")
+@limiter.limit("10/hour")
+async def analyze_code_endpoint(request: Request, body: CodeAnalysisRequest):
+    """
+    Analyze source code for vulnerabilities and dangerous patterns.
+
+    Accepts source code as text (max 10,000 characters), sends to AI
+    (Claude → Groq → OpenAI → Ollama fallback), and returns structured
+    analysis results.
+
+    Security:
+    • Code is NEVER stored to disk or executed.
+    • Code is only sent to AI APIs in memory.
+    • No temp files are created.
+    • Rate limited to 10 requests per hour per IP.
+    """
+    return analyze_source_code(body.code, body.filename)
 
 
 @app.get("/virustotal/{scan_id}")
