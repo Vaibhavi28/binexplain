@@ -360,7 +360,7 @@ def _validate_mime(content: bytes, ext: str) -> None:
     """
     # ZIP files have their own signature check
     if ext == ".zip":
-        if not content[:4] == b"PK\x03\x04":
+        if not content.startswith(b"PK"):
             raise HTTPException(
                 status_code=400,
                 detail="File does not appear to be a valid ZIP archive.",
@@ -386,43 +386,7 @@ def _validate_mime(content: bytes, ext: str) -> None:
                 detail="File appears to be a script or markup file, not a binary.",
             )
 
-# ---------------------------------------------------------------------------
-# Entropy analysis
-# ---------------------------------------------------------------------------
-def calculate_entropy(data: bytes) -> float:
-    """
-    Calculate Shannon entropy of binary data.
 
-    Returns a float between 0.0 and 8.0:
-    • < 5.0  → normal binary (code, data sections)
-    • 5.0–7.0 → compressed data or dense content
-    • > 7.0  → likely packed, encrypted, or compressed
-    """
-    import math
-    if not data:
-        return 0.0
-    freq = [0] * 256
-    for byte in data:
-        freq[byte] += 1
-    length = len(data)
-    entropy = 0.0
-    for count in freq:
-        if count > 0:
-            p = count / length
-            entropy -= p * math.log2(p)
-    return round(entropy, 3)
-
-
-def _entropy_label(entropy: float) -> str:
-    """Return a human-readable label for an entropy value."""
-    if entropy < 5.0:
-        return "Low"
-    elif entropy < 6.5:
-        return "Medium"
-    elif entropy < 7.0:
-        return "High"
-    else:
-        return "Very High (packed/encrypted)"
 
 
 # ---------------------------------------------------------------------------
@@ -489,130 +453,13 @@ def detect_encodings(strings: list[str]) -> dict[str, list[str]]:
 
 
 # ---------------------------------------------------------------------------
-# YARA-style pattern matching (pure Python — no yara-python dependency)
+# Encoding detection helpers (URL/IP regexes kept for detect_encodings)
 # ---------------------------------------------------------------------------
 _IP_RE = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
 _URL_RE = re.compile(r'https?://[^\s\x00]+', re.IGNORECASE)
 _FORMAT_STRING_RE = re.compile(r'%[0-9]*[nxspdl]', re.IGNORECASE)
 
-# Rule definitions: (id, label, description)
-_YARA_RULES: list[tuple[str, str, str]] = [
-    ("shellcode",             "Shellcode / NOP Sled",          "NOP sled or shellcode-like byte patterns detected"),
-    ("format_string_vuln",    "Format String Vulnerability",   "printf/sprintf format specifiers with potential user input"),
-    ("hardcoded_credentials", "Hardcoded Credentials",         "Embedded passwords, usernames, or API keys"),
-    ("network_indicators",    "Network Indicators",            "URLs, IP addresses, or network connection strings"),
-    ("crypto_indicators",     "Crypto / Encryption",           "References to cryptographic algorithms or key material"),
-    ("anti_debug",            "Anti-Debug Techniques",         "Debugger detection or anti-analysis tricks"),
-    ("heap_spray",            "Heap Spray / Mass Allocation",  "Patterns suggesting heap spraying or repeated allocation"),
-    ("rop_gadgets",           "ROP Gadget Indicators",         "Return-oriented programming gadget references"),
-    ("win_condition",         "Win / Flag Condition",          "Functions or code paths that reveal the flag"),
-    ("packed_binary",         "Packed / Encrypted Binary",     "Very high entropy with few readable strings — likely packed"),
-]
 
-
-def detect_yara_patterns(
-    strings: list[str],
-    content: bytes,
-    entropy: float,
-    strings_count: int,
-) -> list[dict]:
-    """
-    Pure-Python YARA-style pattern matching.  Scans extracted strings and
-    raw binary content against 10 heuristic rules.
-
-    Returns a list of dicts: [{ rule, label, description, matches }]
-    Only rules with at least one match are returned.
-    """
-    results: list[dict] = []
-    rule_map = {r[0]: (r[1], r[2]) for r in _YARA_RULES}
-    matches_by_rule: dict[str, list[str]] = {r[0]: [] for r in _YARA_RULES}
-
-    # --- Raw bytes scan for shellcode ---
-    # NOP sled: 4+ consecutive 0x90 bytes
-    if b"\x90\x90\x90\x90" in content:
-        matches_by_rule["shellcode"].append("NOP sled (\\x90\\x90\\x90\\x90) found in binary")
-
-    for s in strings:
-        s_lower = s.lower()
-
-        # shellcode — string-level hints
-        if "shellcode" in s_lower or "nop sled" in s_lower or "\\x90\\x90" in s:
-            matches_by_rule["shellcode"].append(s[:80])
-
-        # format_string_vuln — printf-family with format specifiers
-        if any(fn in s for fn in ("printf", "sprintf", "fprintf", "snprintf")):
-            fmt_matches = _FORMAT_STRING_RE.findall(s)
-            if fmt_matches:
-                matches_by_rule["format_string_vuln"].append(s[:80])
-
-        # hardcoded_credentials
-        cred_patterns = ("password=", "passwd=", "admin:", "root:", "secret=",
-                         "api_key=", "apikey=", "token=", "auth=")
-        if any(cp in s_lower for cp in cred_patterns):
-            matches_by_rule["hardcoded_credentials"].append(s[:80])
-
-        # network_indicators
-        if _URL_RE.search(s):
-            matches_by_rule["network_indicators"].append(s[:100])
-        elif _IP_RE.search(s):
-            # Filter out common non-network IPs (version strings like "2.0.0.0")
-            ip_match = _IP_RE.search(s)
-            if ip_match:
-                octets = ip_match.group().split(".")
-                if not all(o == "0" for o in octets[1:]):  # skip x.0.0.0 version strings
-                    matches_by_rule["network_indicators"].append(s[:100])
-
-        # crypto_indicators
-        crypto_kw = ("aes", "rsa", "md5", "sha1", "sha256", "sha512",
-                     "encrypt", "decrypt", "cipher", "blowfish", "des3")
-        if any(kw in s_lower for kw in crypto_kw):
-            matches_by_rule["crypto_indicators"].append(s[:80])
-
-        # anti_debug
-        anti_dbg = ("ptrace", "isdebuggerpresent", "debugger", "ntquerysysteminformation",
-                    "checkremotedebuggerpresent", "outputdebugstring", "int3")
-        if any(kw in s_lower for kw in anti_dbg):
-            matches_by_rule["anti_debug"].append(s[:80])
-
-        # heap_spray — multiple malloc/calloc references or large sizes
-        if "malloc" in s and any(c.isdigit() for c in s):
-            matches_by_rule["heap_spray"].append(s[:80])
-        elif "calloc" in s_lower or "heap spray" in s_lower:
-            matches_by_rule["heap_spray"].append(s[:80])
-
-        # rop_gadgets
-        rop_kw = ("pop rdi", "pop rsi", "pop rdx", "pop rax",
-                  "ret;", "gadget", "rop chain", "pop ebp", "pop esp")
-        if any(kw in s_lower for kw in rop_kw):
-            matches_by_rule["rop_gadgets"].append(s[:80])
-
-        # win_condition
-        win_kw = ("win(", "get_flag", "print_flag", "cat flag",
-                  "read_flag", "open_flag", "give_shell", "spawn_shell")
-        if any(kw in s_lower for kw in win_kw):
-            matches_by_rule["win_condition"].append(s[:80])
-
-    # packed_binary — high entropy + very few strings
-    if entropy > 7.0 and strings_count < 20:
-        matches_by_rule["packed_binary"].append(
-            f"Entropy {entropy:.3f}/8.0 with only {strings_count} strings"
-        )
-
-    # Build output — only rules with matches
-    for rule_id, (label, description) in rule_map.items():
-        match_list = matches_by_rule[rule_id]
-        if match_list:
-            # Deduplicate and cap at 10
-            deduped = list(dict.fromkeys(match_list))[:10]
-            results.append({
-                "rule": rule_id,
-                "label": label,
-                "description": description,
-                "matches": deduped,
-                "count": len(deduped),
-            })
-
-    return results
 
 
 # ---------------------------------------------------------------------------
@@ -1018,6 +865,11 @@ def _try_ollama_chat(messages: list[dict]) -> str | None:
 # ---------------------------------------------------------------------------
 # Dangerous function patterns by language family
 _DANGEROUS_PATTERNS: dict[str, list[tuple[str, str]]] = {
+    "all": [
+        (r'(?i)(password|passwd|secret|api_key|apikey)\s*=\s*["\'][^"\']*["\']', "Hardcoded credential (password=, secret=, api_key=)"),
+        (r'(?i)(SELECT|INSERT|UPDATE|DELETE).*(execute|query)', "SQL injection pattern (SELECT, INSERT, execute, query)"),
+        (r'(?i)(os\.system|subprocess|eval|exec)\s*\(', "Command injection pattern (os.system, subprocess, eval, exec)"),
+    ],
     "c": [
         (r'\bgets\s*\(', "gets() — unbounded read, classic buffer overflow"),
         (r'\bstrcpy\s*\(', "strcpy() — no bounds check, can overflow destination"),
@@ -1098,11 +950,13 @@ def _find_dangerous_functions(code: str, lang: str) -> list[dict]:
     Scan source code for dangerous function patterns.
     Returns list of {function, description, line} dicts.
     """
-    patterns = _DANGEROUS_PATTERNS.get(lang, [])
-    if not patterns:
+    patterns = _DANGEROUS_PATTERNS.get(lang, []).copy()
+    patterns.extend(_DANGEROUS_PATTERNS.get("all", []))
+    if not patterns or len(patterns) == len(_DANGEROUS_PATTERNS.get("all", [])):
         # Try all pattern sets if language unknown
-        for _patterns in _DANGEROUS_PATTERNS.values():
-            patterns.extend(_patterns)
+        for k, _patterns in _DANGEROUS_PATTERNS.items():
+            if k != "all" and k != lang:
+                patterns.extend(_patterns)
 
     results: list[dict] = []
     lines = code.split("\n")
@@ -1231,6 +1085,18 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         if current_section and line_stripped:
             sections[current_section] += line + "\n"
 
+    # Calculate risk score
+    risk_score = "Low"
+    if dangerous:
+        if len(dangerous) >= 3:
+            risk_score = "High"
+        else:
+            risk_score = "Medium"
+    if "vulnerabilities" in sections and sections["vulnerabilities"].strip():
+        val = sections["vulnerabilities"].lower()
+        if "no obvious" not in val and "none detected" not in val:
+            risk_score = "High"
+
     return {
         "language": sections["language"],
         "line_count": line_count,
@@ -1242,6 +1108,7 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         "hints": sections["hints"].strip(),
         "next_steps": sections["next_steps"].strip(),
         "raw_ai_response": ai_response,
+        "risk_score": risk_score,
     }
 
 
@@ -2489,17 +2356,6 @@ def get_function_list(elffile):
                 })
     return functions
 
-def get_section_map(elffile):
-    sections = []
-    for section in elffile.iter_sections():
-        if section.name:
-            sections.append({
-                "name": section.name,
-                "size": section['sh_size'],
-                "type": section['sh_type'],
-                "address": hex(section['sh_addr'])
-            })
-    return sections
 
 def get_imports_exports(elffile):
     imports = []
@@ -2584,11 +2440,14 @@ def _analyze_single_file(
     filename: str,
     ext: str,
     detected_type: str = "",
+    skip_virustotal: bool = False,
 ) -> dict:
     """
     Analyze a single binary file's content.  Writes to a temp file, extracts
     strings, detects patterns/flags, and generates AI hints.
     The temp file is ALWAYS deleted after processing.
+
+    skip_virustotal: if True, VirusTotal submission is skipped entirely.
     """
     tmp_path: str | None = None
     try:
@@ -2602,12 +2461,13 @@ def _analyze_single_file(
         flags = detect_flags(strings)
         hints = get_ai_hints(strings, patterns)
         risk = calculate_risk_score(patterns, flags)
-        entropy = calculate_entropy(content)
         encodings = detect_encodings(strings)
-        yara = detect_yara_patterns(strings, content, entropy, len(strings))
 
-        # VirusTotal: submit and return immediately (background polling)
-        vt_result = submit_virustotal(content, filename)
+        # VirusTotal: optional — only submit if requested by the client
+        if skip_virustotal:
+            vt_result = {"status": "disabled", "message": "VirusTotal scan was skipped."}
+        else:
+            vt_result = submit_virustotal(content, filename)
 
         # Checksec: detect binary security protections
         checksec_result = run_checksec(tmp_path)
@@ -2627,16 +2487,14 @@ def _analyze_single_file(
 
         # Deep static analysis for ELFs
         function_list = []
-        section_map = []
         imports_exports = {"imports": [], "exports": []}
         data_flows = []
         cvss = {"cvss_score": 0.0, "cvss_severity": "None"}
-        
+
         if ext in (".elf", ".so", "") and content.startswith(b"\x7fELF"):
             try:
                 elffile = ELFFile(io.BytesIO(content))
                 function_list = get_function_list(elffile)
-                section_map = get_section_map(elffile)
                 imports_exports = get_imports_exports(elffile)
                 data_flows = analyze_data_flow(disassembly, patterns)
                 cvss = calculate_cvss_score(patterns, flags, checksec_result)
@@ -2654,10 +2512,7 @@ def _analyze_single_file(
             "hints": hints,
             "cvss_score": cvss["cvss_score"],
             "cvss_severity": cvss["cvss_severity"],
-            "entropy": entropy,
-            "entropy_label": _entropy_label(entropy),
             "encodings": encodings,
-            "yara_matches": yara,
             "virustotal": vt_result,
             "checksec": checksec_result,
             "hex_view": hex_view,
@@ -2665,7 +2520,6 @@ def _analyze_single_file(
             "disassembly": disassembly,
             "disassembly_function": disassembly_function,
             "function_list": function_list,
-            "section_map": section_map,
             "imports_exports": imports_exports,
             "data_flows": data_flows,
         }
@@ -2684,6 +2538,7 @@ def _analyze_zip(
     content: bytes,
     original_filename: str,
     password: str | None = None,
+    skip_virustotal: bool = False,
 ) -> dict:
     """
     Extract a ZIP archive into a temp directory, analyze every binary
@@ -2900,7 +2755,7 @@ def _analyze_zip(
 
             # Analyze this binary
             try:
-                result = _analyze_single_file(file_content, entry, inner_ext, detected_type)
+                result = _analyze_single_file(file_content, entry, inner_ext, detected_type, skip_virustotal=skip_virustotal)
                 results.append(result)
             except Exception as exc:
                 logger.warning("Failed to analyze '%s' from ZIP: %s", entry, exc)
@@ -2941,6 +2796,7 @@ async def analyze(
     request: Request,
     file: UploadFile = File(...),
     password: str | None = Form(default=None),
+    skip_virustotal: str = Form(default="false"),
 ):
     """
     Accept a binary file upload, validate it strictly, extract readable
@@ -2959,6 +2815,8 @@ async def analyze(
     • Password is NEVER stored or logged — used only for ZIP extraction.
     • Wrong password attempts are counted in the rate limit.
     """
+    skip_vt = skip_virustotal.lower() in ("true", "1", "yes")
+
     # ── 1. Validate extension (before reading the full body) ──────────
     ext = _validate_extension(file.filename)
 
@@ -2973,7 +2831,7 @@ async def analyze(
         zip_password = password
         password = None  # clear from function scope
         try:
-            return _analyze_zip(content, file.filename or "archive.zip", password=zip_password)
+            return _analyze_zip(content, file.filename or "archive.zip", password=zip_password, skip_virustotal=skip_vt)
         finally:
             zip_password = None  # clear from memory
 
@@ -2986,7 +2844,7 @@ async def analyze(
         _validate_mime(content, ext)
 
     # ── 6. Analyze the single binary ─────────────────────────────────
-    return _analyze_single_file(content, file.filename or "unknown", ext, detected_type)
+    return _analyze_single_file(content, file.filename or "unknown", ext, detected_type, skip_virustotal=skip_vt)
 
 
 @app.post("/analyze-code")

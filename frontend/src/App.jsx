@@ -31,14 +31,16 @@ function getExtension(name) {
 }
 
 /* ── Accordion Card ────────────────────────────────────────────────── */
-function AccordionCard({ id, icon, title, summary, open, onToggle, variant, children }) {
+function AccordionCard({ id, icon, title, summary, open, onToggle, variant, children, sectionKey, openSections, toggleSection }) {
+    const isOpen = open !== undefined ? open : (openSections && sectionKey ? openSections[sectionKey] : false);
+    const handleToggle = onToggle || (toggleSection && sectionKey ? () => toggleSection(sectionKey) : () => {});
     const bodyRef = useRef(null);
-    const [height, setHeight] = useState(open ? 'auto' : '0px');
+    const [height, setHeight] = useState(isOpen ? 'auto' : '0px');
     const [measured, setMeasured] = useState(false);
 
     useEffect(() => {
         if (!bodyRef.current) return;
-        if (open) {
+        if (isOpen) {
             setHeight(`${bodyRef.current.scrollHeight}px`);
             // After transition, switch to auto so inner content can resize
             const t = setTimeout(() => setHeight('auto'), 210);
@@ -55,18 +57,18 @@ function AccordionCard({ id, icon, title, summary, open, onToggle, variant, chil
             }
         }
         setMeasured(true);
-    }, [open]);
+    }, [isOpen]);
 
     return (
-        <div className={`accordion-card${variant ? ` accordion-card--${variant}` : ''}`} id={id}>
+        <div className={`accordion-card${variant ? ` accordion-card--${variant}` : ''}`} id={id || sectionKey}>
             <button
-                className={`accordion-header${open ? ' accordion-header--open' : ''}`}
-                onClick={onToggle}
+                className={`accordion-header${isOpen ? ' accordion-header--open' : ''}`}
+                onClick={handleToggle}
                 type="button"
-                aria-expanded={open}
-                id={id ? `${id}-toggle` : undefined}
+                aria-expanded={isOpen}
+                id={id || sectionKey ? `${id || sectionKey}-toggle` : undefined}
             >
-                <span className={`accordion-arrow${open ? ' accordion-arrow--open' : ''}`}>▶</span>
+                <span className={`accordion-arrow${isOpen ? ' accordion-arrow--open' : ''}`}>▶</span>
                 <span className="accordion-icon">{icon}</span>
                 <span className="accordion-title">{title}</span>
                 {summary && <span className="accordion-summary">{summary}</span>}
@@ -128,6 +130,7 @@ export default function App() {
     const passwordFileRef = useRef(null);
 
     /* ── VirusTotal polling state ── */
+    const [submitToVt, setSubmitToVt] = useState(false);
     const [vtScanId, setVtScanId] = useState(null);
     const [vtResult, setVtResult] = useState(null);
 
@@ -135,12 +138,9 @@ export default function App() {
     const [openSections, setOpenSections] = useState({
         cvss: false,
         functions: false,
-        sections: false,
         imports: false,
         dataFlows: false,
         checksec: false,
-        entropy: false,
-        yara: false,
         vt: false,
         hex: false,
         disasm: false,
@@ -312,6 +312,7 @@ export default function App() {
         try {
             const form = new FormData();
             form.append('file', file);
+            form.append('skip_virustotal', submitToVt ? 'false' : 'true');
 
             const res = await fetch(`${BACKEND_URL}/analyze`, {
                 method: 'POST',
@@ -354,7 +355,14 @@ export default function App() {
 
             setRateLimitSeconds(0);
             setFeedbackGiven(null);
-            setResult(data);
+            
+            // Fix ZIP crash in UI
+            if (data.archive && data.results && Array.isArray(data.results)) {
+                 setResult(data.results[0] || data);
+            } else {
+                 setResult(data);
+            }
+            
             setFile(null);
 
             /* Start VT polling if scan was submitted */
@@ -367,13 +375,15 @@ export default function App() {
             } else {
                 // error or other immediate result
                 setVtScanId(null);
-                setVtResult(data.virustotal || null);
+                // For zip array we still pass the top-level data virustotal if it exists, else result
+                setVtResult(data.virustotal || (data.results && data.results[0]?.virustotal) || null);
             }
 
             /* Initialize chat with AI hints as first assistant message */
-            if (data.hints) {
-                setChatMessages([{ role: 'assistant', content: data.hints }]);
-                analysisContextRef.current = data.hints;
+            const hints = data.hints || (data.results && data.results[0]?.hints);
+            if (hints) {
+                setChatMessages([{ role: 'assistant', content: hints }]);
+                analysisContextRef.current = hints;
             } else {
                 setChatMessages([]);
                 analysisContextRef.current = '';
@@ -401,6 +411,7 @@ export default function App() {
             const form = new FormData();
             form.append('file', zipFile);
             form.append('password', passwordInput);
+            form.append('skip_virustotal', submitToVt ? 'false' : 'true');
 
             const res = await fetch(`${BACKEND_URL}/analyze`, {
                 method: 'POST',
@@ -438,7 +449,12 @@ export default function App() {
 
             setRateLimitSeconds(0);
             setFeedbackGiven(null);
-            setResult(data);
+            
+            if (data.archive && data.results && Array.isArray(data.results)) {
+                 setResult(data.results[0] || data);
+            } else {
+                 setResult(data);
+            }
 
             /* Start VT polling if scan was submitted */
             if (data.virustotal?.status === 'scanning' && data.virustotal?.scan_id) {
@@ -449,13 +465,14 @@ export default function App() {
                 setVtResult(null);
             } else {
                 setVtScanId(null);
-                setVtResult(data.virustotal || null);
+                setVtResult(data.virustotal || (data.results && data.results[0]?.virustotal) || null);
             }
 
             /* Initialize chat with AI hints */
-            if (data.hints) {
-                setChatMessages([{ role: 'assistant', content: data.hints }]);
-                analysisContextRef.current = data.hints;
+            const hints = data.hints || (data.results && data.results[0]?.hints);
+            if (hints) {
+                setChatMessages([{ role: 'assistant', content: hints }]);
+                analysisContextRef.current = hints;
             } else {
                 setChatMessages([]);
                 analysisContextRef.current = '';
@@ -768,6 +785,21 @@ export default function App() {
                     </div>
                 )}
 
+                {/* ── VirusTotal Checkbox ── */}
+                {file && !loading && (
+                    <div className="vt-checkbox-wrapper">
+                        <label className="vt-checkbox-label" htmlFor="vt-checkbox">
+                            <input
+                                type="checkbox"
+                                id="vt-checkbox"
+                                checked={submitToVt}
+                                onChange={e => setSubmitToVt(e.target.checked)}
+                            />
+                            🛡️ Submit to VirusTotal <span className="vt-checkbox-hint">(disable for CTF challenges)</span>
+                        </label>
+                    </div>
+                )}
+
                 {/* ── Analyze Button ── */}
                 {file && !loading && (
                     <button className="analyze-btn" onClick={upload}>
@@ -968,35 +1000,6 @@ export default function App() {
                                 </AccordionCard>
                             )}
 
-                            {/* 🗺️ Section Map */}
-                            {result.section_map && result.section_map.length > 0 && (
-                                <AccordionCard
-                                    id="section-map"
-                                    icon="🗺️"
-                                    title="Section Map"
-                                    summary={`${result.section_map.length} sections`}
-                                    open={openSections.sections}
-                                    onToggle={() => toggleSection('sections')}
-                                    variant="sections"
-                                >
-                                    <div className="table-container">
-                                        <table className="info-table">
-                                            <thead><tr><th>Address</th><th>Type</th><th>Size</th><th>Name</th></tr></thead>
-                                            <tbody>
-                                                {result.section_map.map((sec, i) => (
-                                                    <tr key={i}>
-                                                        <td style={{fontFamily: 'monospace', color: 'var(--primary)'}}>{sec.address}</td>
-                                                        <td>{sec.type}</td>
-                                                        <td style={{color: 'var(--on-surface-variant)'}}>{sec.size}</td>
-                                                        <td style={{fontWeight: 'bold'}}>{sec.name}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </AccordionCard>
-                            )}
-
                             {/* 🚪 Imports / Exports */}
                             {(result.imports_exports?.imports?.length > 0 || result.imports_exports?.exports?.length > 0) && (
                                 <AccordionCard
@@ -1081,88 +1084,6 @@ export default function App() {
                                 </AccordionCard>
                             )}
 
-                            {/* 🧬 Shannon Entropy */}
-                            {result.entropy !== undefined && (
-                                <AccordionCard
-                                    id="entropy-card"
-                                    icon="🧬"
-                                    title="Shannon Entropy"
-                                    summary={`${result.entropy.toFixed(3)}/8.0 ${result.entropy_label}`}
-                                    open={openSections.entropy}
-                                    onToggle={() => toggleSection('entropy')}
-                                    variant={`entropy-${
-                                        result.entropy < 5 ? 'low' :
-                                        result.entropy < 6.5 ? 'medium' :
-                                        result.entropy < 7 ? 'high' : 'veryhigh'
-                                    }`}
-                                >
-                                    <div className={`entropy-card entropy-card--${
-                                        result.entropy < 5 ? 'low' :
-                                        result.entropy < 6.5 ? 'medium' :
-                                        result.entropy < 7 ? 'high' : 'veryhigh'
-                                    }`}>
-                                        <div className="entropy-header">
-                                            <div className="entropy-score-group">
-                                                <span className="entropy-score">{result.entropy.toFixed(3)}</span>
-                                                <span className="entropy-max">/8.0</span>
-                                            </div>
-                                            <div className="entropy-info">
-                                                <span className={`entropy-badge entropy-badge--${
-                                                    result.entropy < 5 ? 'low' :
-                                                    result.entropy < 6.5 ? 'medium' :
-                                                    result.entropy < 7 ? 'high' : 'veryhigh'
-                                                }`}>
-                                                    {result.entropy_label}
-                                                </span>
-                                                <span className="entropy-label-text">Shannon Entropy</span>
-                                            </div>
-                                        </div>
-                                        <div className="entropy-bar-track">
-                                            <div
-                                                className={`entropy-bar-fill entropy-bar-fill--${
-                                                    result.entropy < 5 ? 'low' :
-                                                    result.entropy < 6.5 ? 'medium' :
-                                                    result.entropy < 7 ? 'high' : 'veryhigh'
-                                                }`}
-                                                style={{ width: `${(result.entropy / 8) * 100}%` }}
-                                            />
-                                        </div>
-                                        <div className="entropy-hint">
-                                            {result.entropy < 5 && 'Normal binary — code and data sections are readable.'}
-                                            {result.entropy >= 5 && result.entropy < 6.5 && 'Moderate density — may contain compressed resources.'}
-                                            {result.entropy >= 6.5 && result.entropy < 7 && 'High density — sections may be compressed or obfuscated.'}
-                                            {result.entropy >= 7 && '⚠ Very high entropy — binary is likely packed, encrypted, or compressed. Consider unpacking first.'}
-                                        </div>
-                                    </div>
-                                </AccordionCard>
-                            )}
-
-                            {/* 🎯 YARA Matches — only if matches exist */}
-                            {result.yara_matches && result.yara_matches.length > 0 && (
-                                <AccordionCard
-                                    id="yara-matches"
-                                    icon="🎯"
-                                    title="YARA Matches"
-                                    summary={`${result.yara_matches.length} rule${result.yara_matches.length !== 1 ? 's' : ''} triggered`}
-                                    open={openSections.yara}
-                                    onToggle={() => toggleSection('yara')}
-                                    variant="yara"
-                                >
-                                    {result.yara_matches.map((rule, i) => (
-                                        <div className="yara-rule" key={i}>
-                                            <div className="yara-rule-header">
-                                                <span className="yara-rule-name">{rule.label}</span>
-                                                <span className="yara-rule-count">{rule.count} match{rule.count !== 1 ? 'es' : ''}</span>
-                                            </div>
-                                            <div className="yara-rule-desc">{rule.description}</div>
-                                            {rule.matches.map((m, j) => (
-                                                <div className="section-item section-item--yara" key={j}>{m}</div>
-                                            ))}
-                                        </div>
-                                    ))}
-                                </AccordionCard>
-                            )}
-
                             {/* 🔐 Encodings Detected */}
                             {result.encodings && Object.keys(result.encodings).length > 0 && (
                                 <AccordionCard
@@ -1191,7 +1112,7 @@ export default function App() {
                             )}
 
                             {/* 🛡️ VirusTotal */}
-                            {result.virustotal?.status !== 'disabled' && (
+                            {submitToVt && (vtResult || vtScanId) && result.virustotal?.status !== 'disabled' && (
                                 <AccordionCard
                                     id="vt-results"
                                     icon="🛡️"
@@ -1673,6 +1594,9 @@ export default function App() {
                             >
                                 <div className="section-padding">
                                     <p>Identified via static heuristic matching.</p>
+                                    {sourceResult.risk_score && (
+                                        <p><strong>Risk Score:</strong> <span className={`risk-badge risk-badge--${sourceResult.risk_score.toLowerCase()}`}>{sourceResult.risk_score}</span></p>
+                                    )}
                                 </div>
                             </AccordionCard>
 

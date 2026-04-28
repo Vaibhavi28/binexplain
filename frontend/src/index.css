@@ -328,6 +328,40 @@ body {
   transform: scale(0.95);
 }
 
+/* ── VirusTotal opt-in checkbox ────────────────────────────────────── */
+.vt-checkbox-wrapper {
+  margin-top: 12px;
+  padding: 10px 16px;
+  background: var(--surface-container);
+  border: 1px solid var(--outline-variant);
+  border-radius: 2px;
+}
+
+.vt-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--on-surface);
+  font-family: var(--font-body);
+  user-select: none;
+}
+
+.vt-checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.vt-checkbox-hint {
+  color: var(--on-surface-variant);
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
 /* ── Analysis Mode Toggle ──────────────────────────────────────────── */
 .mode-toggle {
   display: flex;

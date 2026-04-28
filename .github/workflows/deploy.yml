@@ -33,7 +33,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm ci
+        run: npm install
 
       - name: Build
         working-directory: frontend
@@ -56,10 +56,16 @@ jobs:
   # ── Backend → Render deploy webhook ────────────────────────────────
   deploy-backend:
     runs-on: ubuntu-latest
+    needs: deploy-frontend
     if: github.event_name == 'push'
+    env:
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
     steps:
       - name: Trigger Render deploy
-        if: ${{ secrets.RENDER_DEPLOY_HOOK != '' }}
         run: |
-          curl -s "${{ secrets.RENDER_DEPLOY_HOOK }}"
-          echo "Render deploy triggered."
+          if [ -n "$RENDER_DEPLOY_HOOK" ]; then
+            curl -s "$RENDER_DEPLOY_HOOK"
+            echo "Render deploy triggered."
+          else
+            echo "RENDER_DEPLOY_HOOK not set — skipping backend deploy."
+          fi
