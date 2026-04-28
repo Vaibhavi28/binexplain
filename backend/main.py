@@ -2433,6 +2433,429 @@ def analyze_data_flow(disassembly: list[dict], patterns: dict):
 
 
 # ---------------------------------------------------------------------------
+# ROP Gadget finder (capstone-based)
+# ---------------------------------------------------------------------------
+def find_rop_gadgets(content: bytes, arch: str = "x86_64") -> list[dict]:
+    """
+    Scan the .text section of an ELF binary for useful ROP gadgets using capstone.
+
+    Looks for common patterns: ret, pop REG; ret, syscall; ret, leave; ret.
+    Returns a list of dicts: [{"address": "0x401234", "gadget": "pop rdi; ret"}]
+    Max 20 gadgets returned, deduplicated by gadget text.
+    """
+    try:
+        import capstone
+    except ImportError:
+        return []
+
+    if not content.startswith(b"\x7fELF"):
+        return []
+
+    # Desired gadget patterns (mnemonic sequences ending in ret)
+    WANTED_GADGETS = [
+        ("ret",),
+        ("pop rdi", "ret"),
+        ("pop rsi", "ret"),
+        ("pop rdx", "ret"),
+        ("pop rax", "ret"),
+        ("pop rbx", "ret"),
+        ("pop rcx", "ret"),
+        ("pop rbp", "ret"),
+        ("syscall", "ret"),
+        ("leave", "ret"),
+        ("pop rdi", "pop rsi", "ret"),
+        ("pop rsi", "pop r15", "ret"),
+        # 32-bit equivalents
+        ("pop edi", "ret"),
+        ("pop esi", "ret"),
+        ("pop ebx", "ret"),
+        ("pop eax", "ret"),
+        ("int 0x80",),
+    ]
+
+    try:
+        from elftools.elf.elffile import ELFFile
+        import io as _io
+
+        elf = ELFFile(_io.BytesIO(content))
+        text_section = elf.get_section_by_name('.text')
+        if not text_section:
+            return []
+
+        text_data = text_section.data()
+        text_addr = text_section['sh_addr']
+
+        # Determine arch/mode
+        is_32 = elf.elfclass == 32
+        if is_32:
+            cs_mode = capstone.CS_MODE_32
+        else:
+            cs_mode = capstone.CS_MODE_64
+
+        ei_data = elf.header['e_ident']['EI_DATA']
+        if ei_data == 'ELFDATA2MSB':
+            cs_mode |= capstone.CS_MODE_BIG_ENDIAN
+        else:
+            cs_mode |= capstone.CS_MODE_LITTLE_ENDIAN
+
+        md = capstone.Cs(capstone.CS_ARCH_X86, cs_mode)
+
+        # Scan for gadgets: search backwards from every ret/syscall/int
+        gadgets: list[dict] = []
+        seen_gadgets: set[str] = set()
+        MAX_GADGET_LEN = 6  # max instructions in a gadget
+        MAX_GADGETS = 20
+
+        # Find all ret offsets in .text
+        for offset in range(len(text_data)):
+            # 0xc3 = ret, 0xcb = retf
+            if text_data[offset] not in (0xc3, 0xcb, 0x0f):
+                continue
+            # 0x0f 0x05 = syscall
+            if text_data[offset] == 0x0f:
+                if offset + 1 < len(text_data) and text_data[offset + 1] == 0x05:
+                    pass  # syscall
+                else:
+                    continue
+
+            # Try disassembling a few bytes before this point
+            for back in range(1, MAX_GADGET_LEN * 8):
+                start = offset - back
+                if start < 0:
+                    break
+                chunk = text_data[start:offset + 2]  # +2 for 2-byte opcodes
+                insns = list(md.disasm(chunk, text_addr + start))
+                if not insns:
+                    continue
+
+                # Check if the last instruction ends exactly at offset (or offset+1 for syscall)
+                last_insn = insns[-1]
+                last_end = last_insn.address + last_insn.size - (text_addr + start)
+                expected_end = (offset + 2 if text_data[offset] == 0x0f else offset + 1)
+                if start + last_end != expected_end:
+                    continue
+
+                # Build mnemonic sequence
+                mnemonic_seq = tuple(
+                    f"{i.mnemonic} {i.op_str}".strip() if i.op_str else i.mnemonic
+                    for i in insns
+                )
+
+                # Check against wanted patterns (prefix match)
+                for wanted in WANTED_GADGETS:
+                    if len(insns) == len(wanted):
+                        match = True
+                        for got, want in zip(mnemonic_seq, wanted):
+                            if want not in got:
+                                match = False
+                                break
+                        if match:
+                            gadget_str = " ; ".join(mnemonic_seq)
+                            if gadget_str not in seen_gadgets:
+                                seen_gadgets.add(gadget_str)
+                                gadgets.append({
+                                    "address": f"0x{insns[0].address:x}",
+                                    "gadget": gadget_str,
+                                })
+                            break
+
+                if len(gadgets) >= MAX_GADGETS:
+                    break
+            if len(gadgets) >= MAX_GADGETS:
+                break
+
+        return gadgets[:MAX_GADGETS]
+
+    except Exception as e:
+        logger.warning("ROP gadget scan failed: %s", e)
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Format String Vulnerability Detector
+# ---------------------------------------------------------------------------
+def detect_format_string(strings: list[str], patterns: dict) -> dict:
+    """
+    Detect potential format string vulnerabilities.
+
+    Checks if printf/fprintf/sprintf are used and whether user-controlled
+    format specifiers (%s, %p, %x, %n) are present in nearby strings.
+
+    Returns:
+        {"vulnerable": bool, "evidence": list[str], "severity": "High"|"Medium"|"Low"}
+    """
+    printf_funcs = ("printf", "fprintf", "sprintf", "snprintf", "syslog", "err", "warn")
+    fmt_specifiers = ("%n", "%x", "%p", "%s", "%d", "%hn", "%hhn", "%ln")
+    dangerous_specs = ("%n", "%hn", "%hhn", "%ln")
+
+    evidence: list[str] = []
+    has_printf = False
+    has_dangerous_spec = False
+    has_any_spec = False
+
+    for s in strings:
+        s_lower = s.lower()
+
+        # Check for printf-family functions
+        for fn in printf_funcs:
+            if fn in s_lower:
+                has_printf = True
+                # Check if the function call lacks a literal format string
+                # (heuristic: printf is in the string but no "%" immediately follows)
+                if fn in s and "%" not in s:
+                    evidence.append(f"{fn}() called — potential user-controlled format string")
+                break
+
+        # Check for format specifiers in strings (user input patterns)
+        for spec in fmt_specifiers:
+            if spec in s:
+                has_any_spec = True
+                if spec in dangerous_specs:
+                    has_dangerous_spec = True
+                    evidence.append(f"Dangerous format specifier '{spec}' found in: {s[:80]}")
+                break
+
+    # Also check if dangerous_functions from patterns contains printf-family
+    dangerous = patterns.get("dangerous_functions", [])
+    for d in dangerous:
+        d_lower = d.lower()
+        for fn in printf_funcs:
+            if fn in d_lower:
+                has_printf = True
+                break
+
+    vulnerable = has_printf and (has_dangerous_spec or has_any_spec)
+
+    if has_dangerous_spec:
+        severity = "High"
+    elif has_printf and has_any_spec:
+        severity = "Medium"
+    elif has_printf:
+        severity = "Low"
+    else:
+        severity = "Low"
+
+    # Deduplicate evidence
+    evidence = list(dict.fromkeys(evidence))[:10]
+
+    return {
+        "vulnerable": vulnerable,
+        "evidence": evidence,
+        "severity": severity,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Libc Version Identifier
+# ---------------------------------------------------------------------------
+# Maps GLIBC minimum versions to likely Ubuntu/Debian releases
+_GLIBC_OS_MAP = {
+    "2.39": "Ubuntu 24.04 (Noble) / Debian 13",
+    "2.38": "Ubuntu 23.10 (Mantic) / Debian Trixie",
+    "2.37": "Ubuntu 23.04 (Lunar)",
+    "2.36": "Ubuntu 22.10 (Kinetic) / Debian 12",
+    "2.35": "Ubuntu 22.04 (Jammy)",
+    "2.34": "Ubuntu 21.10 (Impish)",
+    "2.33": "Ubuntu 21.04 (Hirsute)",
+    "2.31": "Ubuntu 20.04 (Focal) / Debian 11",
+    "2.28": "Debian 10 (Buster)",
+    "2.27": "Ubuntu 18.04 (Bionic)",
+    "2.24": "Debian 9 (Stretch)",
+    "2.23": "Ubuntu 16.04 (Xenial)",
+    "2.19": "Ubuntu 14.04 (Trusty) / Debian 8",
+    "2.17": "CentOS 7 / RHEL 7",
+    "2.15": "Ubuntu 12.04 (Precise)",
+    "2.12": "CentOS 6 / RHEL 6",
+}
+
+
+def identify_libc(strings: list[str]) -> dict:
+    """
+    Parse GLIBC version strings and GCC version to identify the likely OS.
+
+    Returns:
+        {
+            "glibc_version": "2.27",
+            "all_versions": ["2.17", "2.23", "2.27"],
+            "likely_os": "Ubuntu 18.04 (Bionic)",
+            "gcc_version": "7.5.0",
+            "libc_db_url": "https://libc.blukat.me/?q=..."
+        }
+    """
+    glibc_re = re.compile(r'GLIBC_(\d+\.\d+)')
+    gcc_re = re.compile(r'GCC:\s*\(.*?\)\s*([\d.]+)')
+
+    versions: set[str] = set()
+    gcc_version = ""
+
+    for s in strings:
+        for m in glibc_re.finditer(s):
+            versions.add(m.group(1))
+        if not gcc_version:
+            gcc_match = gcc_re.search(s)
+            if gcc_match:
+                gcc_version = gcc_match.group(1)
+
+    if not versions:
+        return {
+            "glibc_version": None,
+            "all_versions": [],
+            "likely_os": "Unknown",
+            "gcc_version": gcc_version or None,
+            "libc_db_url": "",
+        }
+
+    sorted_versions = sorted(versions, key=lambda v: tuple(int(x) for x in v.split(".")))
+    max_version = sorted_versions[-1]
+
+    # Find the best OS match (exact or closest lower)
+    likely_os = "Unknown"
+    for ver in sorted(
+        _GLIBC_OS_MAP.keys(),
+        key=lambda v: tuple(int(x) for x in v.split(".")),
+        reverse=True,
+    ):
+        if tuple(int(x) for x in max_version.split(".")) >= tuple(int(x) for x in ver.split(".")):
+            likely_os = _GLIBC_OS_MAP[ver]
+            break
+
+    libc_db_url = f"https://libc.blukat.me/?q=__libc_start_main"
+
+    return {
+        "glibc_version": max_version,
+        "all_versions": sorted_versions,
+        "likely_os": likely_os,
+        "gcc_version": gcc_version or None,
+        "libc_db_url": libc_db_url,
+    }
+
+
+# ---------------------------------------------------------------------------
+# CTF Category Detector
+# ---------------------------------------------------------------------------
+def detect_ctf_category(
+    patterns: dict,
+    checksec: dict,
+    strings: list[str],
+    format_string_result: dict | None = None,
+    rop_gadgets: list | None = None,
+    imports_exports: dict | None = None,
+) -> dict:
+    """
+    Analyze all findings and categorize the binary into the most likely
+    CTF exploitation category.
+
+    Categories:
+    - ret2win:           No PIE, win function, simple overflow
+    - ret2libc:          No PIE, no canary, system/execve in imports
+    - format_string:     printf without format arg detected
+    - heap_exploitation: malloc/free/UAF patterns
+    - stack_canary_bypass: canary present + format string present
+    - rop_chain:         NX enabled, no PIE, many gadgets
+    - shellcode:         No NX, writable+executable sections
+
+    Returns:
+        {"category": str, "confidence": "High"|"Medium"|"Low", "explanation": str}
+    """
+    nx = checksec.get("nx", True)
+    pie = checksec.get("pie", True)
+    canary = checksec.get("canary", True)
+
+    has_win = bool(patterns.get("win_conditions")) or any(
+        kw in s.lower()
+        for s in strings
+        for kw in ("win(", "get_flag", "print_flag", "read_flag", "open_flag",
+                    "give_shell", "spawn_shell", "cat flag")
+    )
+
+    has_dangerous_funcs = bool(patterns.get("dangerous_functions"))
+    has_memory_funcs = bool(patterns.get("memory_functions"))
+    has_flag_reads = bool(patterns.get("flag_reads"))
+
+    fmt_vuln = format_string_result.get("vulnerable", False) if format_string_result else False
+    fmt_severity = format_string_result.get("severity", "Low") if format_string_result else "Low"
+    gadget_count = len(rop_gadgets) if rop_gadgets else 0
+
+    # Check for system/execve in imports
+    imports = (imports_exports or {}).get("imports", [])
+    has_system = any(fn in ("system", "execve", "execvp", "popen") for fn in imports)
+
+    # --- Scoring each category ---
+    scores: dict[str, tuple[int, str, str]] = {}  # category -> (score, confidence, explanation)
+
+    # ret2win
+    if has_win and not pie:
+        score = 90 if has_dangerous_funcs else 70
+        conf = "High" if score >= 80 else "Medium"
+        scores["ret2win"] = (score, conf,
+            "Win/flag function detected with no PIE — overflow the return address to jump directly to the win function.")
+
+    # ret2libc
+    if has_system and not pie and not canary:
+        score = 85 if has_dangerous_funcs else 65
+        conf = "High" if score >= 80 else "Medium"
+        scores["ret2libc"] = (score, conf,
+            "system()/execve() available with no PIE and no stack canary — classic ret2libc: overflow to call system(\"/bin/sh\").")
+
+    # format_string
+    if fmt_vuln:
+        score = 90 if fmt_severity == "High" else 70
+        conf = "High" if fmt_severity == "High" else "Medium"
+        scores["format_string"] = (score, conf,
+            "Format string vulnerability detected — use %p to leak addresses, %n to write arbitrary values.")
+
+    # heap_exploitation
+    if has_memory_funcs:
+        malloc_count = sum(1 for s in strings if "malloc" in s.lower())
+        free_count = sum(1 for s in strings if "free" in s.lower())
+        has_menu = bool(patterns.get("menu_driven"))
+        if malloc_count >= 1 and free_count >= 1:
+            score = 80 if has_menu else 60
+            conf = "High" if has_menu else "Medium"
+            scores["heap_exploitation"] = (score, conf,
+                "malloc/free patterns detected (likely use-after-free or heap overflow). "
+                + ("Menu-driven interface suggests interactive heap exploitation." if has_menu else "Look for dangling pointers and double-free."))
+
+    # stack_canary_bypass
+    if canary and fmt_vuln:
+        score = 80
+        conf = "High"
+        scores["stack_canary_bypass"] = (score, conf,
+            "Stack canary is present but format string vulnerability can leak it — read the canary with %p, then overflow past it.")
+
+    # rop_chain
+    if nx and not pie and gadget_count >= 3:
+        score = 75 if gadget_count >= 8 else 60
+        conf = "High" if gadget_count >= 8 else "Medium"
+        scores["rop_chain"] = (score, conf,
+            f"NX enabled (no shellcode) with no PIE and {gadget_count} ROP gadgets found — build a ROP chain to call system or execve.")
+
+    # shellcode
+    if not nx:
+        score = 75 if has_dangerous_funcs else 55
+        conf = "High" if has_dangerous_funcs else "Medium"
+        scores["shellcode"] = (score, conf,
+            "NX is disabled — the stack is executable. Inject shellcode directly via a buffer overflow.")
+
+    if not scores:
+        return {
+            "category": "unknown",
+            "confidence": "Low",
+            "explanation": "Could not confidently determine the CTF exploitation category. Try manual analysis with checksec and gdb.",
+        }
+
+    # Pick the highest-scoring category
+    best_cat = max(scores, key=lambda k: scores[k][0])
+    _, best_conf, best_expl = scores[best_cat]
+
+    return {
+        "category": best_cat,
+        "confidence": best_conf,
+        "explanation": best_expl,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Single-file analysis helper
 # ---------------------------------------------------------------------------
 def _analyze_single_file(
@@ -2501,6 +2924,17 @@ def _analyze_single_file(
             except Exception as e:
                 logger.warning("Failed to parse ELF for deep analysis: %s", e)
 
+        # New CTF-focused analysis modules
+        rop_gadgets = find_rop_gadgets(content)
+        format_string = detect_format_string(strings, patterns)
+        libc_info = identify_libc(strings)
+        ctf_category = detect_ctf_category(
+            patterns, checksec_result, strings,
+            format_string_result=format_string,
+            rop_gadgets=rop_gadgets,
+            imports_exports=imports_exports,
+        )
+
         result = {
             "filename": filename,
             "size_bytes": len(content),
@@ -2522,6 +2956,10 @@ def _analyze_single_file(
             "function_list": function_list,
             "imports_exports": imports_exports,
             "data_flows": data_flows,
+            "rop_gadgets": rop_gadgets,
+            "format_string": format_string,
+            "libc_info": libc_info,
+            "ctf_category": ctf_category,
         }
         if detected_type:
             result["detected_type"] = detected_type

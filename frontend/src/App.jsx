@@ -136,11 +136,15 @@ export default function App() {
 
     /* ── Accordion section open/close state ── */
     const [openSections, setOpenSections] = useState({
+        ctfCategory: true,  // open by default — prominent
         cvss: false,
         functions: false,
         imports: false,
         dataFlows: false,
         checksec: false,
+        ropGadgets: false,
+        formatString: false,
+        libcInfo: false,
         vt: false,
         hex: false,
         disasm: false,
@@ -938,6 +942,31 @@ export default function App() {
                         {/* ── Accordion Results Stack ── */}
                         <div className="accordion-stack">
 
+                            {/* 🎯 CTF Category — prominently at top */}
+                            {result.ctf_category && result.ctf_category.category !== 'unknown' && (
+                                <AccordionCard
+                                    id="ctf-category"
+                                    icon="🎯"
+                                    title="CTF Category"
+                                    summary={`${result.ctf_category.category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} — ${result.ctf_category.confidence} confidence`}
+                                    open={openSections.ctfCategory}
+                                    onToggle={() => toggleSection('ctfCategory')}
+                                    variant={`ctf-${result.ctf_category.confidence.toLowerCase()}`}
+                                >
+                                    <div className="ctf-category-card">
+                                        <div className="ctf-category-header">
+                                            <span className={`ctf-category-badge ctf-category-badge--${result.ctf_category.confidence.toLowerCase()}`}>
+                                                {result.ctf_category.category.replace(/_/g, ' ').toUpperCase()}
+                                            </span>
+                                            <span className={`ctf-confidence-badge ctf-confidence-badge--${result.ctf_category.confidence.toLowerCase()}`}>
+                                                {result.ctf_category.confidence} Confidence
+                                            </span>
+                                        </div>
+                                        <p className="ctf-category-explanation">{result.ctf_category.explanation}</p>
+                                    </div>
+                                </AccordionCard>
+                            )}
+
                             {/* 📊 CVSS Score */}
                             {result.cvss_score !== undefined && (
                                 <AccordionCard
@@ -1080,6 +1109,110 @@ export default function App() {
                                                 </span>
                                             </div>
                                         ))}
+                                    </div>
+                                </AccordionCard>
+                            )}
+
+                            {/* 🔗 ROP Gadgets */}
+                            {result.rop_gadgets && result.rop_gadgets.length > 0 && (
+                                <AccordionCard
+                                    id="rop-gadgets"
+                                    icon="🔗"
+                                    title="ROP Gadgets"
+                                    summary={`${result.rop_gadgets.length} gadget${result.rop_gadgets.length !== 1 ? 's' : ''} found`}
+                                    open={openSections.ropGadgets}
+                                    onToggle={() => toggleSection('ropGadgets')}
+                                    variant="rop"
+                                >
+                                    <div className="table-container">
+                                        <table className="info-table">
+                                            <thead><tr><th>Address</th><th>Gadget</th></tr></thead>
+                                            <tbody>
+                                                {result.rop_gadgets.map((g, i) => (
+                                                    <tr key={i}>
+                                                        <td style={{fontFamily: 'monospace', color: 'var(--primary)'}}>{g.address}</td>
+                                                        <td style={{fontFamily: 'monospace'}}>{g.gadget}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </AccordionCard>
+                            )}
+
+                            {/* ⚠️ Format String */}
+                            {result.format_string && (
+                                <AccordionCard
+                                    id="format-string"
+                                    icon="⚠️"
+                                    title="Format String"
+                                    summary={result.format_string.vulnerable ? `Vulnerable — ${result.format_string.severity}` : 'Safe'}
+                                    open={openSections.formatString}
+                                    onToggle={() => toggleSection('formatString')}
+                                    variant={result.format_string.vulnerable ? `fmtstr-${result.format_string.severity.toLowerCase()}` : 'fmtstr-safe'}
+                                >
+                                    <div className="fmtstr-card">
+                                        <div className="fmtstr-header">
+                                            <span className={`fmtstr-badge fmtstr-badge--${result.format_string.vulnerable ? result.format_string.severity.toLowerCase() : 'safe'}`}>
+                                                {result.format_string.vulnerable ? `⚠ VULNERABLE — ${result.format_string.severity}` : '✓ SAFE'}
+                                            </span>
+                                        </div>
+                                        {result.format_string.evidence.length > 0 && (
+                                            <ul className="fmtstr-evidence">
+                                                {result.format_string.evidence.map((e, i) => (
+                                                    <li key={i} className="fmtstr-evidence-item">{e}</li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                </AccordionCard>
+                            )}
+
+                            {/* 📚 Libc Info */}
+                            {result.libc_info && result.libc_info.glibc_version && (
+                                <AccordionCard
+                                    id="libc-info"
+                                    icon="📚"
+                                    title="Libc Info"
+                                    summary={`GLIBC ${result.libc_info.glibc_version} — ${result.libc_info.likely_os}`}
+                                    open={openSections.libcInfo}
+                                    onToggle={() => toggleSection('libcInfo')}
+                                    variant="libc"
+                                >
+                                    <div className="libc-card">
+                                        <div className="libc-row">
+                                            <span className="libc-label">GLIBC Version</span>
+                                            <span className="libc-value">{result.libc_info.glibc_version}</span>
+                                        </div>
+                                        {result.libc_info.all_versions.length > 1 && (
+                                            <div className="libc-row">
+                                                <span className="libc-label">All Versions</span>
+                                                <span className="libc-value">{result.libc_info.all_versions.join(', ')}</span>
+                                            </div>
+                                        )}
+                                        <div className="libc-row">
+                                            <span className="libc-label">Likely OS</span>
+                                            <span className="libc-value libc-value--os">{result.libc_info.likely_os}</span>
+                                        </div>
+                                        {result.libc_info.gcc_version && (
+                                            <div className="libc-row">
+                                                <span className="libc-label">GCC Version</span>
+                                                <span className="libc-value">{result.libc_info.gcc_version}</span>
+                                            </div>
+                                        )}
+                                        {result.libc_info.libc_db_url && (
+                                            <div className="libc-row">
+                                                <span className="libc-label">Libc Database</span>
+                                                <a
+                                                    href={result.libc_info.libc_db_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="libc-link"
+                                                >
+                                                    🔍 Search libc.blukat.me →
+                                                </a>
+                                            </div>
+                                        )}
                                     </div>
                                 </AccordionCard>
                             )}
