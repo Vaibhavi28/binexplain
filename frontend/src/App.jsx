@@ -137,6 +137,8 @@ export default function App() {
     /* ── Accordion section open/close state ── */
     const [openSections, setOpenSections] = useState({
         ctfCategory: true,  // open by default — prominent
+        difficulty: false,
+        quickCommands: true, // open by default
         cvss: false,
         functions: false,
         imports: false,
@@ -145,6 +147,8 @@ export default function App() {
         ropGadgets: false,
         formatString: false,
         libcInfo: false,
+        pltGot: false,
+        overflowOffset: false,
         vt: false,
         hex: false,
         disasm: false,
@@ -967,6 +971,65 @@ export default function App() {
                                 </AccordionCard>
                             )}
 
+                            {/* 🎲 Difficulty */}
+                            {result.difficulty && (
+                                <AccordionCard
+                                    id="difficulty-card"
+                                    icon="🎲"
+                                    title="Difficulty"
+                                    summary={result.difficulty.difficulty}
+                                    open={openSections.difficulty}
+                                    onToggle={() => toggleSection('difficulty')}
+                                    variant={`difficulty-${result.difficulty.difficulty.toLowerCase()}`}
+                                >
+                                    <div className="difficulty-card">
+                                        <span className={`difficulty-badge difficulty-badge--${result.difficulty.difficulty.toLowerCase()}`}>
+                                            {result.difficulty.difficulty}
+                                        </span>
+                                        <p className="difficulty-reason">{result.difficulty.reason}</p>
+                                    </div>
+                                </AccordionCard>
+                            )}
+
+                            {/* 📋 Quick Commands */}
+                            <AccordionCard
+                                id="quick-commands"
+                                icon="📋"
+                                title="Quick Commands"
+                                summary={`Pre-filled for ${result.filename}`}
+                                open={openSections.quickCommands}
+                                onToggle={() => toggleSection('quickCommands')}
+                                variant="commands"
+                            >
+                                <div className="quick-commands">
+                                    {[
+                                        `file ./${result.filename}`,
+                                        `checksec ./${result.filename}`,
+                                        `strings ./${result.filename} | grep -i flag`,
+                                        `ltrace ./${result.filename}`,
+                                        `strace ./${result.filename}`,
+                                        `gdb -q ./${result.filename}`,
+                                        `objdump -d ./${result.filename} | grep -A 20 '<main>'`,
+                                        `ROPgadget --binary ./${result.filename} --rop | head -20`,
+                                        `one_gadget libc.so.6`,
+                                        `python3 -c "from pwn import *; cyclic(200)" | ./${result.filename}`,
+                                    ].map((cmd, i) => (
+                                        <div className="quick-cmd-row" key={i}>
+                                            <code className="quick-cmd-text">{cmd}</code>
+                                            <button
+                                                className="quick-cmd-copy"
+                                                title="Copy to clipboard"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(cmd);
+                                                    const btn = document.querySelectorAll('.quick-cmd-copy')[i];
+                                                    if (btn) { btn.textContent = '✓'; setTimeout(() => btn.textContent = '📋', 1200); }
+                                                }}
+                                            >📋</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </AccordionCard>
+
                             {/* 📊 CVSS Score */}
                             {result.cvss_score !== undefined && (
                                 <AccordionCard
@@ -1213,6 +1276,84 @@ export default function App() {
                                                 </a>
                                             </div>
                                         )}
+                                    </div>
+                                </AccordionCard>
+                            )}
+
+                            {/* 📊 PLT/GOT Table */}
+                            {result.plt_got && (result.plt_got.plt?.length > 0 || result.plt_got.got?.length > 0) && (
+                                <AccordionCard
+                                    id="plt-got-table"
+                                    icon="📊"
+                                    title="PLT / GOT"
+                                    summary={`${result.plt_got.plt?.length || 0} PLT, ${result.plt_got.got?.length || 0} GOT entries`}
+                                    open={openSections.pltGot}
+                                    onToggle={() => toggleSection('pltGot')}
+                                    variant="plt-got"
+                                >
+                                    <div className="two-column-layout">
+                                        <div className="column">
+                                            <h4 className="column-title">PLT</h4>
+                                            <div className="table-container">
+                                                <table className="info-table">
+                                                    <thead><tr><th>Address</th><th>Function</th></tr></thead>
+                                                    <tbody>
+                                                        {(result.plt_got.plt || []).map((e, i) => (
+                                                            <tr key={i}>
+                                                                <td style={{fontFamily: 'monospace', color: 'var(--primary)'}}>{e.address}</td>
+                                                                <td>{e.name}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        <div className="column">
+                                            <h4 className="column-title">GOT</h4>
+                                            <div className="table-container">
+                                                <table className="info-table">
+                                                    <thead><tr><th>Address</th><th>Function</th></tr></thead>
+                                                    <tbody>
+                                                        {(result.plt_got.got || []).map((e, i) => (
+                                                            <tr key={i}>
+                                                                <td style={{fontFamily: 'monospace', color: 'var(--secondary)'}}>{e.address}</td>
+                                                                <td>{e.name}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </AccordionCard>
+                            )}
+
+                            {/* 📐 Overflow Offset */}
+                            {result.overflow_hint && result.overflow_hint.likely_offset && (
+                                <AccordionCard
+                                    id="overflow-offset"
+                                    icon="📐"
+                                    title="Overflow Offset"
+                                    summary={`Offset ≈ ${result.overflow_hint.likely_offset} — ${result.overflow_hint.confidence}`}
+                                    open={openSections.overflowOffset}
+                                    onToggle={() => toggleSection('overflowOffset')}
+                                    variant={`overflow-${result.overflow_hint.confidence.toLowerCase()}`}
+                                >
+                                    <div className="overflow-card">
+                                        <div className="overflow-header">
+                                            <span className="overflow-offset-value">{result.overflow_hint.likely_offset}</span>
+                                            <span className="overflow-offset-label">bytes to RIP</span>
+                                            <span className={`ctf-confidence-badge ctf-confidence-badge--${result.overflow_hint.confidence.toLowerCase()}`}>
+                                                {result.overflow_hint.confidence}
+                                            </span>
+                                        </div>
+                                        {result.overflow_hint.stack_size && (
+                                            <div className="overflow-detail">
+                                                <span className="overflow-detail-label">Stack frame:</span>
+                                                <span className="overflow-detail-value">0x{result.overflow_hint.stack_size.toString(16)} ({result.overflow_hint.stack_size} bytes)</span>
+                                            </div>
+                                        )}
+                                        <p className="overflow-evidence">{result.overflow_hint.evidence}</p>
                                     </div>
                                 </AccordionCard>
                             )}

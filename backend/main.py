@@ -2856,6 +2856,220 @@ def detect_ctf_category(
 
 
 # ---------------------------------------------------------------------------
+# Buffer Overflow Offset Predictor
+# ---------------------------------------------------------------------------
+def predict_overflow_offset(disassembly: list[dict]) -> dict:
+    """
+    Scan disassembly for stack frame allocation (sub rsp/esp, 0xXX) to
+    estimate the likely buffer overflow offset.
+
+    Returns:
+        {
+            "likely_offset": int | None,
+            "stack_size": int | None,
+            "confidence": "High" | "Medium" | "Low",
+            "evidence": str
+        }
+    """
+    sub_re = re.compile(r'(r|e)sp,\s*0x([0-9a-fA-F]+)')
+
+    best_size = 0
+    best_addr = ""
+
+    for insn in disassembly:
+        mn = insn.get("mnemonic", "").lower()
+        op = insn.get("op_str", "")
+        addr = insn.get("address", "")
+
+        if mn == "sub":
+            m = sub_re.search(op)
+            if m:
+                try:
+                    size = int(m.group(2), 16)
+                    # Skip tiny allocations (alignment) and huge ones (unlikely single buffer)
+                    if 0x10 <= size <= 0x1000 and size > best_size:
+                        best_size = size
+                        best_addr = addr
+                except ValueError:
+                    continue
+
+    if best_size == 0:
+        return {
+            "likely_offset": None,
+            "stack_size": None,
+            "confidence": "Low",
+            "evidence": "No stack allocation (sub rsp/esp) found in disassembly.",
+        }
+
+    # The offset to overwrite the return address is typically:
+    # stack_size + 8 (saved RBP) for 64-bit, stack_size + 4 for 32-bit
+    # We'll estimate 64-bit by default (most common in CTFs)
+    offset = best_size + 8  # saved rbp + return address starts here
+
+    # Confidence based on whether the allocation is a "nice" size
+    if best_size in (0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x100, 0x200):
+        confidence = "High"
+    elif best_size % 0x10 == 0:
+        confidence = "Medium"
+    else:
+        confidence = "Low"
+
+    return {
+        "likely_offset": offset,
+        "stack_size": best_size,
+        "confidence": confidence,
+        "evidence": f"sub rsp, 0x{best_size:x} found at {best_addr} — buffer is likely {best_size} bytes, offset to RIP ≈ {offset}",
+    }
+
+
+# ---------------------------------------------------------------------------
+# PLT / GOT Table Parser
+# ---------------------------------------------------------------------------
+def get_plt_got(content: bytes) -> dict:
+    """
+    Parse PLT and GOT entries from an ELF binary using pyelftools.
+
+    Returns:
+        {
+            "plt": [{"name": "puts", "address": "0x401030"}, ...],
+            "got": [{"name": "puts", "address": "0x404018"}, ...]
+        }
+    """
+    result = {"plt": [], "got": []}
+
+    if not content.startswith(b"\x7fELF"):
+        return result
+
+    try:
+        from elftools.elf.elffile import ELFFile
+        from elftools.elf.relocation import RelocationSection
+        import io as _io
+
+        elf = ELFFile(_io.BytesIO(content))
+
+        # --- Parse PLT ---
+        # The .rela.plt (or .rel.plt) section maps PLT entries to symbol names
+        for section_name in ('.rela.plt', '.rel.plt'):
+            relplt = elf.get_section_by_name(section_name)
+            if relplt and isinstance(relplt, RelocationSection):
+                symtab = elf.get_section(relplt['sh_link'])
+                for rel in relplt.iter_relocations():
+                    sym = symtab.get_symbol(rel['r_info_sym'])
+                    name = sym.name if sym and sym.name else f"unknown_{rel['r_offset']:x}"
+                    if name:
+                        result["got"].append({
+                            "name": name,
+                            "address": f"0x{rel['r_offset']:x}",
+                        })
+
+        # --- Parse PLT section addresses ---
+        plt_section = elf.get_section_by_name('.plt')
+        plt_sec_section = elf.get_section_by_name('.plt.sec')  # newer GCC
+        plt_got_section = elf.get_section_by_name('.plt.got')
+
+        # Use the PLT section with the best data
+        target_plt = plt_sec_section or plt_section
+        if target_plt:
+            plt_addr = target_plt['sh_addr']
+            plt_size = target_plt['sh_size']
+            entry_size = target_plt['sh_entsize'] or 16  # default PLT entry = 16 bytes
+
+            # Build PLT entries — first entry is the resolver, skip it
+            got_names = [g["name"] for g in result["got"]]
+            for i, name in enumerate(got_names):
+                addr = plt_addr + (i + 1) * entry_size
+                if addr < plt_addr + plt_size:
+                    result["plt"].append({
+                        "name": name,
+                        "address": f"0x{addr:x}",
+                    })
+
+        # Cap results
+        result["plt"] = result["plt"][:50]
+        result["got"] = result["got"][:50]
+
+    except Exception as e:
+        logger.warning("PLT/GOT parsing failed: %s", e)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Difficulty Predictor
+# ---------------------------------------------------------------------------
+def predict_difficulty(checksec: dict, patterns: dict, ctf_category: dict) -> dict:
+    """
+    Predict CTF challenge difficulty based on binary protections and patterns.
+
+    Scoring:
+    - No PIE + No Canary + No NX = Easy
+    - PIE disabled + Canary or NX = Medium
+    - Full RELRO + PIE + Canary + NX = Hard
+
+    Returns:
+        {"difficulty": "Easy"|"Medium"|"Hard", "score": int, "reason": str}
+    """
+    nx = checksec.get("nx", True)
+    pie = checksec.get("pie", True)
+    canary = checksec.get("canary", True)
+    relro = checksec.get("relro", True)
+
+    # Count enabled protections
+    score = 0
+    reasons_hard = []
+    reasons_easy = []
+
+    if nx:
+        score += 1
+        reasons_hard.append("NX enabled")
+    else:
+        reasons_easy.append("NX disabled (stack executable)")
+
+    if pie:
+        score += 2  # PIE is the hardest to bypass
+        reasons_hard.append("PIE enabled")
+    else:
+        reasons_easy.append("No PIE (fixed addresses)")
+
+    if canary:
+        score += 1
+        reasons_hard.append("Stack canary present")
+    else:
+        reasons_easy.append("No stack canary")
+
+    if relro:
+        score += 1
+        reasons_hard.append("RELRO enabled")
+    else:
+        reasons_easy.append("No RELRO (GOT writable)")
+
+    # Category-based adjustments
+    category = ctf_category.get("category", "unknown")
+    if category in ("ret2win",):
+        score = max(0, score - 1)  # ret2win is inherently simpler
+    elif category in ("heap_exploitation", "stack_canary_bypass"):
+        score += 1  # these are inherently harder
+
+    # Determine difficulty
+    if score <= 1:
+        difficulty = "Easy"
+        reason = " • ".join(reasons_easy) if reasons_easy else "Minimal protections"
+    elif score <= 3:
+        difficulty = "Medium"
+        combined = reasons_easy + reasons_hard
+        reason = " • ".join(combined[:3]) if combined else "Some protections enabled"
+    else:
+        difficulty = "Hard"
+        reason = " • ".join(reasons_hard) if reasons_hard else "Full protections enabled"
+
+    return {
+        "difficulty": difficulty,
+        "score": score,
+        "reason": reason,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Single-file analysis helper
 # ---------------------------------------------------------------------------
 def _analyze_single_file(
@@ -2935,6 +3149,11 @@ def _analyze_single_file(
             imports_exports=imports_exports,
         )
 
+        # Overflow offset prediction, PLT/GOT, and difficulty
+        overflow_hint = predict_overflow_offset(disassembly)
+        plt_got = get_plt_got(content)
+        difficulty = predict_difficulty(checksec_result, patterns, ctf_category)
+
         result = {
             "filename": filename,
             "size_bytes": len(content),
@@ -2960,6 +3179,9 @@ def _analyze_single_file(
             "format_string": format_string,
             "libc_info": libc_info,
             "ctf_category": ctf_category,
+            "overflow_hint": overflow_hint,
+            "plt_got": plt_got,
+            "difficulty": difficulty,
         }
         if detected_type:
             result["detected_type"] = detected_type
