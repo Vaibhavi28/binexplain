@@ -1,10 +1,10 @@
 /* ===================================================================
-   BinExplain — Clean Single-Page Dark UI
+   BinExplain â€” Clean Single-Page Dark UI
    Fonts: Space Grotesk (headlines), Inter (body)
    Colors: #9cff93 primary, #0a0e14 bg
    =================================================================== */
 
-/* ── Reset & Base ──────────────────────────────────────────────────── */
+/* â”€â”€ Reset & Base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 *,
 *::before,
 *::after {
@@ -63,18 +63,18 @@ body {
   color: var(--on-primary);
 }
 
-/* ── Scrollbar ─────────────────────────────────────────────────────── */
+/* â”€â”€ Scrollbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--surface-container-high); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
-/* ── Material Icons helper ─────────────────────────────────────────── */
+/* â”€â”€ Material Icons helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
-/* ── App Layout ────────────────────────────────────────────────────── */
+/* â”€â”€ App Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .app-wrapper {
   padding: 48px 32px;
   min-height: 100vh;
@@ -85,7 +85,7 @@ body {
   margin: 0 auto;
 }
 
-/* ── Hero Section ──────────────────────────────────────────────────── */
+/* â”€â”€ Hero Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .hero-header {
   margin-bottom: 40px;
   text-align: center;
@@ -109,7 +109,7 @@ body {
   line-height: 1.7;
 }
 
-/* ── Drop Zone ─────────────────────────────────────────────────────── */
+/* â”€â”€ Drop Zone â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .dropzone-wrapper {
   position: relative;
   background: var(--surface-container);
@@ -260,7 +260,7 @@ body {
   display: none;
 }
 
-/* ── Selected File & Upload ────────────────────────────────────────── */
+/* â”€â”€ Selected File & Upload â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .staged-file-bar {
   display: flex;
   align-items: center;
@@ -328,7 +328,7 @@ body {
   transform: scale(0.95);
 }
 
-/* ── VirusTotal opt-in checkbox ────────────────────────────────────── */
+/* â”€â”€ VirusTotal opt-in checkbox â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .vt-checkbox-wrapper {
   margin-top: 12px;
   padding: 10px 16px;
@@ -362,7 +362,7 @@ body {
   opacity: 0.75;
 }
 
-/* ── Analysis Mode Toggle ──────────────────────────────────────────── */
+/* â”€â”€ Analysis Mode Toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .mode-toggle {
   display: flex;
   background: var(--surface-container);
@@ -397,7 +397,7 @@ body {
   color: var(--on-primary);
 }
 
-/* ── Source Code Input Section ─────────────────────────────────────── */
+/* â”€â”€ Source Code Input Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .source-input-section {
   display: flex;
   flex-direction: column;
@@ -487,7 +487,7 @@ body {
   opacity: 0.8;
 }
 
-/* ── Terminal Loading ──────────────────────────────────────────────── */
+/* â”€â”€ Terminal Loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .terminal-loading {
   margin-top: 16px;
   padding: 24px;
@@ -528,7 +528,7 @@ body {
   50% { opacity: 0; }
 }
 
-/* ── Error Box ─────────────────────────────────────────────────────── */
+/* â”€â”€ Error Box â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .error-box {
   margin-top: 16px;
   padding: 16px 20px;
@@ -562,7 +562,7 @@ body {
   letter-spacing: 0.05em;
 }
 
-/* ── AI Hints Feedback Buttons ─────────────────────────────────────── */
+/* â”€â”€ AI Hints Feedback Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .hints-feedback {
   display: flex;
   align-items: center;
@@ -622,7 +622,7 @@ body {
   animation: risk-fade-in 0.3s ease-out;
 }
 
-/* ── Analysis Meta Bar ─────────────────────────────────────────────── */
+/* â”€â”€ Analysis Meta Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .analysis-meta-bar {
   display: flex;
   gap: 24px;
@@ -650,7 +650,7 @@ body {
   color: var(--on-surface-variant);
 }
 
-/* ── Risk Score Card ───────────────────────────────────────────────── */
+/* â”€â”€ Risk Score Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .risk-card {
   margin-top: 20px;
   padding: 24px;
@@ -793,7 +793,7 @@ body {
 }
 
 .risk-reason::before {
-  content: '›';
+  content: 'â€º';
   position: absolute;
   left: 0;
   font-weight: bold;
@@ -803,7 +803,7 @@ body {
 .risk-card--warning .risk-reason::before  { color: #fbbf24; }
 .risk-card--critical .risk-reason::before { color: #f87171; }
 
-/* ── Entropy Card ──────────────────────────────────────────────────── */
+/* â”€â”€ Entropy Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .entropy-card {
   margin-top: 20px;
   padding: 24px;
@@ -909,7 +909,7 @@ body {
   opacity: 0.8;
 }
 
-/* ── Encodings Card Header ─────────────────────────────────────────── */
+/* â”€â”€ Encodings Card Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .result-card-header--encodings {
   background: rgba(168, 85, 247, 0.06);
   color: #c084fc;
@@ -922,7 +922,7 @@ body {
   word-break: break-all;
 }
 
-/* ── Results Cards ─────────────────────────────────────────────────── */
+/* â”€â”€ Results Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .results-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -930,7 +930,7 @@ body {
   margin-top: 24px;
 }
 
-/* ── Accordion Card System ─────────────────────────────────────────── */
+/* â”€â”€ Accordion Card System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .accordion-stack {
   display: flex;
   flex-direction: column;
@@ -946,7 +946,7 @@ body {
   animation: risk-fade-in 0.4s ease-out;
 }
 
-/* ── Variant left-border colors ── */
+/* â”€â”€ Variant left-border colors â”€â”€ */
 .accordion-card--risk-clean    { border-left: 4px solid #4ade80; }
 .accordion-card--risk-warning  { border-left: 4px solid #fbbf24; }
 .accordion-card--risk-critical { border-left: 4px solid #f87171; }
@@ -986,7 +986,7 @@ body {
 .accordion-card--imports       { border-left: 4px solid #ec4899; }
 .accordion-card--data-flows    { border-left: 4px solid #3b82f6; }
 
-/* ── Accordion Header Button ── */
+/* â”€â”€ Accordion Header Button â”€â”€ */
 .accordion-header {
   display: flex;
   align-items: center;
@@ -1014,7 +1014,7 @@ body {
   border-bottom: 1px solid rgba(68, 72, 79, 0.2);
 }
 
-/* ── Arrow Indicator ── */
+/* â”€â”€ Arrow Indicator â”€â”€ */
 .accordion-arrow {
   font-size: 10px;
   color: var(--on-surface-variant);
@@ -1028,7 +1028,7 @@ body {
   transform: rotate(90deg);
 }
 
-/* ── Icon & Title ── */
+/* â”€â”€ Icon & Title â”€â”€ */
 .accordion-icon {
   font-size: 14px;
   flex-shrink: 0;
@@ -1054,7 +1054,7 @@ body {
   text-transform: none;
 }
 
-/* ── Accordion Body (animated) ── */
+/* â”€â”€ Accordion Body (animated) â”€â”€ */
 .accordion-body-wrapper {
   transition: height 200ms ease;
 }
@@ -1063,7 +1063,7 @@ body {
   padding: 0;
 }
 
-/* ── Variant header tint colors ── */
+/* â”€â”€ Variant header tint colors â”€â”€ */
 .accordion-card--risk-clean .accordion-header    { color: #4ade80; }
 .accordion-card--risk-warning .accordion-header  { color: #fbbf24; }
 .accordion-card--risk-critical .accordion-header { color: #f87171; }
@@ -1104,7 +1104,7 @@ body {
 .accordion-card--data-flows .accordion-header    { color: #3b82f6; }
 
 
-/* ── Pwn template action bar inside accordion ── */
+/* â”€â”€ Pwn template action bar inside accordion â”€â”€ */
 .pwn-template-actions {
   display: flex;
   gap: 8px;
@@ -1113,7 +1113,7 @@ body {
   border-bottom: 1px solid rgba(68, 72, 79, 0.15);
 }
 
-/* ── Inner card resets when used inside accordion ── */
+/* â”€â”€ Inner card resets when used inside accordion â”€â”€ */
 .accordion-body .risk-card,
 .accordion-body .entropy-card {
   margin-top: 0;
@@ -1152,7 +1152,7 @@ body {
   padding-left: 40px;
 }
 
-/* ── YARA Matches Card ─────────────────────────────────────────────── */
+/* â”€â”€ YARA Matches Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .result-card-header--yara {
   background: rgba(249, 115, 22, 0.06);
   color: #fb923c;
@@ -1210,7 +1210,7 @@ body {
   font-size: 11px;
 }
 
-/* ── CTF Category Card ─────────────────────────────────────────────── */
+/* â”€â”€ CTF Category Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .ctf-category-card {
   padding: 20px;
   border-radius: 2px;
@@ -1289,7 +1289,7 @@ body {
   margin: 0;
 }
 
-/* ── Format String Card ────────────────────────────────────────────── */
+/* â”€â”€ Format String Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .fmtstr-card {
   padding: 16px;
 }
@@ -1346,7 +1346,7 @@ body {
   line-height: 1.4;
 }
 
-/* ── Libc Info Card ────────────────────────────────────────────────── */
+/* â”€â”€ Libc Info Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .libc-card {
   display: flex;
   flex-direction: column;
@@ -1402,7 +1402,7 @@ body {
   text-decoration: underline;
 }
 
-/* ── Quick Commands Panel ──────────────────────────────────────────── */
+/* â”€â”€ Quick Commands Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .quick-commands {
   display: flex;
   flex-direction: column;
@@ -1486,7 +1486,7 @@ body {
   border-color: var(--secondary);
 }
 
-/* ── Command Explainer ── */
+/* â”€â”€ Command Explainer â”€â”€ */
 .explain-container {
   border-top: 1px solid rgba(68, 72, 79, 0.2);
   background: rgba(255, 255, 255, 0.015);
@@ -1592,7 +1592,7 @@ body {
   cursor: not-allowed;
 }
 
-/* ── Difficulty Card ───────────────────────────────────────────────── */
+/* â”€â”€ Difficulty Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .difficulty-card {
   display: flex;
   align-items: center;
@@ -1637,7 +1637,7 @@ body {
   margin: 0;
 }
 
-/* ── Overflow Offset Card ──────────────────────────────────────────── */
+/* â”€â”€ Overflow Offset Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .overflow-card {
   padding: 16px;
 }
@@ -1700,7 +1700,7 @@ body {
   border-radius: 2px;
 }
 
-/* ── VirusTotal Disclaimer Banner ─────────────────────────────────── */
+/* â”€â”€ VirusTotal Disclaimer Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .vt-disclaimer {
   margin-top: 20px;
   padding: 14px 20px;
@@ -1724,7 +1724,7 @@ body {
   line-height: 1.4;
 }
 
-/* ── VirusTotal Card ──────────────────────────────────────────────── */
+/* â”€â”€ VirusTotal Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .vt-card {
   margin-top: 12px;
   border-radius: 2px;
@@ -1774,7 +1774,7 @@ body {
   border-left-color: #ef4444;
 }
 
-/* ── Detection Ratio ──────────────────────────────────────────────── */
+/* â”€â”€ Detection Ratio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .vt-results-body {
   display: flex;
   flex-direction: column;
@@ -1864,7 +1864,7 @@ body {
   font-weight: 600;
 }
 
-/* ── Detection Progress Bar ───────────────────────────────────────── */
+/* â”€â”€ Detection Progress Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .vt-bar-track {
   height: 6px;
   background: var(--surface-container-highest);
@@ -1883,7 +1883,7 @@ body {
 .vt-bar-fill--suspicious { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
 .vt-bar-fill--malicious  { background: linear-gradient(90deg, #ef4444, #f87171); }
 
-/* ── Threat Name ──────────────────────────────────────────────────── */
+/* â”€â”€ Threat Name â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .vt-threat {
   display: flex;
   align-items: center;
@@ -1911,7 +1911,7 @@ body {
   word-break: break-all;
 }
 
-/* ── Behavior Summary ─────────────────────────────────────────────── */
+/* â”€â”€ Behavior Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .vt-behavior {
   font-size: 12px;
   color: var(--on-surface-variant);
@@ -1920,7 +1920,7 @@ body {
   opacity: 0.8;
 }
 
-/* ── VirusTotal Permalink ─────────────────────────────────────────── */
+/* â”€â”€ VirusTotal Permalink â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .vt-link {
   display: inline-flex;
   align-items: center;
@@ -1946,7 +1946,7 @@ body {
   box-shadow: 0 0 12px rgba(96, 165, 250, 0.15);
 }
 
-/* ── Pending State ────────────────────────────────────────────────── */
+/* â”€â”€ Pending State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .vt-pending {
   display: flex;
   flex-direction: column;
@@ -1960,7 +1960,7 @@ body {
   font-family: var(--font-body);
 }
 
-/* ── Scanning State ───────────────────────────────────────────────── */
+/* â”€â”€ Scanning State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .vt-card--scanning {
   border: 1px solid rgba(96, 165, 250, 0.2);
 }
@@ -1998,13 +1998,13 @@ body {
   50% { opacity: 1; }
 }
 
-/* ── Disclaimer position adjustment ───────────────────────────────── */
+/* â”€â”€ Disclaimer position adjustment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .vt-disclaimer {
   margin-top: 0;
   margin-bottom: 20px;
 }
 
-/* ── Checksec Card ────────────────────────────────────────────────── */
+/* â”€â”€ Checksec Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .checksec-card {
   margin-top: 16px;
   border-radius: 2px;
@@ -2085,7 +2085,7 @@ body {
   margin-left: auto;
 }
 
-/* ── Hex Viewer Card ──────────────────────────────────────────────── */
+/* â”€â”€ Hex Viewer Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .hex-viewer-card {
   margin-top: 16px;
   border-radius: 2px;
@@ -2198,7 +2198,7 @@ body {
   opacity: 0.6;
 }
 
-/* ── Disassembly Viewer Card ──────────────────────────────────────── */
+/* â”€â”€ Disassembly Viewer Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .disasm-card {
   margin-top: 16px;
   border-radius: 2px;
@@ -2308,7 +2308,7 @@ body {
   font-weight: 700;
 }
 
-/* ── Pwntools Template Card ───────────────────────────────────────── */
+/* â”€â”€ Pwntools Template Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .pwn-template-card {
   margin-top: 16px;
   border-radius: 2px;
@@ -2559,7 +2559,7 @@ body {
   font-weight: 700;
 }
 
-/* ── Chat Section ──────────────────────────────────────────────────── */
+/* â”€â”€ Chat Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .chat-container {
   margin-top: 32px;
   background: var(--surface-container);
@@ -2605,7 +2605,7 @@ body {
 .chat-messages::-webkit-scrollbar-track { background: transparent; }
 .chat-messages::-webkit-scrollbar-thumb { background: var(--outline-variant); border-radius: 2px; }
 
-/* ── Chat Bubbles ─────────────────────────────────────────────────── */
+/* â”€â”€ Chat Bubbles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .chat-bubble {
   max-width: 85%;
   padding: 10px 16px;
@@ -2672,7 +2672,7 @@ body {
   100% { opacity: 0.2; }
 }
 
-/* ── Chat Image Attachment ─────────────────────────────────────────── */
+/* â”€â”€ Chat Image Attachment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .chat-image-bar {
   display: flex;
   align-items: center;
@@ -2749,7 +2749,7 @@ body {
   object-fit: contain;
 }
 
-/* ── Chat Input ───────────────────────────────────────────────────── */
+/* â”€â”€ Chat Input â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .chat-input-row {
   display: flex;
   gap: 8px;
@@ -2810,7 +2810,7 @@ body {
   cursor: not-allowed;
 }
 
-/* ── Footer ────────────────────────────────────────────────────────── */
+/* â”€â”€ Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .footer {
   margin-top: 48px;
   text-align: center;
@@ -2823,7 +2823,7 @@ body {
   padding-bottom: 32px;
 }
 
-/* ── Responsive ────────────────────────────────────────────────────── */
+/* â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 768px) {
   .app-wrapper {
     padding: 24px 16px;
@@ -2848,7 +2848,7 @@ body {
   }
 }
 
-/* ── Password Modal ────────────────────────────────────────────────── */
+/* â”€â”€ Password Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .pwd-overlay {
   position: fixed;
   inset: 0;
@@ -3034,7 +3034,7 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* ── Deep Static Analysis Components ── */
+/* â”€â”€ Deep Static Analysis Components â”€â”€ */
 .table-container {
   width: 100%;
   overflow-x: auto;
@@ -3113,11 +3113,11 @@ body {
   margin-bottom: 0;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    CAROUSEL / CARD LAYOUT SYSTEM
-   ═══════════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── Hero Row ──────────────────────────────────────────────────────── */
+/* â”€â”€ Hero Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .hero-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3175,7 +3175,7 @@ body {
   margin: 0;
 }
 
-/* ── Carousel Section ─────────────────────────────────────────────── */
+/* â”€â”€ Carousel Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .carousel-section {
   margin-top: 32px;
   animation: risk-fade-in 0.5s ease-out;
@@ -3239,7 +3239,7 @@ body {
   cursor: default;
 }
 
-/* ── Carousel Track ───────────────────────────────────────────────── */
+/* â”€â”€ Carousel Track â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .carousel-track {
   overflow: hidden;
   touch-action: pan-y;
@@ -3259,7 +3259,7 @@ body {
   box-sizing: border-box;
 }
 
-/* ── Carousel Dots ────────────────────────────────────────────────── */
+/* â”€â”€ Carousel Dots â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .carousel-dots {
   display: flex;
   justify-content: center;
@@ -3284,7 +3284,7 @@ body {
   transform: scale(1.25);
 }
 
-/* ── Compact Carousel Card ────────────────────────────────────────── */
+/* â”€â”€ Compact Carousel Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .carousel-card {
   background: var(--surface-container);
   border: 1px solid rgba(68, 72, 79, 0.25);
@@ -3361,7 +3361,7 @@ body {
   color: var(--primary);
 }
 
-/* ── Card Detail Modal ────────────────────────────────────────────── */
+/* â”€â”€ Card Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .card-modal-overlay {
   position: fixed;
   inset: 0;
@@ -3488,7 +3488,7 @@ body {
 .card-modal-body .two-column-layout { padding: 20px 24px; }
 .card-modal-body .table-container { border-top: none; }
 
-/* ── Full-width bottom sections ───────────────────────────────────── */
+/* â”€â”€ Full-width bottom sections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .bottom-section {
   margin-top: 32px;
   border-radius: 6px;
@@ -3522,7 +3522,7 @@ body {
   margin: 0;
 }
 
-/* ── Responsive ───────────────────────────────────────────────────── */
+/* â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 1024px) {
   .content-wrapper { max-width: 100%; }
   .hero-row { grid-template-columns: 1fr 1fr; }

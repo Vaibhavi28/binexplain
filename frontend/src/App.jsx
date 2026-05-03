@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
-/* â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
 const ALLOWED_EXTENSIONS = ['.bin', '.elf', '.exe', '.so', '.dll', '.out', '.o', '.zip'];
@@ -13,7 +13,7 @@ const LOADING_MESSAGES = [
     'Analyzing patterns...',
 ];
 
-/* â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Helpers --------------------------------------------------------- */
 function formatBytes(bytes) {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -26,11 +26,11 @@ function getExtension(name) {
     // No dot, or dot is the first char with nothing after (e.g. ".bashrc" or "file.")
     if (dot <= 0) return '';
     const ext = name.slice(dot).toLowerCase();
-    // Trailing dot (e.g. "file.") â†’ treat as extensionless
+    // Trailing dot (e.g. "file.")  treat as extensionless
     return ext === '.' ? '' : ext;
 }
 
-/* â”€â”€ Accordion Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Accordion Card -------------------------------------------------- */
 function AccordionCard({ id, icon, title, summary, open, onToggle, variant, children, sectionKey, openSections, toggleSection }) {
     const isOpen = open !== undefined ? open : (openSections && sectionKey ? openSections[sectionKey] : false);
     const handleToggle = onToggle || (toggleSection && sectionKey ? () => toggleSection(sectionKey) : () => {});
@@ -68,7 +68,7 @@ function AccordionCard({ id, icon, title, summary, open, onToggle, variant, chil
                 aria-expanded={isOpen}
                 id={id || sectionKey ? `${id || sectionKey}-toggle` : undefined}
             >
-                <span className={`accordion-arrow${isOpen ? ' accordion-arrow--open' : ''}`}>â–¶</span>
+                <span className={`accordion-arrow${isOpen ? ' accordion-arrow--open' : ''}`}></span>
                 <span className="accordion-icon">{icon}</span>
                 <span className="accordion-title">{title}</span>
                 {summary && <span className="accordion-summary">{summary}</span>}
@@ -86,7 +86,7 @@ function AccordionCard({ id, icon, title, summary, open, onToggle, variant, chil
     );
 }
 
-/* â”€â”€ Carousel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Carousel ------------------------------------------------------- */
 function Carousel({ title, icon, children }) {
     const [idx, setIdx] = useState(0);
     const [cpv, setCpv] = useState(4);
@@ -118,8 +118,8 @@ function Carousel({ title, icon, children }) {
                 <h3 className="carousel-header-title">{title}</h3>
                 {showNav && (
                     <div className="carousel-nav">
-                        <button className="carousel-arrow" onClick={prev} disabled={idx === 0} aria-label="Previous">â€¹</button>
-                        <button className="carousel-arrow" onClick={next} disabled={idx >= maxIdx} aria-label="Next">â€º</button>
+                        <button className="carousel-arrow" onClick={prev} disabled={idx === 0} aria-label="Previous"></button>
+                        <button className="carousel-arrow" onClick={next} disabled={idx >= maxIdx} aria-label="Next"></button>
                     </div>
                 )}
             </div>
@@ -150,19 +150,19 @@ function Carousel({ title, icon, children }) {
     );
 }
 
-/* â”€â”€ Compact Carousel Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Compact Carousel Card ------------------------------------------ */
 function CCard({ icon, title, stat, statColor, accent, onClick }) {
     return (
         <div className="carousel-card" style={{ '--card-accent': accent || 'var(--primary)' }} onClick={onClick} role="button" tabIndex={0}>
             <div className="ccard-icon">{icon}</div>
             <div className="ccard-title">{title}</div>
             <div className="ccard-stat" style={statColor ? { color: statColor } : undefined}>{stat}</div>
-            <div className="ccard-hint">Click to expand â†’</div>
+            <div className="ccard-hint">Click to expand </div>
         </div>
     );
 }
 
-/* â”€â”€ Card Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- Card Detail Modal ---------------------------------------------- */
 function CardModal({ title, icon, accent, onClose, children }) {
     useEffect(() => {
         const h = (e) => { if (e.key === 'Escape') onClose(); };
@@ -177,7 +177,7 @@ function CardModal({ title, icon, accent, onClose, children }) {
                 <div className="card-modal-top">
                     <span className="card-modal-icon">{icon}</span>
                     <h2 className="card-modal-title">{title}</h2>
-                    <button className="card-modal-close" onClick={onClose} aria-label="Close">âœ•</button>
+                    <button className="card-modal-close" onClick={onClose} aria-label="Close">*</button>
                 </div>
                 <div className="card-modal-body">{children}</div>
             </div>
@@ -185,7 +185,7 @@ function CardModal({ title, icon, accent, onClose, children }) {
     );
 }
 
-/* â”€â”€ App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* -- App ------------------------------------------------------------- */
 const MAX_CHAT_CHARS = 2000;
 const MAX_CHAT_MESSAGES = 10;
 const MAX_SOURCE_CODE_CHARS = 10000;
@@ -200,10 +200,10 @@ export default function App() {
     const [error, setError] = useState('');
     const inputRef = useRef(null);
 
-    /* â”€â”€ Analysis mode toggle â”€â”€ */
+    /* -- Analysis mode toggle -- */
     const [analysisMode, setAnalysisMode] = useState('binary');  // 'binary' | 'source'
 
-    /* â”€â”€ Source code analysis state â”€â”€ */
+    /* -- Source code analysis state -- */
     const [sourceCode, setSourceCode] = useState('');
     const [sourceFile, setSourceFile] = useState(null);
     const [sourceResult, setSourceResult] = useState(null);
@@ -211,7 +211,7 @@ export default function App() {
     const [sourceError, setSourceError] = useState('');
     const sourceInputRef = useRef(null);
 
-    /* â”€â”€ Chat state (lives in React only â€” lost on refresh by design) â”€â”€ */
+    /* -- Chat state (lives in React only  lost on refresh by design) -- */
     const [chatMessages, setChatMessages] = useState([]);
     const [chatInput, setChatInput] = useState('');
     const [chatLoading, setChatLoading] = useState(false);
@@ -221,26 +221,26 @@ export default function App() {
     const chatImageRef = useRef(null);
     const analysisContextRef = useRef('');
 
-    /* ── Command Explainer state ── */
+    /* -- Command Explainer state -- */
     const [explainInput, setExplainInput] = useState('');
     const [explainLog, setExplainLog] = useState([]);
     const [explainLoading, setExplainLoading] = useState(false);
 
-    /* â”€â”€ Password modal state (for protected ZIPs) â”€â”€ */
+    /* -- Password modal state (for protected ZIPs) -- */
     const [passwordModal, setPasswordModal] = useState(false);
     const [passwordInput, setPasswordInput] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [passwordLoading, setPasswordLoading] = useState(false);
     const passwordFileRef = useRef(null);
 
-    /* â”€â”€ VirusTotal polling state â”€â”€ */
+    /* -- VirusTotal polling state -- */
     const [submitToVt, setSubmitToVt] = useState(false);
     const [vtScanId, setVtScanId] = useState(null);
     const [vtResult, setVtResult] = useState(null);
 
-    /* â”€â”€ Accordion section open/close state â”€â”€ */
+    /* -- Accordion section open/close state -- */
     const [openSections, setOpenSections] = useState({
-        ctfCategory: true,  // open by default â€” prominent
+        ctfCategory: true,  // open by default  prominent
         difficulty: false,
         quickCommands: true, // open by default
         cvss: false,
@@ -272,13 +272,13 @@ export default function App() {
         srcCode: false,
     });
 
-    /* â”€â”€ AI Hints feedback â”€â”€ */
+    /* -- AI Hints feedback -- */
     const [feedbackGiven, setFeedbackGiven] = useState(null);
 
-    /* â”€â”€ Rate limit countdown â”€â”€ */
+    /* -- Rate limit countdown -- */
     const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
 
-    /* â”€â”€ Card detail modal â”€â”€ */
+    /* -- Card detail modal -- */
     const [modalData, setModalData] = useState(null);
     const openModal = useCallback((d) => setModalData(d), []);
     const closeModal = useCallback(() => setModalData(null), []);
@@ -288,7 +288,7 @@ export default function App() {
         setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
     }, []);
 
-    /* Build checksec summary for header (e.g. "NXâœ“ PIEâœ— Canaryâœ“") */
+    /* Build checksec summary for header (e.g. "NX[v] PIE Canary[v]") */
     const checksecSummary = useMemo(() => {
         if (!result?.checksec || result.checksec.nx === null) return '';
         const badges = [
@@ -298,7 +298,7 @@ export default function App() {
             { key: 'relro', label: 'RELRO' },
             { key: 'fortify', label: 'Fortify' },
         ];
-        return badges.map(b => `${b.label}${result.checksec[b.key] ? 'âœ“' : 'âœ—'}`).join(' ');
+        return badges.map(b => `${b.label}${result.checksec[b.key] ? '[v]' : ''}`).join(' ');
     }, [result?.checksec]);
 
     /* Auto-scroll chat to bottom on new messages */
@@ -335,7 +335,7 @@ export default function App() {
                     setVtScanId(null); // stop polling
                 }
             } catch {
-                // Network error â€” keep polling
+                // Network error  keep polling
             }
         };
 
@@ -370,7 +370,7 @@ export default function App() {
         setResult(null);
 
         if (!f || !f.name) {
-            setError('âŒ Invalid file. Please select a valid binary.');
+            setError(' Invalid file. Please select a valid binary.');
             return;
         }
 
@@ -380,17 +380,17 @@ export default function App() {
         // Allow extensionless files (auto-detected by backend via magic bytes)
         // Allow .zip files explicitly (backend supports them)
         if (ext !== '' && !isZip && !ALLOWED_EXTENSIONS.includes(ext)) {
-            setError(`âŒ Unsupported file type "${ext}". Accepted: ELF, EXE, BIN, SO, DLL, ZIP or extensionless binaries.`);
+            setError(` Unsupported file type "${ext}". Accepted: ELF, EXE, BIN, SO, DLL, ZIP or extensionless binaries.`);
             return;
         }
         const sizeLimit = (ext === '.zip' || isZip) ? MAX_ZIP_SIZE : MAX_FILE_SIZE;
         const sizeLimitLabel = (ext === '.zip' || isZip) ? '10 MB' : '5 MB';
         if (f.size > sizeLimit) {
-            setError(`ðŸ“¦ File too large (${formatBytes(f.size)}). Maximum size is ${sizeLimitLabel}.`);
+            setError(` File too large (${formatBytes(f.size)}). Maximum size is ${sizeLimitLabel}.`);
             return;
         }
         if (f.size === 0) {
-            setError('âŒ File is empty. Please select a valid binary.');
+            setError(' File is empty. Please select a valid binary.');
             return;
         }
         setFile(f);
@@ -450,7 +450,7 @@ export default function App() {
                 }
 
                 if (res.status === 429) {
-                    // Rate limited â€” parse retry-after
+                    // Rate limited  parse retry-after
                     const retryAfter = res.headers.get('retry-after');
                     let waitMin = 60;
                     if (retryAfter) {
@@ -463,9 +463,9 @@ export default function App() {
                         setRateLimitSeconds(waitMin);
                     }
                     const mins = Math.ceil(waitMin / 60);
-                    setError(`â³ Rate limit reached â€” you can analyze 10 files per hour. Please wait ~${mins} minute${mins !== 1 ? 's' : ''} before trying again.`);
+                    setError(` Rate limit reached  you can analyze 10 files per hour. Please wait ~${mins} minute${mins !== 1 ? 's' : ''} before trying again.`);
                 } else {
-                    setError(data.detail || `âŒ Server error (${res.status})`);
+                    setError(data.detail || ` Server error (${res.status})`);
                 }
                 return;
             }
@@ -508,8 +508,8 @@ export default function App() {
         } catch (err) {
             setError(
                 err.message === 'Failed to fetch'
-                    ? 'ðŸ”Œ Cannot connect to backend. Make sure it\'s running on ' + BACKEND_URL
-                    : `âŒ Upload failed: ${err.message}`
+                    ? ' Cannot connect to backend. Make sure it\'s running on ' + BACKEND_URL
+                    : ` Upload failed: ${err.message}`
             );
         } finally {
             setLoading(false);
@@ -551,14 +551,14 @@ export default function App() {
                     setPasswordModal(false);
                     setPasswordInput('');
                     passwordFileRef.current = null;
-                    setError('â³ Rate limit reached. Please wait before trying again.');
+                    setError(' Rate limit reached. Please wait before trying again.');
                     return;
                 }
                 setPasswordError(data.detail || `Error (${res.status})`);
                 return;
             }
 
-            // Success â€” close modal, clear password, show results
+            // Success  close modal, clear password, show results
             setPasswordModal(false);
             setPasswordInput('');
             setPasswordError('');
@@ -612,11 +612,11 @@ export default function App() {
         e.target.value = '';
         const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
         if (!validTypes.includes(f.type)) {
-            setChatMessages(prev => [...prev, { role: 'assistant', content: 'âš  Invalid image type. Accepted: PNG, JPG, GIF, WEBP.' }]);
+            setChatMessages(prev => [...prev, { role: 'assistant', content: ' Invalid image type. Accepted: PNG, JPG, GIF, WEBP.' }]);
             return;
         }
         if (f.size > 5 * 1024 * 1024) {
-            setChatMessages(prev => [...prev, { role: 'assistant', content: 'âš  Image too large. Maximum: 5 MB.' }]);
+            setChatMessages(prev => [...prev, { role: 'assistant', content: ' Image too large. Maximum: 5 MB.' }]);
             return;
         }
         setChatImage(f);
@@ -638,7 +638,7 @@ export default function App() {
 
         // If there's an image, use the image endpoint
         if (hasImage) {
-            const userMsg = { role: 'user', content: text || 'ðŸ“· [Screenshot attached]', image: chatImagePreview };
+            const userMsg = { role: 'user', content: text || ' [Screenshot attached]', image: chatImagePreview };
             setChatMessages(prev => [...prev, userMsg]);
             setChatInput('');
             const imageFile = chatImage;
@@ -658,13 +658,13 @@ export default function App() {
                 const data = await res.json();
 
                 if (!res.ok) {
-                    setChatMessages(prev => [...prev, { role: 'assistant', content: `âš  Error: ${data.detail || 'Image analysis failed.'}` }]);
+                    setChatMessages(prev => [...prev, { role: 'assistant', content: ` Error: ${data.detail || 'Image analysis failed.'}` }]);
                     return;
                 }
 
                 setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
             } catch (err) {
-                setChatMessages(prev => [...prev, { role: 'assistant', content: `âš  ${err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message}` }]);
+                setChatMessages(prev => [...prev, { role: 'assistant', content: ` ${err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message}` }]);
             } finally {
                 setChatLoading(false);
             }
@@ -693,7 +693,7 @@ export default function App() {
             if (!res.ok) {
                 setChatMessages(prev => [
                     ...prev,
-                    { role: 'assistant', content: `âš  Error: ${data.detail || 'Something went wrong.'}` },
+                    { role: 'assistant', content: ` Error: ${data.detail || 'Something went wrong.'}` },
                 ]);
                 return;
             }
@@ -705,7 +705,7 @@ export default function App() {
         } catch (err) {
             setChatMessages(prev => [
                 ...prev,
-                { role: 'assistant', content: `âš  ${err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message}` },
+                { role: 'assistant', content: ` ${err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message}` },
             ]);
         } finally {
             setChatLoading(false);
@@ -719,7 +719,7 @@ export default function App() {
         }
     };
 
-    /* ── Command Explainer handler ── */
+    /* -- Command Explainer handler -- */
     const handleExplainCommand = async (overrideCmd) => {
         const cmdToExplain = overrideCmd || explainInput;
         if (!cmdToExplain.trim() || explainLoading) return;
@@ -759,7 +759,7 @@ export default function App() {
         }
     };
 
-    /* â”€â”€ Source code handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* -- Source code handlers ------------------------------------------- */
     const stageSourceFile = (f) => {
         if (!f) return;
         const ext = '.' + f.name.split('.').pop()?.toLowerCase();
@@ -833,12 +833,12 @@ export default function App() {
         }
     };
 
-    /* â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* -- Render -------------------------------------------------------- */
     return (
         <div className="app-wrapper">
             <div className="content-wrapper">
 
-                {/* â”€â”€ Title â”€â”€ */}
+                {/* -- Title -- */}
                 <header className="hero-header">
                     <h1 className="hero-title">BinExplain</h1>
                     <p className="hero-subtitle">
@@ -847,34 +847,34 @@ export default function App() {
                     </p>
                 </header>
 
-                {/* â”€â”€ Mode Toggle â”€â”€ */}
+                {/* -- Mode Toggle -- */}
                 <div className="mode-toggle">
                     <button
                         className={`mode-btn ${analysisMode === 'binary' ? 'active' : ''}`}
                         onClick={() => switchMode('binary')}
                     >
-                        ðŸ”¬ Binary Analysis
+                         Binary Analysis
                     </button>
                     <button
                         className={`mode-btn ${analysisMode === 'source' ? 'active' : ''}`}
                         onClick={() => switchMode('source')}
                     >
-                        ðŸ“ Source Code Analysis
+                         Source Code Analysis
                     </button>
                 </div>
 
                 {analysisMode === 'binary' ? (
                     <>
-                        {/* â”€â”€ VirusTotal Disclaimer (always visible before upload) â”€â”€ */}
+                        {/* -- VirusTotal Disclaimer (always visible before upload) -- */}
                         <div className="vt-disclaimer" id="vt-disclaimer">
-                            <span className="vt-disclaimer-icon">âš ï¸</span>
+                            <span className="vt-disclaimer-icon"></span>
                             <span>
                                 Files submitted to VirusTotal are stored permanently in their database.
                                 Do not upload sensitive or private binaries.
                             </span>
                         </div>
 
-                {/* â”€â”€ Upload Zone â”€â”€ */}
+                {/* -- Upload Zone -- */}
                 <section>
                     <div
                         className={`dropzone-wrapper${dragOver ? ' drag-over' : ''}`}
@@ -930,7 +930,7 @@ export default function App() {
                     </div>
                 </section>
 
-                {/* â”€â”€ Staged File Bar â”€â”€ */}
+                {/* -- Staged File Bar -- */}
                 {file && !loading && (
                     <div className="staged-file-bar">
                         <div className="staged-file-info">
@@ -943,7 +943,7 @@ export default function App() {
                     </div>
                 )}
 
-                {/* â”€â”€ VirusTotal Checkbox â”€â”€ */}
+                {/* -- VirusTotal Checkbox -- */}
                 {file && !loading && (
                     <div className="vt-checkbox-wrapper">
                         <label className="vt-checkbox-label" htmlFor="vt-checkbox">
@@ -953,19 +953,19 @@ export default function App() {
                                 checked={submitToVt}
                                 onChange={e => setSubmitToVt(e.target.checked)}
                             />
-                            ðŸ›¡ï¸ Submit to VirusTotal <span className="vt-checkbox-hint">(disable for CTF challenges)</span>
+                             Submit to VirusTotal <span className="vt-checkbox-hint">(disable for CTF challenges)</span>
                         </label>
                     </div>
                 )}
 
-                {/* â”€â”€ Analyze Button â”€â”€ */}
+                {/* -- Analyze Button -- */}
                 {file && !loading && (
                     <button className="analyze-btn" onClick={upload}>
-                        â–¶ Analyze File
+                         Analyze File
                     </button>
                 )}
 
-                {/* â”€â”€ Loading â”€â”€ */}
+                {/* -- Loading -- */}
                 {loading && (
                     <div className="terminal-loading">
                         <div className="terminal-line">
@@ -976,13 +976,13 @@ export default function App() {
                     </div>
                 )}
 
-                {/* â”€â”€ Error â”€â”€ */}
+                {/* -- Error -- */}
                 {error && (
                     <div className={`error-box ${rateLimitSeconds > 0 ? 'error-box--rate-limit' : ''}`} id="error-display">
                         <div className="error-text">{error}</div>
                         {rateLimitSeconds > 0 && (
                             <div className="error-countdown">
-                                â±ï¸ Retry in: {Math.floor(rateLimitSeconds / 60)}:{String(rateLimitSeconds % 60).padStart(2, '0')}
+                                 Retry in: {Math.floor(rateLimitSeconds / 60)}:{String(rateLimitSeconds % 60).padStart(2, '0')}
                             </div>
                         )}
                     </div>
@@ -990,7 +990,7 @@ export default function App() {
                 </>
                 ) : (
                     <>
-                        {/* â”€â”€ Source Code Upload & Paste Zone â”€â”€ */}
+                        {/* -- Source Code Upload & Paste Zone -- */}
                         <section className="source-input-section">
                             <div className="source-upload-wrapper">
                                 <div
@@ -1046,7 +1046,7 @@ export default function App() {
                                 onClick={analyzeSourceCode} 
                                 disabled={sourceLoading || (!sourceCode.trim() && !sourceFile)}
                             >
-                                {sourceLoading ? 'Analyzing...' : 'â–¶ Analyze Code'}
+                                {sourceLoading ? 'Analyzing...' : ' Analyze Code'}
                             </button>
 
                             {sourceLoading && (
@@ -1068,7 +1068,7 @@ export default function App() {
                     </>
                 )}
 
-                {/* â•â•â• Binary Results â•â•â• */}
+                {/* *** Binary Results *** */}
                 {analysisMode === 'binary' && result && (() => {
                     const cvssC = (s) => s === 'Critical' ? '#ef4444' : s === 'High' ? '#f97316' : s === 'Medium' ? '#eab308' : '#22c55e';
                     const om = (title, icon, accent, content) => openModal({ title, icon, accent, content });
@@ -1090,11 +1090,11 @@ export default function App() {
                             </div>
                         </div>
 
-                        {/* â”€â”€ Section 1: Hero Row â”€â”€ */}
+                        {/* -- Section 1: Hero Row -- */}
                         <div className="hero-row">
                             {result.ctf_category && result.ctf_category.category !== 'unknown' && (
                                 <div className={`hero-card hero-card--${result.ctf_category.confidence.toLowerCase()}`}>
-                                    <div className="hero-card-label">ðŸŽ¯ CTF Category</div>
+                                    <div className="hero-card-label"> CTF Category</div>
                                     <div className="hero-card-main">
                                         <span className={`ctf-category-badge ctf-category-badge--${result.ctf_category.confidence.toLowerCase()}`}>{result.ctf_category.category.replace(/_/g, ' ').toUpperCase()}</span>
                                         <span className={`ctf-confidence-badge ctf-confidence-badge--${result.ctf_category.confidence.toLowerCase()}`}>{result.ctf_category.confidence}</span>
@@ -1104,7 +1104,7 @@ export default function App() {
                             )}
                             {result.difficulty && (
                                 <div className={`hero-card hero-card--diff-${result.difficulty.difficulty.toLowerCase()}`}>
-                                    <div className="hero-card-label">ðŸŽ² Difficulty</div>
+                                    <div className="hero-card-label"> Difficulty</div>
                                     <div className="hero-card-main">
                                         <span className={`difficulty-badge difficulty-badge--${result.difficulty.difficulty.toLowerCase()}`}>{result.difficulty.difficulty}</span>
                                     </div>
@@ -1113,86 +1113,86 @@ export default function App() {
                             )}
                         </div>
 
-                        {/* â”€â”€ Section 2: Vulnerability Analysis â”€â”€ */}
-                        <Carousel title="Vulnerability Analysis" icon="ðŸ”’">
-                            {result.checksec && result.checksec.nx !== null && <CCard icon="ðŸ›¡ï¸" title="Security Protections" stat={checksecSummary} statColor="#60a5fa" accent="#3b82f6" onClick={() => om('Security Protections','ðŸ›¡ï¸','#3b82f6',
-                                <div className="checksec-badges">{[{key:'nx',label:'NX',desc:'No-Execute'},{key:'pie',label:'PIE',desc:'Position Independent'},{key:'canary',label:'Canary',desc:'Stack Canary'},{key:'relro',label:'RELRO',desc:'Read-Only Relocations'},{key:'fortify',label:'Fortify',desc:'Fortify Source'}].map(({key,label,desc})=>(<div className={`checksec-badge checksec-badge--${result.checksec[key]?'enabled':'disabled'}`} key={key} title={desc}><span className="checksec-badge-icon">{result.checksec[key]?'âœ“':'âœ—'}</span><span className="checksec-badge-label">{label}</span><span className="checksec-badge-status">{result.checksec[key]?'Enabled':'Disabled'}</span></div>))}</div>
+                        {/* -- Section 2: Vulnerability Analysis -- */}
+                        <Carousel title="Vulnerability Analysis" icon="">
+                            {result.checksec && result.checksec.nx !== null && <CCard icon="" title="Security Protections" stat={checksecSummary} statColor="#60a5fa" accent="#3b82f6" onClick={() => om('Security Protections','','#3b82f6',
+                                <div className="checksec-badges">{[{key:'nx',label:'NX',desc:'No-Execute'},{key:'pie',label:'PIE',desc:'Position Independent'},{key:'canary',label:'Canary',desc:'Stack Canary'},{key:'relro',label:'RELRO',desc:'Read-Only Relocations'},{key:'fortify',label:'Fortify',desc:'Fortify Source'}].map(({key,label,desc})=>(<div className={`checksec-badge checksec-badge--${result.checksec[key]?'enabled':'disabled'}`} key={key} title={desc}><span className="checksec-badge-icon">{result.checksec[key]?'[v]':''}</span><span className="checksec-badge-label">{label}</span><span className="checksec-badge-status">{result.checksec[key]?'Enabled':'Disabled'}</span></div>))}</div>
                             )} />}
-                            {result.cvss_score !== undefined && <CCard icon="ðŸ“Š" title="CVSS Score" stat={`${result.cvss_score}/10.0 ${result.cvss_severity}`} statColor={cvssC(result.cvss_severity)} accent={cvssC(result.cvss_severity)} onClick={() => om('CVSS 3.1 Scoring','ðŸ“Š',cvssC(result.cvss_severity),
+                            {result.cvss_score !== undefined && <CCard icon="" title="CVSS Score" stat={`${result.cvss_score}/10.0 ${result.cvss_severity}`} statColor={cvssC(result.cvss_severity)} accent={cvssC(result.cvss_severity)} onClick={() => om('CVSS 3.1 Scoring','',cvssC(result.cvss_severity),
                                 <div className={`risk-card risk-card--${result.cvss_severity.toLowerCase()}`}><div className="risk-header"><div className="risk-score-circle"><span className="risk-score-number">{result.cvss_score}</span><span className="risk-score-max">/10.0</span></div><div className="risk-info"><span className={`risk-badge risk-badge--${result.cvss_severity.toLowerCase()}`}>{result.cvss_severity}</span><span className="risk-label">Base Score Equivalent</span></div></div><div className="risk-bar-track"><div className={`risk-bar-fill risk-bar-fill--${result.cvss_severity.toLowerCase()}`} style={{width:`${(result.cvss_score/10)*100}%`}}/></div></div>
                             )} />}
-                            {result.overflow_hint && result.overflow_hint.likely_offset && <CCard icon="ðŸ“" title="Overflow Offset" stat={`${result.overflow_hint.likely_offset} bytes â€” ${result.overflow_hint.confidence}`} statColor="var(--primary)" accent="var(--primary)" onClick={() => om('Overflow Offset','ðŸ“','var(--primary)',
+                            {result.overflow_hint && result.overflow_hint.likely_offset && <CCard icon="" title="Overflow Offset" stat={`${result.overflow_hint.likely_offset} bytes  ${result.overflow_hint.confidence}`} statColor="var(--primary)" accent="var(--primary)" onClick={() => om('Overflow Offset','','var(--primary)',
                                 <div className="overflow-card"><div className="overflow-header"><span className="overflow-offset-value">{result.overflow_hint.likely_offset}</span><span className="overflow-offset-label">bytes to RIP</span><span className={`ctf-confidence-badge ctf-confidence-badge--${result.overflow_hint.confidence.toLowerCase()}`}>{result.overflow_hint.confidence}</span></div>{result.overflow_hint.stack_size&&<div className="overflow-detail"><span className="overflow-detail-label">Stack frame:</span><span className="overflow-detail-value">0x{result.overflow_hint.stack_size.toString(16)} ({result.overflow_hint.stack_size} bytes)</span></div>}<p className="overflow-evidence">{result.overflow_hint.evidence}</p></div>
                             )} />}
-                            {result.rop_gadgets && result.rop_gadgets.length > 0 && <CCard icon="ðŸ”—" title="ROP Gadgets" stat={`${result.rop_gadgets.length} gadgets`} statColor="#c084fc" accent="#a855f7" onClick={() => om('ROP Gadgets','ðŸ”—','#a855f7',
+                            {result.rop_gadgets && result.rop_gadgets.length > 0 && <CCard icon="" title="ROP Gadgets" stat={`${result.rop_gadgets.length} gadgets`} statColor="#c084fc" accent="#a855f7" onClick={() => om('ROP Gadgets','','#a855f7',
                                 <div className="table-container"><table className="info-table"><thead><tr><th>Address</th><th>Gadget</th></tr></thead><tbody>{result.rop_gadgets.map((g,i)=><tr key={i}><td style={{fontFamily:'monospace',color:'var(--primary)'}}>{g.address}</td><td style={{fontFamily:'monospace'}}>{g.gadget}</td></tr>)}</tbody></table></div>
                             )} />}
                         </Carousel>
 
-                        {/* â”€â”€ Section 3: AI Analysis â”€â”€ */}
-                        <Carousel title="AI Analysis" icon="ðŸ§ ">
-                            <CCard icon="ðŸ’¡" title="AI Hints + Kill Chain" stat={result.hints?'Analysis available':'Unavailable'} statColor="var(--secondary)" accent="var(--secondary-dim)" onClick={() => om('AI Hints + Kill Chain','ðŸ’¡','var(--secondary-dim)',
-                                <div className="result-card-body">{result.hints?result.hints.split(/\n/).filter(l=>l.trim()).map((line,i)=><div className="section-item section-item--hint" key={i}>{line}</div>):<div className="section-empty">AI hints unavailable</div>}{result.hints&&<div className="hints-feedback">{feedbackGiven?<div className="hints-feedback-thanks">âœ… Thanks for your feedback!</div>:<><span className="hints-feedback-label">Were these hints helpful?</span><button className="hints-feedback-btn hints-feedback-btn--up" onClick={async()=>{setFeedbackGiven('up');try{await fetch(`${BACKEND_URL}/feedback`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vote:'up',filename:result.filename})})}catch{}}} type="button">ðŸ‘ Helpful</button><button className="hints-feedback-btn hints-feedback-btn--down" onClick={async()=>{setFeedbackGiven('down');try{await fetch(`${BACKEND_URL}/feedback`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vote:'down',filename:result.filename})})}catch{}}} type="button">ðŸ‘Ž Not helpful</button></>}</div>}</div>
+                        {/* -- Section 3: AI Analysis -- */}
+                        <Carousel title="AI Analysis" icon="">
+                            <CCard icon="" title="AI Hints + Kill Chain" stat={result.hints?'Analysis available':'Unavailable'} statColor="var(--secondary)" accent="var(--secondary-dim)" onClick={() => om('AI Hints + Kill Chain','','var(--secondary-dim)',
+                                <div className="result-card-body">{result.hints?result.hints.split(/\n/).filter(l=>l.trim()).map((line,i)=><div className="section-item section-item--hint" key={i}>{line}</div>):<div className="section-empty">AI hints unavailable</div>}{result.hints&&<div className="hints-feedback">{feedbackGiven?<div className="hints-feedback-thanks"> Thanks for your feedback!</div>:<><span className="hints-feedback-label">Were these hints helpful?</span><button className="hints-feedback-btn hints-feedback-btn--up" onClick={async()=>{setFeedbackGiven('up');try{await fetch(`${BACKEND_URL}/feedback`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vote:'up',filename:result.filename})})}catch{}}} type="button"> Helpful</button><button className="hints-feedback-btn hints-feedback-btn--down" onClick={async()=>{setFeedbackGiven('down');try{await fetch(`${BACKEND_URL}/feedback`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vote:'down',filename:result.filename})})}catch{}}} type="button"> Not helpful</button></>}</div>}</div>
                             )} />
-                            {result.data_flows && result.data_flows.length > 0 && <CCard icon="ðŸŒŠ" title="Data Flow" stat={`${result.data_flows.length} flows`} statColor="#3b82f6" accent="#3b82f6" onClick={() => om('Data Flow Analysis','ðŸŒŠ','#3b82f6',
+                            {result.data_flows && result.data_flows.length > 0 && <CCard icon="" title="Data Flow" stat={`${result.data_flows.length} flows`} statColor="#3b82f6" accent="#3b82f6" onClick={() => om('Data Flow Analysis','','#3b82f6',
                                 <ul className="data-flow-list">{result.data_flows.map((f,i)=><li key={i} className="data-flow-item">{f}</li>)}</ul>
                             )} />}
-                            {result.format_string && <CCard icon="âš ï¸" title="Format String" stat={result.format_string.vulnerable?`Vulnerable â€” ${result.format_string.severity}`:'Safe'} statColor={result.format_string.vulnerable?'#f87171':'#4ade80'} accent={result.format_string.vulnerable?'#ef4444':'#22c55e'} onClick={() => om('Format String','âš ï¸',result.format_string.vulnerable?'#ef4444':'#22c55e',
-                                <div className="fmtstr-card"><div className="fmtstr-header"><span className={`fmtstr-badge fmtstr-badge--${result.format_string.vulnerable?result.format_string.severity.toLowerCase():'safe'}`}>{result.format_string.vulnerable?`âš  VULNERABLE â€” ${result.format_string.severity}`:'âœ“ SAFE'}</span></div>{result.format_string.evidence.length>0&&<ul className="fmtstr-evidence">{result.format_string.evidence.map((e,i)=><li key={i} className="fmtstr-evidence-item">{e}</li>)}</ul>}</div>
+                            {result.format_string && <CCard icon="" title="Format String" stat={result.format_string.vulnerable?`Vulnerable  ${result.format_string.severity}`:'Safe'} statColor={result.format_string.vulnerable?'#f87171':'#4ade80'} accent={result.format_string.vulnerable?'#ef4444':'#22c55e'} onClick={() => om('Format String','',result.format_string.vulnerable?'#ef4444':'#22c55e',
+                                <div className="fmtstr-card"><div className="fmtstr-header"><span className={`fmtstr-badge fmtstr-badge--${result.format_string.vulnerable?result.format_string.severity.toLowerCase():'safe'}`}>{result.format_string.vulnerable?` VULNERABLE  ${result.format_string.severity}`:'[v] SAFE'}</span></div>{result.format_string.evidence.length>0&&<ul className="fmtstr-evidence">{result.format_string.evidence.map((e,i)=><li key={i} className="fmtstr-evidence-item">{e}</li>)}</ul>}</div>
                             )} />}
-                            {result.libc_info && result.libc_info.glibc_version && <CCard icon="ðŸ“š" title="Libc Info" stat={`GLIBC ${result.libc_info.glibc_version}`} statColor="#22d3ee" accent="#06b6d4" onClick={() => om('Libc Info','ðŸ“š','#06b6d4',
-                                <div className="libc-card"><div className="libc-row"><span className="libc-label">GLIBC Version</span><span className="libc-value">{result.libc_info.glibc_version}</span></div><div className="libc-row"><span className="libc-label">Likely OS</span><span className="libc-value libc-value--os">{result.libc_info.likely_os}</span></div>{result.libc_info.gcc_version&&<div className="libc-row"><span className="libc-label">GCC</span><span className="libc-value">{result.libc_info.gcc_version}</span></div>}{result.libc_info.libc_db_url&&<div className="libc-row"><span className="libc-label">Libc DB</span><a href={result.libc_info.libc_db_url} target="_blank" rel="noopener noreferrer" className="libc-link">ðŸ” Search â†’</a></div>}</div>
+                            {result.libc_info && result.libc_info.glibc_version && <CCard icon="" title="Libc Info" stat={`GLIBC ${result.libc_info.glibc_version}`} statColor="#22d3ee" accent="#06b6d4" onClick={() => om('Libc Info','','#06b6d4',
+                                <div className="libc-card"><div className="libc-row"><span className="libc-label">GLIBC Version</span><span className="libc-value">{result.libc_info.glibc_version}</span></div><div className="libc-row"><span className="libc-label">Likely OS</span><span className="libc-value libc-value--os">{result.libc_info.likely_os}</span></div>{result.libc_info.gcc_version&&<div className="libc-row"><span className="libc-label">GCC</span><span className="libc-value">{result.libc_info.gcc_version}</span></div>}{result.libc_info.libc_db_url&&<div className="libc-row"><span className="libc-label">Libc DB</span><a href={result.libc_info.libc_db_url} target="_blank" rel="noopener noreferrer" className="libc-link"> Search </a></div>}</div>
                             )} />}
                         </Carousel>
 
-                        {/* â”€â”€ Section 4: Binary Internals â”€â”€ */}
-                        <Carousel title="Binary Internals" icon="ðŸ”¬">
-                            {result.disassembly && result.disassembly.length > 0 && <CCard icon="ðŸ”¬" title="Disassembly" stat={`${result.disassembly_function||'main'} â€” ${result.disassembly.length} insns`} statColor="#67e8f9" accent="#22d3ee" onClick={() => om('Disassembly','ðŸ”¬','#22d3ee',
+                        {/* -- Section 4: Binary Internals -- */}
+                        <Carousel title="Binary Internals" icon="">
+                            {result.disassembly && result.disassembly.length > 0 && <CCard icon="" title="Disassembly" stat={`${result.disassembly_function||'main'}  ${result.disassembly.length} insns`} statColor="#67e8f9" accent="#22d3ee" onClick={() => om('Disassembly','','#22d3ee',
                                 <div className="disasm-body"><div className="disasm-row disasm-row--header"><span className="disasm-col-addr">Address</span><span className="disasm-col-mnemonic">Mnemonic</span><span className="disasm-col-operands">Operands</span></div>{result.disassembly.map((insn,i)=>{const mn=insn.mnemonic.toLowerCase();const d=['call','jmp','je','jne','jz','jnz','ret','retn','syscall','int'].includes(mn);return(<div className={`disasm-row${d?' disasm-row--danger':''}`} key={i}><span className="disasm-col-addr">{insn.address}</span><span className={`disasm-col-mnemonic${d?' disasm-mnemonic--danger':''}`}>{insn.mnemonic}</span><span className="disasm-col-operands">{insn.op_str||''}</span></div>)})}</div>
                             )} />}
-                            {result.hex_view && result.hex_view.length > 0 && <CCard icon="ðŸ”" title="Hex View" stat={`First ${result.hex_view.length*16} bytes`} statColor="#60a5fa" accent="#3b82f6" onClick={() => om('Hex View','ðŸ”','#3b82f6',
+                            {result.hex_view && result.hex_view.length > 0 && <CCard icon="" title="Hex View" stat={`First ${result.hex_view.length*16} bytes`} statColor="#60a5fa" accent="#3b82f6" onClick={() => om('Hex View','','#3b82f6',
                                 <div className="hex-viewer-body"><div className="hex-row hex-row--header"><span className="hex-col-offset">Offset</span><span className="hex-col-hex">00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f</span><span className="hex-col-ascii">ASCII</span></div>{result.hex_view.map((row,i)=><div className="hex-row" key={i}><span className="hex-col-offset">{row.offset}</span><span className="hex-col-hex">{row.hex}</span><span className="hex-col-ascii">{row.ascii}</span></div>)}</div>
                             )} />}
-                            {result.function_list && result.function_list.length > 0 && <CCard icon="ðŸ“œ" title="Function List" stat={`${result.function_list.length} functions`} statColor="#8b5cf6" accent="#8b5cf6" onClick={() => om('Function List','ðŸ“œ','#8b5cf6',
+                            {result.function_list && result.function_list.length > 0 && <CCard icon="" title="Function List" stat={`${result.function_list.length} functions`} statColor="#8b5cf6" accent="#8b5cf6" onClick={() => om('Function List','','#8b5cf6',
                                 <div className="table-container"><table className="info-table"><thead><tr><th>Address</th><th>Size</th><th>Name</th></tr></thead><tbody>{result.function_list.map((fn,i)=><tr key={i}><td style={{fontFamily:'monospace',color:'var(--primary)'}}>{fn.address}</td><td style={{color:'var(--on-surface-variant)'}}>{fn.size}</td><td>{fn.name}</td></tr>)}</tbody></table></div>
                             )} />}
-                            {(result.imports_exports?.imports?.length>0||result.imports_exports?.exports?.length>0) && <CCard icon="ðŸšª" title="Imports / Exports" stat={`${result.imports_exports.imports.length} imp, ${result.imports_exports.exports.length} exp`} statColor="#ec4899" accent="#ec4899" onClick={() => om('Imports & Exports','ðŸšª','#ec4899',
+                            {(result.imports_exports?.imports?.length>0||result.imports_exports?.exports?.length>0) && <CCard icon="" title="Imports / Exports" stat={`${result.imports_exports.imports.length} imp, ${result.imports_exports.exports.length} exp`} statColor="#ec4899" accent="#ec4899" onClick={() => om('Imports & Exports','','#ec4899',
                                 <div className="two-column-layout"><div className="column"><h4 className="column-title">Imports</h4><ul className="info-list">{result.imports_exports.imports.map((imp,i)=><li key={i}>{imp}</li>)}</ul></div><div className="column"><h4 className="column-title">Exports</h4><ul className="info-list">{result.imports_exports.exports.map((exp,i)=><li key={i}>{exp}</li>)}</ul></div></div>
                             )} />}
                         </Carousel>
 
-                        {/* â”€â”€ Section 5: Tools â”€â”€ */}
-                        <Carousel title="Tools" icon="âš¡">
-                            {result.pwn_template && result.extension !== '.zip' && <CCard icon="âš¡" title="Pwntools Template" stat="Ready to download" statColor="#fbbf24" accent="#f59e0b" onClick={() => om('Pwntools Template','âš¡','#f59e0b',
-                                <><div className="pwn-template-actions"><button className="pwn-action-btn" onClick={()=>navigator.clipboard.writeText(result.pwn_template)} type="button">ðŸ“‹ Copy</button><button className="pwn-action-btn" onClick={()=>{const b=new Blob([result.pwn_template],{type:'text/x-python'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='exploit.py';a.click();URL.revokeObjectURL(u)}} type="button">â¬‡ï¸ Download</button></div><div className="pwn-template-body"><pre className="pwn-code">{result.pwn_template.split('\n').map((line,i)=><div className="pwn-line" key={i}><span className="pwn-line-num">{String(i+1).padStart(3,' ')}</span><span className={`pwn-line-text${line.trimStart().startsWith('#')?' pwn-comment':line.includes('from pwn')||line.includes('#!/')?' pwn-import':''}`}>{line||' '}</span></div>)}</pre></div></>
+                        {/* -- Section 5: Tools -- */}
+                        <Carousel title="Tools" icon="[Tools]">
+                            {result.pwn_template && result.extension !== '.zip' && <CCard icon="[Code]" title="Pwntools Template" stat="Ready to download" statColor="#fbbf24" accent="#f59e0b" onClick={() => om('Pwntools Template','[Code]','#f59e0b',
+                                <><div className="pwn-template-actions"><button className="pwn-action-btn" onClick={()=>navigator.clipboard.writeText(result.pwn_template)} type="button">[Copy]</button><button className="pwn-action-btn" onClick={()=>{const b=new Blob([result.pwn_template],{type:'text/x-python'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='exploit.py';a.click();URL.revokeObjectURL(u)}} type="button">[Download]</button></div><div className="pwn-template-body"><pre className="pwn-code">{result.pwn_template.split('\n').map((line,i)=><div className="pwn-line" key={i}><span className="pwn-line-num">{String(i+1).padStart(3,' ')}</span><span className={`pwn-line-text${line.trimStart().startsWith('#')?' pwn-comment':line.includes('from pwn')||line.includes('#!/')?' pwn-import':''}`}>{line||' '}</span></div>)}</pre></div></>
                             )} />}
-                            <CCard icon="ðŸ“‹" title="Strings" stat={`${result.strings_count} extracted`} statColor="var(--primary)" accent="var(--primary)" onClick={() => om('Strings','ðŸ“‹','var(--primary)',
+                            <CCard icon="[Strings]" title="Strings" stat={`${result.strings_count} extracted`} statColor="var(--primary)" accent="var(--primary)" onClick={() => om('Strings','[Strings]','var(--primary)',
                                 <div className="result-card-body">{result.strings.length===0?<div className="no-strings">No printable strings found.</div>:result.strings.map((s,i)=><div className="string-line" key={i}><span className="string-index">{String(i+1).padStart(4,'0')}</span>{s}</div>)}</div>
                             )} />
-                            <CCard icon="ðŸš©" title="Flags Detected" stat={result.flags_detected?.length>0?`${result.flags_detected.length} found`:'None'} statColor={result.flags_detected?.length>0?'#f87171':'var(--on-surface-variant)'} accent="var(--error)" onClick={() => om('Flags Detected','ðŸš©','var(--error)',
+                            <CCard icon="[Flags]" title="Flags Detected" stat={result.flags_detected?.length>0?`${result.flags_detected.length} found`:'None'} statColor={result.flags_detected?.length>0?'#f87171':'var(--on-surface-variant)'} accent="var(--error)" onClick={() => om('Flags Detected','[Flags]','var(--error)',
                                 <div className="result-card-body">{result.flags_detected?.length>0?result.flags_detected.map((f,i)=><div className="section-item section-item--flag" key={i}>{f}</div>):<div className="section-empty">No flags detected</div>}</div>
                             )} />
-                            <CCard icon="ðŸ”" title="Interesting Findings" stat={result.patterns&&Object.keys(result.patterns).length>0?`${Object.keys(result.patterns).length} categories`:'None'} statColor="var(--secondary)" accent="var(--secondary)" onClick={() => om('Interesting Findings','ðŸ”','var(--secondary)',
+                            <CCard icon="[Interesting]" title="Interesting Findings" stat={result.patterns&&Object.keys(result.patterns).length>0?`${Object.keys(result.patterns).length} categories`:'None'} statColor="var(--secondary)" accent="var(--secondary)" onClick={() => om('Interesting Findings','[Interesting]','var(--secondary)',
                                 <div className="result-card-body">{result.patterns&&Object.keys(result.patterns).length>0?Object.entries(result.patterns).map(([cat,items])=><div className="finding-category" key={cat}><span className="finding-label">{cat.replace(/_/g,' ')}:</span>{items.map((item,j)=><div className="section-item section-item--finding" key={j}>{item}</div>)}</div>):<div className="section-empty">No interesting patterns detected</div>}</div>
                             )} />
                         </Carousel>
 
-                        {/* â”€â”€ Section 6: Quick Commands (always visible) â”€â”€ */}
+                        {/* -- Section 6: Quick Commands (always visible) -- */}
                         <div className="bottom-section">
-                            <div className="bottom-section-header"><span className="bottom-section-icon">ðŸ“‹</span><h3 className="bottom-section-title">Quick Commands</h3></div>
+                            <div className="bottom-section-header"><span className="bottom-section-icon">[Commands]</span><h3 className="bottom-section-title">Quick Commands</h3></div>
                             <div className="quick-commands">
                                 {[`file ./${result.filename}`,`checksec ./${result.filename}`,`strings ./${result.filename} | grep -i flag`,`ltrace ./${result.filename}`,`strace ./${result.filename}`,`gdb -q ./${result.filename}`,`objdump -d ./${result.filename} | grep -A 20 '<main>'`,`ROPgadget --binary ./${result.filename} --rop | head -20`,`one_gadget libc.so.6`,`python3 -c "from pwn import *; cyclic(200)" | ./${result.filename}`].map((cmd,i)=>(
                                     <div className="quick-cmd-row" key={i}>
                                         <code className="quick-cmd-text">{cmd}</code>
                                         <div className="quick-cmd-actions">
-                                            <button className="quick-cmd-explain" title="Explain command" onClick={() => { setExplainInput(cmd); document.getElementById('explain-input')?.focus(); }}>❓</button>
-                                            <button className="quick-cmd-copy" title="Copy" onClick={(e)=>{navigator.clipboard.writeText(cmd);const btn=e.currentTarget;btn.textContent='✓';setTimeout(()=>btn.textContent='📋',1200)}}>📋</button>
+                                            <button className="quick-cmd-explain" title="Explain command" onClick={() => { setExplainInput(cmd); document.getElementById('explain-input')?.focus(); }}></button>
+                                            <button className="quick-cmd-copy" title="Copy" onClick={(e)=>{navigator.clipboard.writeText(cmd);const btn=e.currentTarget;btn.textContent='[v]';setTimeout(()=>btn.textContent='',1200)}}></button>
                                         </div>
                                     </div>
                                 ))}
                             </div>
 
-                            {/* ── Command Explainer UI ── */}
+                            {/* -- Command Explainer UI -- */}
                             <div className="explain-container">
                                 {explainLog.length > 0 && (
                                     <div className="explain-log">
@@ -1201,7 +1201,7 @@ export default function App() {
                                                 <div className="explain-entry-cmd">&gt; {log.command}</div>
                                                 <div className="explain-entry-text">
                                                     {log.explanation.split(/\n/).filter(l => l.trim()).map((line, j) => (
-                                                        <div className={line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().startsWith('*') ? 'explain-bullet' : 'explain-text'} key={j}>{line.replace(/^[-*•]\s*/, '• ')}</div>
+                                                        <div className={line.trim().startsWith('*') || line.trim().startsWith('-') || line.trim().startsWith('*') ? 'explain-bullet' : 'explain-text'} key={j}>{line.replace(/^[-**]\s*/, '* ')}</div>
                                                     ))}
                                                 </div>
                                             </div>
@@ -1213,7 +1213,7 @@ export default function App() {
                                         id="explain-input"
                                         className="explain-input" 
                                         type="text" 
-                                        placeholder="🤔 Explain a command..." 
+                                        placeholder=" Explain a command..." 
                                         value={explainInput} 
                                         onChange={e => setExplainInput(e.target.value.slice(0, 500))} 
                                         onKeyDown={onExplainKeyDown} 
@@ -1230,9 +1230,9 @@ export default function App() {
                             </div>
                         </div>
 
-                        {/* â”€â”€ Chat (always visible) â”€â”€ */}
+                        {/* -- Chat (always visible) -- */}
                         <div className="bottom-section">
-                            <div className="bottom-section-header"><span className="bottom-section-icon">ðŸ’¬</span><h3 className="bottom-section-title">Follow-up Chat</h3></div>
+                            <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Follow-up Chat</h3></div>
                             <div className="chat-messages" id="chat-messages">
                                 {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content">{msg.content.split(/\n/).filter(l=>l.trim()).map((line,j)=><div key={j}>{line}</div>)}</div></div>))}
                                 {chatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
@@ -1240,10 +1240,10 @@ export default function App() {
                             </div>
                             {chatImage&&<div className="chat-image-bar"><img src={chatImagePreview} alt="Preview" className="chat-image-thumb"/><span className="chat-image-name">{chatImage.name}</span><button className="chat-image-remove" onClick={clearChatImage} title="Remove image"><span className="material-symbols-outlined">close</span></button></div>}
                             <div className="chat-input-row">
-                                <button className="chat-image-btn" onClick={()=>chatImageRef.current?.click()} disabled={chatLoading} title="Attach screenshot" type="button">ðŸ“·</button>
+                                <button className="chat-image-btn" onClick={()=>chatImageRef.current?.click()} disabled={chatLoading} title="Attach screenshot" type="button"></button>
                                 <input ref={chatImageRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={onChatImageSelect} style={{display:'none'}}/>
                                 <input className="chat-input" type="text" placeholder={chatImage?'Add a message about your screenshot...':'Ask about this binary...'} value={chatInput} onChange={e=>setChatInput(e.target.value.slice(0,MAX_CHAT_CHARS))} onKeyDown={onChatKeyDown} disabled={chatLoading} maxLength={MAX_CHAT_CHARS} id="chat-input"/>
-                                <button className="chat-send-btn" onClick={sendChat} disabled={chatLoading||(!chatInput.trim()&&!chatImage)} id="chat-send-btn">{chatLoading?'...':'â–¶ Send'}</button>
+                                <button className="chat-send-btn" onClick={sendChat} disabled={chatLoading||(!chatInput.trim()&&!chatImage)} id="chat-send-btn">{chatLoading?'...':' Send'}</button>
                             </div>
                         </div>
                     </>
@@ -1251,7 +1251,7 @@ export default function App() {
                 })()}
 
 
-                {/* â•â•â• Source Code Results â•â•â• */}
+                {/* *** Source Code Results *** */}
                 {analysisMode === 'source' && sourceResult && (
                     <>
                         <div className="analysis-meta-bar">
@@ -1291,7 +1291,7 @@ export default function App() {
                                 title="Vulnerabilities"
                                 icon="warning"
                                 sectionKey="srcVuln"
-                                summary={`${sourceResult.vulnerabilities.split('\n').filter(l => l.startsWith('â€¢')).length || 0} found`}
+                                summary={`${sourceResult.vulnerabilities.split('\n').filter(l => l.startsWith('')).length || 0} found`}
                                 variant="source-vuln"
                                 openSections={openSections}
                                 toggleSection={toggleSection}
@@ -1300,8 +1300,8 @@ export default function App() {
                                     {sourceResult.vulnerabilities ? (
                                         sourceResult.vulnerabilities.split('\n').filter(val => val.trim()).map((line, i) => (
                                             <div key={i} className="flag-item">
-                                                <span className="flag-icon">âš ï¸</span>
-                                                <span className="flag-text">{line.replace(/^â€¢\s*/, '')}</span>
+                                                <span className="flag-icon"></span>
+                                                <span className="flag-text">{line.replace(/^\s*/, '')}</span>
                                             </div>
                                         ))
                                     ) : (
@@ -1324,7 +1324,7 @@ export default function App() {
                                     {sourceResult.dangerous_functions.length > 0 ? (
                                         sourceResult.dangerous_functions.map((fn, i) => (
                                             <div key={i} className="flag-item">
-                                                <span className="flag-icon">ðŸ”´</span>
+                                                <span className="flag-icon"></span>
                                                 <span className="flag-text">
                                                     Line {fn.line}: <strong>{fn.function}</strong> &mdash; {fn.description}
                                                 </span>
@@ -1352,7 +1352,7 @@ export default function App() {
                                             sourceResult.hints.split('\n').filter(val => val.trim()).map((line, i) => (
                                                 <div key={i} className="ai-bullet">
                                                     <span className="bullet-point"></span>
-                                                    <span dangerouslySetInnerHTML={{ __html: line.replace(/^â€¢\s*/, '').replace(/`(.*?)`/g, '<code class="inline-code">$1</code>') }} />
+                                                    <span dangerouslySetInnerHTML={{ __html: line.replace(/^\s*/, '').replace(/`(.*?)`/g, '<code class="inline-code">$1</code>') }} />
                                                 </div>
                                             ))
                                         ) : (
@@ -1369,7 +1369,7 @@ export default function App() {
                                                 {sourceResult.next_steps.split('\n').filter(val => val.trim()).map((line, i) => (
                                                     <div key={i} className="ai-bullet" style={{ color: 'var(--on-surface-variant)' }}>
                                                         <span className="bullet-point" style={{ background: 'var(--on-surface-variant)' }}></span>
-                                                        <span dangerouslySetInnerHTML={{ __html: line.replace(/^â€¢\s*/, '').replace(/`(.*?)`/g, '<code class="inline-code">$1</code>') }} />
+                                                        <span dangerouslySetInnerHTML={{ __html: line.replace(/^\s*/, '').replace(/`(.*?)`/g, '<code class="inline-code">$1</code>') }} />
                                                     </div>
                                                 ))}
                                             </div>
@@ -1407,14 +1407,14 @@ export default function App() {
                 </footer>
             </div>
 
-            {/* ── Card Detail Modal ── */}
+            {/* -- Card Detail Modal -- */}
             {modalData && (
                 <CardModal title={modalData.title} icon={modalData.icon} accent={modalData.accent} onClose={closeModal}>
                     {modalData.content}
                 </CardModal>
             )}
 
-            {/* ── Password Modal (for protected ZIPs) ── */}
+            {/* -- Password Modal (for protected ZIPs) -- */}
             {passwordModal && (
                 <div className="pwd-overlay" id="password-modal-overlay" onClick={() => {
                     if (!passwordLoading) {
@@ -1426,7 +1426,7 @@ export default function App() {
                 }}>
                     <div className="pwd-modal" id="password-modal" onClick={e => e.stopPropagation()}>
                         <div className="pwd-modal-header">
-                            <span className="pwd-modal-icon">ðŸ”’</span>
+                            <span className="pwd-modal-icon"></span>
                             <h2 className="pwd-modal-title">Password Protected ZIP</h2>
                         </div>
                         <p className="pwd-modal-desc">
@@ -1435,7 +1435,7 @@ export default function App() {
 
                         {passwordError && (
                             <div className="pwd-modal-error" id="password-error">
-                                <span className="pwd-modal-error-icon">âš ï¸</span>
+                                <span className="pwd-modal-error-icon"></span>
                                 {passwordError}
                             </div>
                         )}
@@ -1487,7 +1487,7 @@ export default function App() {
                                         Unlocking...
                                     </>
                                 ) : (
-                                    'ðŸ”“ Unlock & Analyze'
+                                    ' Unlock & Analyze'
                                 )}
                             </button>
                         </div>
