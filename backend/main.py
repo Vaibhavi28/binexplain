@@ -681,7 +681,11 @@ def calculate_risk_score(
 # ---------------------------------------------------------------------------
 # AI hints (Anthropic Claude)
 # ---------------------------------------------------------------------------
-def get_ai_hints(strings: list[str], patterns: dict[str, list[str]]) -> str:
+def get_ai_hints(
+    strings: list[str],
+    patterns: dict[str, list[str]],
+    ctf_category: dict | None = None,
+) -> str:
     """
     Send extracted strings and detected patterns to Claude for beginner-
     friendly CTF hints.  Returns hints as a string.
@@ -695,6 +699,15 @@ def get_ai_hints(strings: list[str], patterns: dict[str, list[str]]) -> str:
         return (
             "AI hints unavailable — set the ANTHROPIC_API_KEY, GROQ_API_KEY, or OPENAI_API_KEY "
             "environment variable to enable AI-powered analysis hints."
+        )
+
+    # Build category-aware system prompt
+    system_prompt = AI_SYSTEM_PROMPT
+    if ctf_category and ctf_category.get("category") and ctf_category["category"] != "unknown":
+        cat = ctf_category["category"]
+        system_prompt += (
+            f"\n\nThis binary has been categorized as: {cat}. "
+            f"Focus your hints specifically on {cat} exploitation techniques."
         )
 
     # Build a concise summary for the prompt
@@ -714,7 +727,7 @@ def get_ai_hints(strings: list[str], patterns: dict[str, list[str]]) -> str:
         message = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=1024,
-            system=AI_SYSTEM_PROMPT,
+            system=system_prompt,
             messages=[{"role": "user", "content": user_message}],
         )
         return message.content[0].text
@@ -724,7 +737,7 @@ def get_ai_hints(strings: list[str], patterns: dict[str, list[str]]) -> str:
     # ── Fallback 1: try Groq ───────────────────────────────────────────
     groq_result = _try_groq(
         messages=[{"role": "user", "content": user_message}],
-        system_prompt=AI_SYSTEM_PROMPT,
+        system_prompt=system_prompt,
     )
     if groq_result:
         return groq_result
@@ -732,7 +745,7 @@ def get_ai_hints(strings: list[str], patterns: dict[str, list[str]]) -> str:
     # ── Fallback 2: try OpenAI GPT-4o-mini ────────────────────────────
     openai_result = _try_openai(
         messages=[{"role": "user", "content": user_message}],
-        system_prompt=AI_SYSTEM_PROMPT,
+        system_prompt=system_prompt,
     )
     if openai_result:
         return openai_result
@@ -858,6 +871,117 @@ def _try_ollama_chat(messages: list[dict]) -> str | None:
             logger.warning("Ollama chat model '%s' failed: %s", model, exc)
             continue
     return None
+
+
+# ---------------------------------------------------------------------------
+# Decompilation hints — AI-powered disassembly explanation
+# ---------------------------------------------------------------------------
+DECOMPILATION_SYSTEM_PROMPT = (
+    "You are a reverse engineering mentor helping a CTF beginner understand "
+    "disassembled binary code.\n\n"
+    "Given disassembly instructions and extracted strings from a binary, explain:\n"
+    "1. What each function likely does based on the assembly patterns and strings.\n"
+    "2. Key observations about the control flow (loops, conditionals, function calls).\n"
+    "3. What data structures or buffers are being used.\n"
+    "4. Any security-relevant patterns (stack operations, function prologues, dangerous calls).\n\n"
+    "RULES:\n"
+    "• Start with FUNCTION ANALYSIS: on its own line, then • bullet points.\n"
+    "• Each • bullet = one observation about the code. Maximum 8 bullets.\n"
+    "• Then a blank line, then KEY OBSERVATIONS: with 3-4 • bullets.\n"
+    "• Then a blank line, then LIKELY BEHAVIOR: with a 1-2 sentence summary.\n"
+    "• NEVER use markdown headers (#), numbered lists, bold (**), or italic (*).\n"
+    "• Be specific — reference actual addresses and instructions when possible.\n"
+)
+
+
+def get_decompilation_hints(
+    disassembly: list[dict],
+    strings: list[str],
+    ctf_category: dict | None = None,
+) -> str:
+    """
+    Send disassembly instructions and strings to AI for function-level
+    explanations and decompilation-style hints.
+
+    Security:
+    • Never sends the raw binary — only disassembly text and strings.
+    • Caps data sent to AI to limit token usage.
+    • API key is read from env vars.
+    """
+    if not disassembly:
+        return "No disassembly available — decompilation hints require a valid ELF binary."
+
+    if not ANTHROPIC_API_KEY and not GROQ_API_KEY and not OPENAI_API_KEY:
+        return (
+            "Decompilation hints unavailable — set ANTHROPIC_API_KEY, GROQ_API_KEY, "
+            "or OPENAI_API_KEY to enable AI-powered decompilation analysis."
+        )
+
+    # Build category-aware system prompt
+    system_prompt = DECOMPILATION_SYSTEM_PROMPT
+    if ctf_category and ctf_category.get("category") and ctf_category["category"] != "unknown":
+        cat = ctf_category["category"]
+        system_prompt += (
+            f"\nThis binary has been categorized as: {cat}. "
+            f"Focus your analysis specifically on {cat} exploitation techniques."
+        )
+
+    # Format disassembly as text (cap at 80 instructions)
+    disasm_lines = []
+    for insn in disassembly[:80]:
+        addr = insn.get("address", "")
+        mnemonic = insn.get("mnemonic", "")
+        op_str = insn.get("op_str", "")
+        disasm_lines.append(f"  {addr}:  {mnemonic:8s} {op_str}")
+    disasm_text = "\n".join(disasm_lines)
+
+    # Include relevant strings for context (cap at 50)
+    strings_text = "\n".join(strings[:50])
+
+    user_message = (
+        f"Here is the disassembly of the binary's main function:\n\n"
+        f"{disasm_text}\n\n"
+        f"Extracted strings from the binary:\n{strings_text}\n\n"
+        f"Please explain what each function likely does based on the assembly "
+        f"patterns, string references, and calling conventions."
+    )
+
+    # Try AI providers (Claude → Groq → OpenAI → Ollama)
+    try:
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        message = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1024,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+        )
+        return message.content[0].text
+    except Exception as exc:
+        logger.warning("Anthropic decompilation hints failed: %s", exc)
+
+    groq_result = _try_groq(
+        messages=[{"role": "user", "content": user_message}],
+        system_prompt=system_prompt,
+    )
+    if groq_result:
+        return groq_result
+
+    openai_result = _try_openai(
+        messages=[{"role": "user", "content": user_message}],
+        system_prompt=system_prompt,
+    )
+    if openai_result:
+        return openai_result
+
+    ollama_result = _try_ollama(user_message)
+    if ollama_result:
+        return ollama_result
+
+    return (
+        "Decompilation hints could not be generated — all AI providers failed. "
+        "Review the disassembly manually: look for call instructions, stack "
+        "allocations (sub rsp), and string references."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -3673,16 +3797,9 @@ IMAGE_MAGIC_BYTES: dict[bytes, str] = {
 
 IMAGE_ANALYSIS_PROMPT = (
     "You are a CTF mentor analyzing a screenshot from a student working on a "
-    "binary exploitation challenge. The student has already uploaded and analyzed "
-    "a binary. Look at their screenshot carefully and provide specific, actionable "
-    "next steps in bullet points. Include exact commands. Be encouraging.\n\n"
-    "RULES:\n"
-    "1. Start with • bullet points — each one specific and actionable.\n"
-    "2. Maximum 6 • bullets. Include exact Linux commands where helpful.\n"
-    "3. After the bullets, add a 🔗 Kill Chain section if you can infer the exploitation path.\n"
-    "4. End with: 🔥 Try this first: <the single most important next step>\n"
-    "5. If the screenshot shows an error, help them debug it.\n"
-    "6. If it shows a GDB/pwntools session, guide the next debugging step."
+    "binary exploitation challenge. Look at the screenshot carefully and provide "
+    "specific actionable next steps in bullet points only. Include exact commands. "
+    "Be encouraging."
 )
 
 
@@ -3708,12 +3825,20 @@ async def analyze_image(
     context: str = "",
 ):
     """
-    Analyze a screenshot using Claude Vision.
+    Analyze a screenshot using AI vision with full fallback chain.
+
+    Fallback order:
+    1. Claude Vision (claude-sonnet-4-20250514)
+    2. OpenAI GPT-4o-mini Vision
+    3. Groq Vision (llama-3.2-11b-vision-preview)
+    4. Ollama llava (local, free)
+    5. Final fallback error message
 
     Security invariants:
     • Image is NEVER stored to disk — only held in memory as bytes/base64.
     • Base64 string is discarded after the API call.
-    • Only sent to Claude Vision API, nowhere else.
+    • Magic bytes validated before processing.
+    • Rate limited to 10 requests/hour.
     """
     import base64
 
@@ -3813,16 +3938,42 @@ async def analyze_image(
         except Exception as exc:
             logger.error("GPT-4o Vision call failed: %s", exc)
 
-    # ── Fallback 2: Ollama (llava) ────────────────────────────────────
+    # ── Fallback 2: Groq Vision (llama-3.2-11b-vision-preview) ────────
+    if not ai_response and GROQ_API_KEY:
+        try:
+            client = groq.Groq(api_key=GROQ_API_KEY)
+            response = client.chat.completions.create(
+                model="llama-3.2-11b-vision-preview",
+                max_tokens=1024,
+                messages=[
+                    {"role": "system", "content": IMAGE_ANALYSIS_PROMPT},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt_text},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:{mime_type};base64,{image_b64}"}
+                            }
+                        ]
+                    }
+                ]
+            )
+            val = response.choices[0].message.content
+            if val and val.strip():
+                ai_response = val.strip()
+        except Exception as exc:
+            logger.error("Groq Vision call failed: %s", exc)
+
+    # ── Fallback 3: Ollama llava (local, free) ────────────────────────
     if not ai_response:
         try:
             resp = requests.post(
                 f"{OLLAMA_BASE_URL}/api/generate",
                 json={
                     "model": "llava",
-                    "prompt": prompt_text,
+                    "prompt": IMAGE_ANALYSIS_PROMPT + "\n\n" + prompt_text,
                     "images": [image_b64],
-                    "system": IMAGE_ANALYSIS_PROMPT,
                     "stream": False,
                 },
                 timeout=120,
@@ -3839,9 +3990,12 @@ async def analyze_image(
     image_b64 = ""
     del image_b64
 
-    # ── Fallback Message ──────────────────────────────────────────────
+    # ── Final Fallback Message ────────────────────────────────────────
     if not ai_response:
-        ai_response = "Image analysis unavailable — try describing what you see in chat instead"
+        ai_response = (
+            "Image analysis unavailable \u2014 all AI providers failed. "
+            "Try describing what you see in the chat instead."
+        )
 
     return {"response": ai_response}
 
