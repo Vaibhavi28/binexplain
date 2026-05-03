@@ -221,6 +221,11 @@ export default function App() {
     const chatImageRef = useRef(null);
     const analysisContextRef = useRef('');
 
+    /* ── Command Explainer state ── */
+    const [explainInput, setExplainInput] = useState('');
+    const [explainLog, setExplainLog] = useState([]);
+    const [explainLoading, setExplainLoading] = useState(false);
+
     /* â”€â”€ Password modal state (for protected ZIPs) â”€â”€ */
     const [passwordModal, setPasswordModal] = useState(false);
     const [passwordInput, setPasswordInput] = useState('');
@@ -713,6 +718,47 @@ export default function App() {
             sendChat();
         }
     };
+
+    /* ── Command Explainer handler ── */
+    const handleExplainCommand = async (overrideCmd) => {
+        const cmdToExplain = overrideCmd || explainInput;
+        if (!cmdToExplain.trim() || explainLoading) return;
+        
+        setExplainInput('');
+        setExplainLoading(true);
+        
+        try {
+            const res = await fetch(`${BACKEND_URL}/explain-command`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    command: cmdToExplain,
+                    context: analysisContextRef.current
+                })
+            });
+            
+            if (res.status === 429) {
+                setExplainLog(prev => [{ command: cmdToExplain, explanation: "Rate limit exceeded. Please try again later." }, ...prev].slice(0, 5));
+                return;
+            }
+            if (!res.ok) throw new Error('Failed to get explanation');
+            
+            const data = await res.json();
+            setExplainLog(prev => [{ command: cmdToExplain, explanation: data.explanation }, ...prev].slice(0, 5));
+        } catch (err) {
+            setExplainLog(prev => [{ command: cmdToExplain, explanation: "Error: Could not get explanation." }, ...prev].slice(0, 5));
+        } finally {
+            setExplainLoading(false);
+        }
+    };
+
+    const onExplainKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleExplainCommand();
+        }
+    };
+
     /* â”€â”€ Source code handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     const stageSourceFile = (f) => {
         if (!f) return;
@@ -1136,8 +1182,51 @@ export default function App() {
                             <div className="bottom-section-header"><span className="bottom-section-icon">ðŸ“‹</span><h3 className="bottom-section-title">Quick Commands</h3></div>
                             <div className="quick-commands">
                                 {[`file ./${result.filename}`,`checksec ./${result.filename}`,`strings ./${result.filename} | grep -i flag`,`ltrace ./${result.filename}`,`strace ./${result.filename}`,`gdb -q ./${result.filename}`,`objdump -d ./${result.filename} | grep -A 20 '<main>'`,`ROPgadget --binary ./${result.filename} --rop | head -20`,`one_gadget libc.so.6`,`python3 -c "from pwn import *; cyclic(200)" | ./${result.filename}`].map((cmd,i)=>(
-                                    <div className="quick-cmd-row" key={i}><code className="quick-cmd-text">{cmd}</code><button className="quick-cmd-copy" title="Copy" onClick={()=>{navigator.clipboard.writeText(cmd);const btn=document.querySelectorAll('.quick-cmd-copy')[i];if(btn){btn.textContent='âœ“';setTimeout(()=>btn.textContent='ðŸ“‹',1200)}}}>ðŸ“‹</button></div>
+                                    <div className="quick-cmd-row" key={i}>
+                                        <code className="quick-cmd-text">{cmd}</code>
+                                        <div className="quick-cmd-actions">
+                                            <button className="quick-cmd-explain" title="Explain command" onClick={() => { setExplainInput(cmd); document.getElementById('explain-input')?.focus(); }}>❓</button>
+                                            <button className="quick-cmd-copy" title="Copy" onClick={(e)=>{navigator.clipboard.writeText(cmd);const btn=e.currentTarget;btn.textContent='✓';setTimeout(()=>btn.textContent='📋',1200)}}>📋</button>
+                                        </div>
+                                    </div>
                                 ))}
+                            </div>
+
+                            {/* ── Command Explainer UI ── */}
+                            <div className="explain-container">
+                                {explainLog.length > 0 && (
+                                    <div className="explain-log">
+                                        {explainLog.map((log, i) => (
+                                            <div className="explain-entry" key={i}>
+                                                <div className="explain-entry-cmd">&gt; {log.command}</div>
+                                                <div className="explain-entry-text">
+                                                    {log.explanation.split(/\n/).filter(l => l.trim()).map((line, j) => (
+                                                        <div className={line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().startsWith('*') ? 'explain-bullet' : 'explain-text'} key={j}>{line.replace(/^[-*•]\s*/, '• ')}</div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <div className="explain-input-row">
+                                    <input 
+                                        id="explain-input"
+                                        className="explain-input" 
+                                        type="text" 
+                                        placeholder="🤔 Explain a command..." 
+                                        value={explainInput} 
+                                        onChange={e => setExplainInput(e.target.value.slice(0, 500))} 
+                                        onKeyDown={onExplainKeyDown} 
+                                        disabled={explainLoading}
+                                    />
+                                    <button 
+                                        className="explain-btn" 
+                                        onClick={() => handleExplainCommand()} 
+                                        disabled={explainLoading || !explainInput.trim()}
+                                    >
+                                        {explainLoading ? '...' : 'Explain'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

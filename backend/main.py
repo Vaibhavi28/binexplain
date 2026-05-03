@@ -126,6 +126,12 @@ AI_SYSTEM_PROMPT = (
     "🔥 Try this first: `checksec ./binary`"
 )
 
+EXPLAIN_COMMAND_SYSTEM_PROMPT = (
+    "You are a CTF mentor. Explain what this command does in simple terms for a beginner. "
+    "Include: what it does, why it's useful, what output to expect, and what to look for in the output. "
+    "Use bullet points only. Max 5 bullets."
+)
+
 CHAT_SYSTEM_PROMPT = (
     "You are a CTF mentor helping a beginner analyze a binary they just uploaded. "
     "The user has already received an initial analysis summary (provided as context).\n\n"
@@ -213,6 +219,19 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     context: str = ""
+
+class ExplainCommandRequest(BaseModel):
+    command: str
+    context: str = ""
+
+    @field_validator("command")
+    @classmethod
+    def validate_command(cls, v: str) -> str:
+        if len(v) > 500:
+            raise ValueError("Command exceeds 500 character limit.")
+        if not v.strip():
+            raise ValueError("Command is empty.")
+        return v
 
 
 class CodeAnalysisRequest(BaseModel):
@@ -3878,6 +3897,55 @@ async def chat(request: Request, body: ChatRequest):
     raise HTTPException(
         status_code=503,
         detail="Chat is temporarily unavailable — Anthropic, Groq, OpenAI, and Ollama all failed.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Command Explainer endpoint
+# ---------------------------------------------------------------------------
+@app.post("/explain-command")
+@limiter.limit("20/hour")
+async def explain_command(request: Request, body: ExplainCommandRequest):
+    """
+    Explains a binary analysis command using AI.
+    """
+    ai_messages = [
+        {"role": "user", "content": f"Context: {body.context}\nCommand: {body.command}"}
+    ]
+
+    # ── Try Anthropic Claude first ────────────────────────────────────
+    if ANTHROPIC_API_KEY:
+        try:
+            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1024,
+                system=EXPLAIN_COMMAND_SYSTEM_PROMPT,
+                messages=ai_messages,
+            )
+            return {"explanation": response.content[0].text}
+        except Exception as exc:
+            logger.warning("Anthropic explain command call failed: %s", exc)
+
+    # ── Fallback 1: OpenAI GPT-4o-mini ────────────────────────────────
+    openai_result = _try_openai(messages=ai_messages, system_prompt=EXPLAIN_COMMAND_SYSTEM_PROMPT)
+    if openai_result:
+        return {"explanation": openai_result}
+
+    # ── Fallback 2: Groq ──────────────────────────────────────────────
+    groq_result = _try_groq(messages=ai_messages, system_prompt=EXPLAIN_COMMAND_SYSTEM_PROMPT)
+    if groq_result:
+        return {"explanation": groq_result}
+
+    # ── Fallback 3: Ollama ────────────────────────────────────────────
+    ollama_messages = [{"role": "system", "content": EXPLAIN_COMMAND_SYSTEM_PROMPT}] + ai_messages
+    ollama_result = _try_ollama_chat(ollama_messages)
+    if ollama_result:
+        return {"explanation": ollama_result}
+
+    raise HTTPException(
+        status_code=503,
+        detail="Explanation unavailable — all AI providers failed.",
     )
 
 

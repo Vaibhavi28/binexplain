@@ -310,3 +310,14 @@ class TestPasswordProtectedZip:
         assert response.status_code == 200
         data = response.json()
         assert "results" in data or "filename" in data
+
+class TestExplainCommand:
+    def test_rejects_command_over_500_chars(self):
+        long_cmd = "a" * 501
+        response = client.post("/explain-command", json={"command": long_cmd})
+        assert response.status_code == 422
+
+    def test_rejects_empty_command(self):
+        response = client.post("/explain-command", json={"command": "   "})
+        assert response.status_code == 422
+
