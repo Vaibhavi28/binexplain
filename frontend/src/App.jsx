@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
-/* ── Config ────────────────────────────────────────────────────────── */
+/* â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
 const ALLOWED_EXTENSIONS = ['.bin', '.elf', '.exe', '.so', '.dll', '.out', '.o', '.zip'];
@@ -13,7 +13,7 @@ const LOADING_MESSAGES = [
     'Analyzing patterns...',
 ];
 
-/* ── Helpers ───────────────────────────────────────────────────────── */
+/* â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function formatBytes(bytes) {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -26,11 +26,11 @@ function getExtension(name) {
     // No dot, or dot is the first char with nothing after (e.g. ".bashrc" or "file.")
     if (dot <= 0) return '';
     const ext = name.slice(dot).toLowerCase();
-    // Trailing dot (e.g. "file.") → treat as extensionless
+    // Trailing dot (e.g. "file.") â†’ treat as extensionless
     return ext === '.' ? '' : ext;
 }
 
-/* ── Accordion Card ────────────────────────────────────────────────── */
+/* â”€â”€ Accordion Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function AccordionCard({ id, icon, title, summary, open, onToggle, variant, children, sectionKey, openSections, toggleSection }) {
     const isOpen = open !== undefined ? open : (openSections && sectionKey ? openSections[sectionKey] : false);
     const handleToggle = onToggle || (toggleSection && sectionKey ? () => toggleSection(sectionKey) : () => {});
@@ -68,7 +68,7 @@ function AccordionCard({ id, icon, title, summary, open, onToggle, variant, chil
                 aria-expanded={isOpen}
                 id={id || sectionKey ? `${id || sectionKey}-toggle` : undefined}
             >
-                <span className={`accordion-arrow${isOpen ? ' accordion-arrow--open' : ''}`}>▶</span>
+                <span className={`accordion-arrow${isOpen ? ' accordion-arrow--open' : ''}`}>â–¶</span>
                 <span className="accordion-icon">{icon}</span>
                 <span className="accordion-title">{title}</span>
                 {summary && <span className="accordion-summary">{summary}</span>}
@@ -86,7 +86,106 @@ function AccordionCard({ id, icon, title, summary, open, onToggle, variant, chil
     );
 }
 
-/* ── App ───────────────────────────────────────────────────────────── */
+/* â”€â”€ Carousel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+function Carousel({ title, icon, children }) {
+    const [idx, setIdx] = useState(0);
+    const [cpv, setCpv] = useState(4);
+    const ptrRef = useRef(null);
+
+    useEffect(() => {
+        const upd = () => {
+            const w = window.innerWidth;
+            setCpv(w < 640 ? 1 : w < 1024 ? 2 : 4);
+        };
+        upd();
+        window.addEventListener('resize', upd);
+        return () => window.removeEventListener('resize', upd);
+    }, []);
+
+    const cards = Array.isArray(children) ? children.filter(Boolean) : children ? [children] : [];
+    if (cards.length === 0) return null;
+    const maxIdx = Math.max(0, cards.length - cpv);
+    const slideW = 100 / cpv;
+    const showNav = cards.length > cpv;
+
+    const prev = () => setIdx(i => Math.max(0, i - 1));
+    const next = () => setIdx(i => Math.min(maxIdx, i + 1));
+
+    return (
+        <section className="carousel-section">
+            <div className="carousel-header">
+                <span className="carousel-header-icon">{icon}</span>
+                <h3 className="carousel-header-title">{title}</h3>
+                {showNav && (
+                    <div className="carousel-nav">
+                        <button className="carousel-arrow" onClick={prev} disabled={idx === 0} aria-label="Previous">â€¹</button>
+                        <button className="carousel-arrow" onClick={next} disabled={idx >= maxIdx} aria-label="Next">â€º</button>
+                    </div>
+                )}
+            </div>
+            <div
+                className="carousel-track"
+                onPointerDown={e => { ptrRef.current = e.clientX; }}
+                onPointerUp={e => {
+                    if (ptrRef.current === null) return;
+                    const d = ptrRef.current - e.clientX;
+                    if (Math.abs(d) > 50) { d > 0 ? next() : prev(); }
+                    ptrRef.current = null;
+                }}
+            >
+                <div className="carousel-inner" style={{ transform: `translateX(-${idx * slideW}%)` }}>
+                    {cards.map((c, i) => (
+                        <div className="carousel-slide" key={i} style={{ width: `${slideW}%` }}>{c}</div>
+                    ))}
+                </div>
+            </div>
+            {showNav && (
+                <div className="carousel-dots">
+                    {Array.from({ length: maxIdx + 1 }, (_, i) => (
+                        <button key={i} className={`carousel-dot${i === idx ? ' carousel-dot--active' : ''}`} onClick={() => setIdx(i)} />
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+}
+
+/* â”€â”€ Compact Carousel Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+function CCard({ icon, title, stat, statColor, accent, onClick }) {
+    return (
+        <div className="carousel-card" style={{ '--card-accent': accent || 'var(--primary)' }} onClick={onClick} role="button" tabIndex={0}>
+            <div className="ccard-icon">{icon}</div>
+            <div className="ccard-title">{title}</div>
+            <div className="ccard-stat" style={statColor ? { color: statColor } : undefined}>{stat}</div>
+            <div className="ccard-hint">Click to expand â†’</div>
+        </div>
+    );
+}
+
+/* â”€â”€ Card Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+function CardModal({ title, icon, accent, onClose, children }) {
+    useEffect(() => {
+        const h = (e) => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', h);
+        document.body.style.overflow = 'hidden';
+        return () => { document.removeEventListener('keydown', h); document.body.style.overflow = ''; };
+    }, [onClose]);
+
+    return (
+        <div className="card-modal-overlay" onClick={onClose}>
+            <div className="card-modal" onClick={e => e.stopPropagation()} style={{ '--modal-accent': accent || 'var(--primary)' }}>
+                <div className="card-modal-top">
+                    <span className="card-modal-icon">{icon}</span>
+                    <h2 className="card-modal-title">{title}</h2>
+                    <button className="card-modal-close" onClick={onClose} aria-label="Close">âœ•</button>
+                </div>
+                <div className="card-modal-body">{children}</div>
+            </div>
+        </div>
+    );
+}
+
+/* â”€â”€ App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const MAX_CHAT_CHARS = 2000;
 const MAX_CHAT_MESSAGES = 10;
 const MAX_SOURCE_CODE_CHARS = 10000;
@@ -101,10 +200,10 @@ export default function App() {
     const [error, setError] = useState('');
     const inputRef = useRef(null);
 
-    /* ── Analysis mode toggle ── */
+    /* â”€â”€ Analysis mode toggle â”€â”€ */
     const [analysisMode, setAnalysisMode] = useState('binary');  // 'binary' | 'source'
 
-    /* ── Source code analysis state ── */
+    /* â”€â”€ Source code analysis state â”€â”€ */
     const [sourceCode, setSourceCode] = useState('');
     const [sourceFile, setSourceFile] = useState(null);
     const [sourceResult, setSourceResult] = useState(null);
@@ -112,7 +211,7 @@ export default function App() {
     const [sourceError, setSourceError] = useState('');
     const sourceInputRef = useRef(null);
 
-    /* ── Chat state (lives in React only — lost on refresh by design) ── */
+    /* â”€â”€ Chat state (lives in React only â€” lost on refresh by design) â”€â”€ */
     const [chatMessages, setChatMessages] = useState([]);
     const [chatInput, setChatInput] = useState('');
     const [chatLoading, setChatLoading] = useState(false);
@@ -122,21 +221,21 @@ export default function App() {
     const chatImageRef = useRef(null);
     const analysisContextRef = useRef('');
 
-    /* ── Password modal state (for protected ZIPs) ── */
+    /* â”€â”€ Password modal state (for protected ZIPs) â”€â”€ */
     const [passwordModal, setPasswordModal] = useState(false);
     const [passwordInput, setPasswordInput] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [passwordLoading, setPasswordLoading] = useState(false);
     const passwordFileRef = useRef(null);
 
-    /* ── VirusTotal polling state ── */
+    /* â”€â”€ VirusTotal polling state â”€â”€ */
     const [submitToVt, setSubmitToVt] = useState(false);
     const [vtScanId, setVtScanId] = useState(null);
     const [vtResult, setVtResult] = useState(null);
 
-    /* ── Accordion section open/close state ── */
+    /* â”€â”€ Accordion section open/close state â”€â”€ */
     const [openSections, setOpenSections] = useState({
-        ctfCategory: true,  // open by default — prominent
+        ctfCategory: true,  // open by default â€” prominent
         difficulty: false,
         quickCommands: true, // open by default
         cvss: false,
@@ -168,18 +267,23 @@ export default function App() {
         srcCode: false,
     });
 
-    /* ── AI Hints feedback ── */
+    /* â”€â”€ AI Hints feedback â”€â”€ */
     const [feedbackGiven, setFeedbackGiven] = useState(null);
 
-    /* ── Rate limit countdown ── */
+    /* â”€â”€ Rate limit countdown â”€â”€ */
     const [rateLimitSeconds, setRateLimitSeconds] = useState(0);
+
+    /* â”€â”€ Card detail modal â”€â”€ */
+    const [modalData, setModalData] = useState(null);
+    const openModal = useCallback((d) => setModalData(d), []);
+    const closeModal = useCallback(() => setModalData(null), []);
 
     /* Toggle an accordion section */
     const toggleSection = useCallback((key) => {
         setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
     }, []);
 
-    /* Build checksec summary for header (e.g. "NX✓ PIE✗ Canary✓") */
+    /* Build checksec summary for header (e.g. "NXâœ“ PIEâœ— Canaryâœ“") */
     const checksecSummary = useMemo(() => {
         if (!result?.checksec || result.checksec.nx === null) return '';
         const badges = [
@@ -189,7 +293,7 @@ export default function App() {
             { key: 'relro', label: 'RELRO' },
             { key: 'fortify', label: 'Fortify' },
         ];
-        return badges.map(b => `${b.label}${result.checksec[b.key] ? '✓' : '✗'}`).join(' ');
+        return badges.map(b => `${b.label}${result.checksec[b.key] ? 'âœ“' : 'âœ—'}`).join(' ');
     }, [result?.checksec]);
 
     /* Auto-scroll chat to bottom on new messages */
@@ -226,7 +330,7 @@ export default function App() {
                     setVtScanId(null); // stop polling
                 }
             } catch {
-                // Network error — keep polling
+                // Network error â€” keep polling
             }
         };
 
@@ -261,7 +365,7 @@ export default function App() {
         setResult(null);
 
         if (!f || !f.name) {
-            setError('❌ Invalid file. Please select a valid binary.');
+            setError('âŒ Invalid file. Please select a valid binary.');
             return;
         }
 
@@ -271,17 +375,17 @@ export default function App() {
         // Allow extensionless files (auto-detected by backend via magic bytes)
         // Allow .zip files explicitly (backend supports them)
         if (ext !== '' && !isZip && !ALLOWED_EXTENSIONS.includes(ext)) {
-            setError(`❌ Unsupported file type "${ext}". Accepted: ELF, EXE, BIN, SO, DLL, ZIP or extensionless binaries.`);
+            setError(`âŒ Unsupported file type "${ext}". Accepted: ELF, EXE, BIN, SO, DLL, ZIP or extensionless binaries.`);
             return;
         }
         const sizeLimit = (ext === '.zip' || isZip) ? MAX_ZIP_SIZE : MAX_FILE_SIZE;
         const sizeLimitLabel = (ext === '.zip' || isZip) ? '10 MB' : '5 MB';
         if (f.size > sizeLimit) {
-            setError(`📦 File too large (${formatBytes(f.size)}). Maximum size is ${sizeLimitLabel}.`);
+            setError(`ðŸ“¦ File too large (${formatBytes(f.size)}). Maximum size is ${sizeLimitLabel}.`);
             return;
         }
         if (f.size === 0) {
-            setError('❌ File is empty. Please select a valid binary.');
+            setError('âŒ File is empty. Please select a valid binary.');
             return;
         }
         setFile(f);
@@ -341,7 +445,7 @@ export default function App() {
                 }
 
                 if (res.status === 429) {
-                    // Rate limited — parse retry-after
+                    // Rate limited â€” parse retry-after
                     const retryAfter = res.headers.get('retry-after');
                     let waitMin = 60;
                     if (retryAfter) {
@@ -354,9 +458,9 @@ export default function App() {
                         setRateLimitSeconds(waitMin);
                     }
                     const mins = Math.ceil(waitMin / 60);
-                    setError(`⏳ Rate limit reached — you can analyze 10 files per hour. Please wait ~${mins} minute${mins !== 1 ? 's' : ''} before trying again.`);
+                    setError(`â³ Rate limit reached â€” you can analyze 10 files per hour. Please wait ~${mins} minute${mins !== 1 ? 's' : ''} before trying again.`);
                 } else {
-                    setError(data.detail || `❌ Server error (${res.status})`);
+                    setError(data.detail || `âŒ Server error (${res.status})`);
                 }
                 return;
             }
@@ -399,8 +503,8 @@ export default function App() {
         } catch (err) {
             setError(
                 err.message === 'Failed to fetch'
-                    ? '🔌 Cannot connect to backend. Make sure it\'s running on ' + BACKEND_URL
-                    : `❌ Upload failed: ${err.message}`
+                    ? 'ðŸ”Œ Cannot connect to backend. Make sure it\'s running on ' + BACKEND_URL
+                    : `âŒ Upload failed: ${err.message}`
             );
         } finally {
             setLoading(false);
@@ -442,14 +546,14 @@ export default function App() {
                     setPasswordModal(false);
                     setPasswordInput('');
                     passwordFileRef.current = null;
-                    setError('⏳ Rate limit reached. Please wait before trying again.');
+                    setError('â³ Rate limit reached. Please wait before trying again.');
                     return;
                 }
                 setPasswordError(data.detail || `Error (${res.status})`);
                 return;
             }
 
-            // Success — close modal, clear password, show results
+            // Success â€” close modal, clear password, show results
             setPasswordModal(false);
             setPasswordInput('');
             setPasswordError('');
@@ -503,11 +607,11 @@ export default function App() {
         e.target.value = '';
         const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
         if (!validTypes.includes(f.type)) {
-            setChatMessages(prev => [...prev, { role: 'assistant', content: '⚠ Invalid image type. Accepted: PNG, JPG, GIF, WEBP.' }]);
+            setChatMessages(prev => [...prev, { role: 'assistant', content: 'âš  Invalid image type. Accepted: PNG, JPG, GIF, WEBP.' }]);
             return;
         }
         if (f.size > 5 * 1024 * 1024) {
-            setChatMessages(prev => [...prev, { role: 'assistant', content: '⚠ Image too large. Maximum: 5 MB.' }]);
+            setChatMessages(prev => [...prev, { role: 'assistant', content: 'âš  Image too large. Maximum: 5 MB.' }]);
             return;
         }
         setChatImage(f);
@@ -529,7 +633,7 @@ export default function App() {
 
         // If there's an image, use the image endpoint
         if (hasImage) {
-            const userMsg = { role: 'user', content: text || '📷 [Screenshot attached]', image: chatImagePreview };
+            const userMsg = { role: 'user', content: text || 'ðŸ“· [Screenshot attached]', image: chatImagePreview };
             setChatMessages(prev => [...prev, userMsg]);
             setChatInput('');
             const imageFile = chatImage;
@@ -549,13 +653,13 @@ export default function App() {
                 const data = await res.json();
 
                 if (!res.ok) {
-                    setChatMessages(prev => [...prev, { role: 'assistant', content: `⚠ Error: ${data.detail || 'Image analysis failed.'}` }]);
+                    setChatMessages(prev => [...prev, { role: 'assistant', content: `âš  Error: ${data.detail || 'Image analysis failed.'}` }]);
                     return;
                 }
 
                 setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
             } catch (err) {
-                setChatMessages(prev => [...prev, { role: 'assistant', content: `⚠ ${err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message}` }]);
+                setChatMessages(prev => [...prev, { role: 'assistant', content: `âš  ${err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message}` }]);
             } finally {
                 setChatLoading(false);
             }
@@ -584,7 +688,7 @@ export default function App() {
             if (!res.ok) {
                 setChatMessages(prev => [
                     ...prev,
-                    { role: 'assistant', content: `⚠ Error: ${data.detail || 'Something went wrong.'}` },
+                    { role: 'assistant', content: `âš  Error: ${data.detail || 'Something went wrong.'}` },
                 ]);
                 return;
             }
@@ -596,7 +700,7 @@ export default function App() {
         } catch (err) {
             setChatMessages(prev => [
                 ...prev,
-                { role: 'assistant', content: `⚠ ${err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message}` },
+                { role: 'assistant', content: `âš  ${err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message}` },
             ]);
         } finally {
             setChatLoading(false);
@@ -609,7 +713,7 @@ export default function App() {
             sendChat();
         }
     };
-    /* ── Source code handlers ─────────────────────────────────────────── */
+    /* â”€â”€ Source code handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     const stageSourceFile = (f) => {
         if (!f) return;
         const ext = '.' + f.name.split('.').pop()?.toLowerCase();
@@ -683,12 +787,12 @@ export default function App() {
         }
     };
 
-    /* ── Render ──────────────────────────────────────────────────────── */
+    /* â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     return (
         <div className="app-wrapper">
             <div className="content-wrapper">
 
-                {/* ── Title ── */}
+                {/* â”€â”€ Title â”€â”€ */}
                 <header className="hero-header">
                     <h1 className="hero-title">BinExplain</h1>
                     <p className="hero-subtitle">
@@ -697,34 +801,34 @@ export default function App() {
                     </p>
                 </header>
 
-                {/* ── Mode Toggle ── */}
+                {/* â”€â”€ Mode Toggle â”€â”€ */}
                 <div className="mode-toggle">
                     <button
                         className={`mode-btn ${analysisMode === 'binary' ? 'active' : ''}`}
                         onClick={() => switchMode('binary')}
                     >
-                        🔬 Binary Analysis
+                        ðŸ”¬ Binary Analysis
                     </button>
                     <button
                         className={`mode-btn ${analysisMode === 'source' ? 'active' : ''}`}
                         onClick={() => switchMode('source')}
                     >
-                        📝 Source Code Analysis
+                        ðŸ“ Source Code Analysis
                     </button>
                 </div>
 
                 {analysisMode === 'binary' ? (
                     <>
-                        {/* ── VirusTotal Disclaimer (always visible before upload) ── */}
+                        {/* â”€â”€ VirusTotal Disclaimer (always visible before upload) â”€â”€ */}
                         <div className="vt-disclaimer" id="vt-disclaimer">
-                            <span className="vt-disclaimer-icon">⚠️</span>
+                            <span className="vt-disclaimer-icon">âš ï¸</span>
                             <span>
                                 Files submitted to VirusTotal are stored permanently in their database.
                                 Do not upload sensitive or private binaries.
                             </span>
                         </div>
 
-                {/* ── Upload Zone ── */}
+                {/* â”€â”€ Upload Zone â”€â”€ */}
                 <section>
                     <div
                         className={`dropzone-wrapper${dragOver ? ' drag-over' : ''}`}
@@ -780,7 +884,7 @@ export default function App() {
                     </div>
                 </section>
 
-                {/* ── Staged File Bar ── */}
+                {/* â”€â”€ Staged File Bar â”€â”€ */}
                 {file && !loading && (
                     <div className="staged-file-bar">
                         <div className="staged-file-info">
@@ -793,7 +897,7 @@ export default function App() {
                     </div>
                 )}
 
-                {/* ── VirusTotal Checkbox ── */}
+                {/* â”€â”€ VirusTotal Checkbox â”€â”€ */}
                 {file && !loading && (
                     <div className="vt-checkbox-wrapper">
                         <label className="vt-checkbox-label" htmlFor="vt-checkbox">
@@ -803,19 +907,19 @@ export default function App() {
                                 checked={submitToVt}
                                 onChange={e => setSubmitToVt(e.target.checked)}
                             />
-                            🛡️ Submit to VirusTotal <span className="vt-checkbox-hint">(disable for CTF challenges)</span>
+                            ðŸ›¡ï¸ Submit to VirusTotal <span className="vt-checkbox-hint">(disable for CTF challenges)</span>
                         </label>
                     </div>
                 )}
 
-                {/* ── Analyze Button ── */}
+                {/* â”€â”€ Analyze Button â”€â”€ */}
                 {file && !loading && (
                     <button className="analyze-btn" onClick={upload}>
-                        ▶ Analyze File
+                        â–¶ Analyze File
                     </button>
                 )}
 
-                {/* ── Loading ── */}
+                {/* â”€â”€ Loading â”€â”€ */}
                 {loading && (
                     <div className="terminal-loading">
                         <div className="terminal-line">
@@ -826,13 +930,13 @@ export default function App() {
                     </div>
                 )}
 
-                {/* ── Error ── */}
+                {/* â”€â”€ Error â”€â”€ */}
                 {error && (
                     <div className={`error-box ${rateLimitSeconds > 0 ? 'error-box--rate-limit' : ''}`} id="error-display">
                         <div className="error-text">{error}</div>
                         {rateLimitSeconds > 0 && (
                             <div className="error-countdown">
-                                ⏱️ Retry in: {Math.floor(rateLimitSeconds / 60)}:{String(rateLimitSeconds % 60).padStart(2, '0')}
+                                â±ï¸ Retry in: {Math.floor(rateLimitSeconds / 60)}:{String(rateLimitSeconds % 60).padStart(2, '0')}
                             </div>
                         )}
                     </div>
@@ -840,7 +944,7 @@ export default function App() {
                 </>
                 ) : (
                     <>
-                        {/* ── Source Code Upload & Paste Zone ── */}
+                        {/* â”€â”€ Source Code Upload & Paste Zone â”€â”€ */}
                         <section className="source-input-section">
                             <div className="source-upload-wrapper">
                                 <div
@@ -896,7 +1000,7 @@ export default function App() {
                                 onClick={analyzeSourceCode} 
                                 disabled={sourceLoading || (!sourceCode.trim() && !sourceFile)}
                             >
-                                {sourceLoading ? 'Analyzing...' : '▶ Analyze Code'}
+                                {sourceLoading ? 'Analyzing...' : 'â–¶ Analyze Code'}
                             </button>
 
                             {sourceLoading && (
@@ -918,928 +1022,147 @@ export default function App() {
                     </>
                 )}
 
-                {/* ═══ Binary Results ═══ */}
-                {analysisMode === 'binary' && result && (
+                {/* â•â•â• Binary Results â•â•â• */}
+                {analysisMode === 'binary' && result && (() => {
+                    const cvssC = (s) => s === 'Critical' ? '#ef4444' : s === 'High' ? '#f97316' : s === 'Medium' ? '#eab308' : '#22c55e';
+                    const om = (title, icon, accent, content) => openModal({ title, icon, accent, content });
+                    return (
                     <>
                         {/* File info bar */}
                         <div className="analysis-meta-bar">
                             <div className="meta-item">
                                 <span className="meta-label">File:</span>
-                                <span style={{ fontFamily: 'Courier New, monospace', fontSize: 13, color: 'var(--on-surface)' }}>
-                                    {result.filename}
-                                </span>
+                                <span style={{ fontFamily: 'Courier New, monospace', fontSize: 13, color: 'var(--on-surface)' }}>{result.filename}</span>
                             </div>
                             <div className="meta-item">
                                 <span className="meta-label">Size:</span>
-                                <span style={{ fontFamily: 'Courier New, monospace', fontSize: 13, color: 'var(--on-surface-variant)' }}>
-                                    {formatBytes(result.size_bytes)}
-                                </span>
+                                <span style={{ fontFamily: 'Courier New, monospace', fontSize: 13, color: 'var(--on-surface-variant)' }}>{formatBytes(result.size_bytes)}</span>
                             </div>
                             <div className="meta-item">
                                 <span className="meta-label">Strings:</span>
-                                <span style={{ fontFamily: 'Courier New, monospace', fontSize: 13, color: 'var(--primary)' }}>
-                                    {result.strings_count}
-                                </span>
+                                <span style={{ fontFamily: 'Courier New, monospace', fontSize: 13, color: 'var(--primary)' }}>{result.strings_count}</span>
                             </div>
                         </div>
 
-                        {/* ── Accordion Results Stack ── */}
-                        <div className="accordion-stack">
-
-                            {/* 🎯 CTF Category — prominently at top */}
+                        {/* â”€â”€ Section 1: Hero Row â”€â”€ */}
+                        <div className="hero-row">
                             {result.ctf_category && result.ctf_category.category !== 'unknown' && (
-                                <AccordionCard
-                                    id="ctf-category"
-                                    icon="🎯"
-                                    title="CTF Category"
-                                    summary={`${result.ctf_category.category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} — ${result.ctf_category.confidence} confidence`}
-                                    open={openSections.ctfCategory}
-                                    onToggle={() => toggleSection('ctfCategory')}
-                                    variant={`ctf-${result.ctf_category.confidence.toLowerCase()}`}
-                                >
-                                    <div className="ctf-category-card">
-                                        <div className="ctf-category-header">
-                                            <span className={`ctf-category-badge ctf-category-badge--${result.ctf_category.confidence.toLowerCase()}`}>
-                                                {result.ctf_category.category.replace(/_/g, ' ').toUpperCase()}
-                                            </span>
-                                            <span className={`ctf-confidence-badge ctf-confidence-badge--${result.ctf_category.confidence.toLowerCase()}`}>
-                                                {result.ctf_category.confidence} Confidence
-                                            </span>
-                                        </div>
-                                        <p className="ctf-category-explanation">{result.ctf_category.explanation}</p>
+                                <div className={`hero-card hero-card--${result.ctf_category.confidence.toLowerCase()}`}>
+                                    <div className="hero-card-label">ðŸŽ¯ CTF Category</div>
+                                    <div className="hero-card-main">
+                                        <span className={`ctf-category-badge ctf-category-badge--${result.ctf_category.confidence.toLowerCase()}`}>{result.ctf_category.category.replace(/_/g, ' ').toUpperCase()}</span>
+                                        <span className={`ctf-confidence-badge ctf-confidence-badge--${result.ctf_category.confidence.toLowerCase()}`}>{result.ctf_category.confidence}</span>
                                     </div>
-                                </AccordionCard>
+                                    <p className="hero-card-desc">{result.ctf_category.explanation}</p>
+                                </div>
                             )}
-
-                            {/* 🎲 Difficulty */}
                             {result.difficulty && (
-                                <AccordionCard
-                                    id="difficulty-card"
-                                    icon="🎲"
-                                    title="Difficulty"
-                                    summary={result.difficulty.difficulty}
-                                    open={openSections.difficulty}
-                                    onToggle={() => toggleSection('difficulty')}
-                                    variant={`difficulty-${result.difficulty.difficulty.toLowerCase()}`}
-                                >
-                                    <div className="difficulty-card">
-                                        <span className={`difficulty-badge difficulty-badge--${result.difficulty.difficulty.toLowerCase()}`}>
-                                            {result.difficulty.difficulty}
-                                        </span>
-                                        <p className="difficulty-reason">{result.difficulty.reason}</p>
+                                <div className={`hero-card hero-card--diff-${result.difficulty.difficulty.toLowerCase()}`}>
+                                    <div className="hero-card-label">ðŸŽ² Difficulty</div>
+                                    <div className="hero-card-main">
+                                        <span className={`difficulty-badge difficulty-badge--${result.difficulty.difficulty.toLowerCase()}`}>{result.difficulty.difficulty}</span>
                                     </div>
-                                </AccordionCard>
-                            )}
-
-                            {/* 📋 Quick Commands */}
-                            <AccordionCard
-                                id="quick-commands"
-                                icon="📋"
-                                title="Quick Commands"
-                                summary={`Pre-filled for ${result.filename}`}
-                                open={openSections.quickCommands}
-                                onToggle={() => toggleSection('quickCommands')}
-                                variant="commands"
-                            >
-                                <div className="quick-commands">
-                                    {[
-                                        `file ./${result.filename}`,
-                                        `checksec ./${result.filename}`,
-                                        `strings ./${result.filename} | grep -i flag`,
-                                        `ltrace ./${result.filename}`,
-                                        `strace ./${result.filename}`,
-                                        `gdb -q ./${result.filename}`,
-                                        `objdump -d ./${result.filename} | grep -A 20 '<main>'`,
-                                        `ROPgadget --binary ./${result.filename} --rop | head -20`,
-                                        `one_gadget libc.so.6`,
-                                        `python3 -c "from pwn import *; cyclic(200)" | ./${result.filename}`,
-                                    ].map((cmd, i) => (
-                                        <div className="quick-cmd-row" key={i}>
-                                            <code className="quick-cmd-text">{cmd}</code>
-                                            <button
-                                                className="quick-cmd-copy"
-                                                title="Copy to clipboard"
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(cmd);
-                                                    const btn = document.querySelectorAll('.quick-cmd-copy')[i];
-                                                    if (btn) { btn.textContent = '✓'; setTimeout(() => btn.textContent = '📋', 1200); }
-                                                }}
-                                            >📋</button>
-                                        </div>
-                                    ))}
+                                    <p className="hero-card-desc">{result.difficulty.reason}</p>
                                 </div>
-                            </AccordionCard>
-
-                            {/* 📊 CVSS Score */}
-                            {result.cvss_score !== undefined && (
-                                <AccordionCard
-                                    id="cvss-score"
-                                    icon="📊"
-                                    title="CVSS 3.1 Scoring"
-                                    summary={`${result.cvss_score}/10.0 ${result.cvss_severity}`}
-                                    open={openSections.cvss}
-                                    onToggle={() => toggleSection('cvss')}
-                                    variant={`cvss-${result.cvss_severity.toLowerCase()}`}
-                                >
-                                    <div className={`risk-card risk-card--${result.cvss_severity.toLowerCase()}`}>
-                                        <div className="risk-header">
-                                            <div className="risk-score-circle">
-                                                <span className="risk-score-number">{result.cvss_score}</span>
-                                                <span className="risk-score-max">/10.0</span>
-                                            </div>
-                                            <div className="risk-info">
-                                                <span className={`risk-badge risk-badge--${result.cvss_severity.toLowerCase()}`}>
-                                                    {result.cvss_severity}
-                                                </span>
-                                                <span className="risk-label">Base Score Equivalent</span>
-                                            </div>
-                                        </div>
-                                        <div className="risk-bar-track">
-                                            <div
-                                                className={`risk-bar-fill risk-bar-fill--${result.cvss_severity.toLowerCase()}`}
-                                                style={{ width: `${(result.cvss_score / 10.0) * 100}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                </AccordionCard>
                             )}
+                        </div>
 
-                            {/* 📜 Function List */}
-                            {result.function_list && result.function_list.length > 0 && (
-                                <AccordionCard
-                                    id="function-list"
-                                    icon="📜"
-                                    title="Function List"
-                                    summary={`${result.function_list.length} functions`}
-                                    open={openSections.functions}
-                                    onToggle={() => toggleSection('functions')}
-                                    variant="functions"
-                                >
-                                    <div className="table-container">
-                                        <table className="info-table">
-                                            <thead><tr><th>Address</th><th>Size</th><th>Name</th></tr></thead>
-                                            <tbody>
-                                                {result.function_list.map((fn, i) => (
-                                                    <tr key={i}>
-                                                        <td style={{fontFamily: 'monospace', color: 'var(--primary)'}}>{fn.address}</td>
-                                                        <td style={{color: 'var(--on-surface-variant)'}}>{fn.size}</td>
-                                                        <td>{fn.name}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </AccordionCard>
-                            )}
+                        {/* â”€â”€ Section 2: Vulnerability Analysis â”€â”€ */}
+                        <Carousel title="Vulnerability Analysis" icon="ðŸ”’">
+                            {result.checksec && result.checksec.nx !== null && <CCard icon="ðŸ›¡ï¸" title="Security Protections" stat={checksecSummary} statColor="#60a5fa" accent="#3b82f6" onClick={() => om('Security Protections','ðŸ›¡ï¸','#3b82f6',
+                                <div className="checksec-badges">{[{key:'nx',label:'NX',desc:'No-Execute'},{key:'pie',label:'PIE',desc:'Position Independent'},{key:'canary',label:'Canary',desc:'Stack Canary'},{key:'relro',label:'RELRO',desc:'Read-Only Relocations'},{key:'fortify',label:'Fortify',desc:'Fortify Source'}].map(({key,label,desc})=>(<div className={`checksec-badge checksec-badge--${result.checksec[key]?'enabled':'disabled'}`} key={key} title={desc}><span className="checksec-badge-icon">{result.checksec[key]?'âœ“':'âœ—'}</span><span className="checksec-badge-label">{label}</span><span className="checksec-badge-status">{result.checksec[key]?'Enabled':'Disabled'}</span></div>))}</div>
+                            )} />}
+                            {result.cvss_score !== undefined && <CCard icon="ðŸ“Š" title="CVSS Score" stat={`${result.cvss_score}/10.0 ${result.cvss_severity}`} statColor={cvssC(result.cvss_severity)} accent={cvssC(result.cvss_severity)} onClick={() => om('CVSS 3.1 Scoring','ðŸ“Š',cvssC(result.cvss_severity),
+                                <div className={`risk-card risk-card--${result.cvss_severity.toLowerCase()}`}><div className="risk-header"><div className="risk-score-circle"><span className="risk-score-number">{result.cvss_score}</span><span className="risk-score-max">/10.0</span></div><div className="risk-info"><span className={`risk-badge risk-badge--${result.cvss_severity.toLowerCase()}`}>{result.cvss_severity}</span><span className="risk-label">Base Score Equivalent</span></div></div><div className="risk-bar-track"><div className={`risk-bar-fill risk-bar-fill--${result.cvss_severity.toLowerCase()}`} style={{width:`${(result.cvss_score/10)*100}%`}}/></div></div>
+                            )} />}
+                            {result.overflow_hint && result.overflow_hint.likely_offset && <CCard icon="ðŸ“" title="Overflow Offset" stat={`${result.overflow_hint.likely_offset} bytes â€” ${result.overflow_hint.confidence}`} statColor="var(--primary)" accent="var(--primary)" onClick={() => om('Overflow Offset','ðŸ“','var(--primary)',
+                                <div className="overflow-card"><div className="overflow-header"><span className="overflow-offset-value">{result.overflow_hint.likely_offset}</span><span className="overflow-offset-label">bytes to RIP</span><span className={`ctf-confidence-badge ctf-confidence-badge--${result.overflow_hint.confidence.toLowerCase()}`}>{result.overflow_hint.confidence}</span></div>{result.overflow_hint.stack_size&&<div className="overflow-detail"><span className="overflow-detail-label">Stack frame:</span><span className="overflow-detail-value">0x{result.overflow_hint.stack_size.toString(16)} ({result.overflow_hint.stack_size} bytes)</span></div>}<p className="overflow-evidence">{result.overflow_hint.evidence}</p></div>
+                            )} />}
+                            {result.rop_gadgets && result.rop_gadgets.length > 0 && <CCard icon="ðŸ”—" title="ROP Gadgets" stat={`${result.rop_gadgets.length} gadgets`} statColor="#c084fc" accent="#a855f7" onClick={() => om('ROP Gadgets','ðŸ”—','#a855f7',
+                                <div className="table-container"><table className="info-table"><thead><tr><th>Address</th><th>Gadget</th></tr></thead><tbody>{result.rop_gadgets.map((g,i)=><tr key={i}><td style={{fontFamily:'monospace',color:'var(--primary)'}}>{g.address}</td><td style={{fontFamily:'monospace'}}>{g.gadget}</td></tr>)}</tbody></table></div>
+                            )} />}
+                        </Carousel>
 
-                            {/* 🚪 Imports / Exports */}
-                            {(result.imports_exports?.imports?.length > 0 || result.imports_exports?.exports?.length > 0) && (
-                                <AccordionCard
-                                    id="imports-exports"
-                                    icon="🚪"
-                                    title="Imports & Exports"
-                                    summary={`${result.imports_exports.imports.length} imports, ${result.imports_exports.exports.length} exports`}
-                                    open={openSections.imports}
-                                    onToggle={() => toggleSection('imports')}
-                                    variant="imports"
-                                >
-                                    <div className="two-column-layout">
-                                        <div className="column">
-                                            <h4 className="column-title">Imports</h4>
-                                            <ul className="info-list">
-                                                {result.imports_exports.imports.map((imp, i) => <li key={i}>{imp}</li>)}
-                                            </ul>
-                                        </div>
-                                        <div className="column">
-                                            <h4 className="column-title">Exports</h4>
-                                            <ul className="info-list">
-                                                {result.imports_exports.exports.map((exp, i) => <li key={i}>{exp}</li>)}
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </AccordionCard>
-                            )}
+                        {/* â”€â”€ Section 3: AI Analysis â”€â”€ */}
+                        <Carousel title="AI Analysis" icon="ðŸ§ ">
+                            <CCard icon="ðŸ’¡" title="AI Hints + Kill Chain" stat={result.hints?'Analysis available':'Unavailable'} statColor="var(--secondary)" accent="var(--secondary-dim)" onClick={() => om('AI Hints + Kill Chain','ðŸ’¡','var(--secondary-dim)',
+                                <div className="result-card-body">{result.hints?result.hints.split(/\n/).filter(l=>l.trim()).map((line,i)=><div className="section-item section-item--hint" key={i}>{line}</div>):<div className="section-empty">AI hints unavailable</div>}{result.hints&&<div className="hints-feedback">{feedbackGiven?<div className="hints-feedback-thanks">âœ… Thanks for your feedback!</div>:<><span className="hints-feedback-label">Were these hints helpful?</span><button className="hints-feedback-btn hints-feedback-btn--up" onClick={async()=>{setFeedbackGiven('up');try{await fetch(`${BACKEND_URL}/feedback`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vote:'up',filename:result.filename})})}catch{}}} type="button">ðŸ‘ Helpful</button><button className="hints-feedback-btn hints-feedback-btn--down" onClick={async()=>{setFeedbackGiven('down');try{await fetch(`${BACKEND_URL}/feedback`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vote:'down',filename:result.filename})})}catch{}}} type="button">ðŸ‘Ž Not helpful</button></>}</div>}</div>
+                            )} />
+                            {result.data_flows && result.data_flows.length > 0 && <CCard icon="ðŸŒŠ" title="Data Flow" stat={`${result.data_flows.length} flows`} statColor="#3b82f6" accent="#3b82f6" onClick={() => om('Data Flow Analysis','ðŸŒŠ','#3b82f6',
+                                <ul className="data-flow-list">{result.data_flows.map((f,i)=><li key={i} className="data-flow-item">{f}</li>)}</ul>
+                            )} />}
+                            {result.format_string && <CCard icon="âš ï¸" title="Format String" stat={result.format_string.vulnerable?`Vulnerable â€” ${result.format_string.severity}`:'Safe'} statColor={result.format_string.vulnerable?'#f87171':'#4ade80'} accent={result.format_string.vulnerable?'#ef4444':'#22c55e'} onClick={() => om('Format String','âš ï¸',result.format_string.vulnerable?'#ef4444':'#22c55e',
+                                <div className="fmtstr-card"><div className="fmtstr-header"><span className={`fmtstr-badge fmtstr-badge--${result.format_string.vulnerable?result.format_string.severity.toLowerCase():'safe'}`}>{result.format_string.vulnerable?`âš  VULNERABLE â€” ${result.format_string.severity}`:'âœ“ SAFE'}</span></div>{result.format_string.evidence.length>0&&<ul className="fmtstr-evidence">{result.format_string.evidence.map((e,i)=><li key={i} className="fmtstr-evidence-item">{e}</li>)}</ul>}</div>
+                            )} />}
+                            {result.libc_info && result.libc_info.glibc_version && <CCard icon="ðŸ“š" title="Libc Info" stat={`GLIBC ${result.libc_info.glibc_version}`} statColor="#22d3ee" accent="#06b6d4" onClick={() => om('Libc Info','ðŸ“š','#06b6d4',
+                                <div className="libc-card"><div className="libc-row"><span className="libc-label">GLIBC Version</span><span className="libc-value">{result.libc_info.glibc_version}</span></div><div className="libc-row"><span className="libc-label">Likely OS</span><span className="libc-value libc-value--os">{result.libc_info.likely_os}</span></div>{result.libc_info.gcc_version&&<div className="libc-row"><span className="libc-label">GCC</span><span className="libc-value">{result.libc_info.gcc_version}</span></div>}{result.libc_info.libc_db_url&&<div className="libc-row"><span className="libc-label">Libc DB</span><a href={result.libc_info.libc_db_url} target="_blank" rel="noopener noreferrer" className="libc-link">ðŸ” Search â†’</a></div>}</div>
+                            )} />}
+                        </Carousel>
 
-                            {/* 🌊 Data Flow Analysis */}
-                            {result.data_flows && result.data_flows.length > 0 && (
-                                <AccordionCard
-                                    id="data-flows"
-                                    icon="🌊"
-                                    title="Data Flow Analysis"
-                                    summary={`${result.data_flows.length} flows`}
-                                    open={openSections.dataFlows}
-                                    onToggle={() => toggleSection('dataFlows')}
-                                    variant="data-flows"
-                                >
-                                    <ul className="data-flow-list">
-                                        {result.data_flows.map((flow, i) => (
-                                            <li key={i} className="data-flow-item">{flow}</li>
-                                        ))}
-                                    </ul>
-                                </AccordionCard>
-                            )}
+                        {/* â”€â”€ Section 4: Binary Internals â”€â”€ */}
+                        <Carousel title="Binary Internals" icon="ðŸ”¬">
+                            {result.disassembly && result.disassembly.length > 0 && <CCard icon="ðŸ”¬" title="Disassembly" stat={`${result.disassembly_function||'main'} â€” ${result.disassembly.length} insns`} statColor="#67e8f9" accent="#22d3ee" onClick={() => om('Disassembly','ðŸ”¬','#22d3ee',
+                                <div className="disasm-body"><div className="disasm-row disasm-row--header"><span className="disasm-col-addr">Address</span><span className="disasm-col-mnemonic">Mnemonic</span><span className="disasm-col-operands">Operands</span></div>{result.disassembly.map((insn,i)=>{const mn=insn.mnemonic.toLowerCase();const d=['call','jmp','je','jne','jz','jnz','ret','retn','syscall','int'].includes(mn);return(<div className={`disasm-row${d?' disasm-row--danger':''}`} key={i}><span className="disasm-col-addr">{insn.address}</span><span className={`disasm-col-mnemonic${d?' disasm-mnemonic--danger':''}`}>{insn.mnemonic}</span><span className="disasm-col-operands">{insn.op_str||''}</span></div>)})}</div>
+                            )} />}
+                            {result.hex_view && result.hex_view.length > 0 && <CCard icon="ðŸ”" title="Hex View" stat={`First ${result.hex_view.length*16} bytes`} statColor="#60a5fa" accent="#3b82f6" onClick={() => om('Hex View','ðŸ”','#3b82f6',
+                                <div className="hex-viewer-body"><div className="hex-row hex-row--header"><span className="hex-col-offset">Offset</span><span className="hex-col-hex">00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f</span><span className="hex-col-ascii">ASCII</span></div>{result.hex_view.map((row,i)=><div className="hex-row" key={i}><span className="hex-col-offset">{row.offset}</span><span className="hex-col-hex">{row.hex}</span><span className="hex-col-ascii">{row.ascii}</span></div>)}</div>
+                            )} />}
+                            {result.function_list && result.function_list.length > 0 && <CCard icon="ðŸ“œ" title="Function List" stat={`${result.function_list.length} functions`} statColor="#8b5cf6" accent="#8b5cf6" onClick={() => om('Function List','ðŸ“œ','#8b5cf6',
+                                <div className="table-container"><table className="info-table"><thead><tr><th>Address</th><th>Size</th><th>Name</th></tr></thead><tbody>{result.function_list.map((fn,i)=><tr key={i}><td style={{fontFamily:'monospace',color:'var(--primary)'}}>{fn.address}</td><td style={{color:'var(--on-surface-variant)'}}>{fn.size}</td><td>{fn.name}</td></tr>)}</tbody></table></div>
+                            )} />}
+                            {(result.imports_exports?.imports?.length>0||result.imports_exports?.exports?.length>0) && <CCard icon="ðŸšª" title="Imports / Exports" stat={`${result.imports_exports.imports.length} imp, ${result.imports_exports.exports.length} exp`} statColor="#ec4899" accent="#ec4899" onClick={() => om('Imports & Exports','ðŸšª','#ec4899',
+                                <div className="two-column-layout"><div className="column"><h4 className="column-title">Imports</h4><ul className="info-list">{result.imports_exports.imports.map((imp,i)=><li key={i}>{imp}</li>)}</ul></div><div className="column"><h4 className="column-title">Exports</h4><ul className="info-list">{result.imports_exports.exports.map((exp,i)=><li key={i}>{exp}</li>)}</ul></div></div>
+                            )} />}
+                        </Carousel>
 
-                            {/* 🔒 Security Protections */}
-                            {result.checksec && result.checksec.nx !== null && (
-                                <AccordionCard
-                                    id="checksec-results"
-                                    icon="🔒"
-                                    title="Security Protections"
-                                    summary={checksecSummary}
-                                    open={openSections.checksec}
-                                    onToggle={() => toggleSection('checksec')}
-                                    variant="checksec"
-                                >
-                                    <div className="checksec-badges">
-                                        {[
-                                            { key: 'nx', label: 'NX', desc: 'No-Execute' },
-                                            { key: 'pie', label: 'PIE', desc: 'Position Independent' },
-                                            { key: 'canary', label: 'Canary', desc: 'Stack Canary' },
-                                            { key: 'relro', label: 'RELRO', desc: 'Read-Only Relocations' },
-                                            { key: 'fortify', label: 'Fortify', desc: 'Fortify Source' },
-                                        ].map(({ key, label, desc }) => (
-                                            <div
-                                                className={`checksec-badge checksec-badge--${result.checksec[key] ? 'enabled' : 'disabled'}`}
-                                                key={key}
-                                                title={desc}
-                                            >
-                                                <span className="checksec-badge-icon">
-                                                    {result.checksec[key] ? '✓' : '✗'}
-                                                </span>
-                                                <span className="checksec-badge-label">{label}</span>
-                                                <span className="checksec-badge-status">
-                                                    {result.checksec[key] ? 'Enabled' : 'Disabled'}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </AccordionCard>
-                            )}
+                        {/* â”€â”€ Section 5: Tools â”€â”€ */}
+                        <Carousel title="Tools" icon="âš¡">
+                            {result.pwn_template && result.extension !== '.zip' && <CCard icon="âš¡" title="Pwntools Template" stat="Ready to download" statColor="#fbbf24" accent="#f59e0b" onClick={() => om('Pwntools Template','âš¡','#f59e0b',
+                                <><div className="pwn-template-actions"><button className="pwn-action-btn" onClick={()=>navigator.clipboard.writeText(result.pwn_template)} type="button">ðŸ“‹ Copy</button><button className="pwn-action-btn" onClick={()=>{const b=new Blob([result.pwn_template],{type:'text/x-python'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='exploit.py';a.click();URL.revokeObjectURL(u)}} type="button">â¬‡ï¸ Download</button></div><div className="pwn-template-body"><pre className="pwn-code">{result.pwn_template.split('\n').map((line,i)=><div className="pwn-line" key={i}><span className="pwn-line-num">{String(i+1).padStart(3,' ')}</span><span className={`pwn-line-text${line.trimStart().startsWith('#')?' pwn-comment':line.includes('from pwn')||line.includes('#!/')?' pwn-import':''}`}>{line||' '}</span></div>)}</pre></div></>
+                            )} />}
+                            <CCard icon="ðŸ“‹" title="Strings" stat={`${result.strings_count} extracted`} statColor="var(--primary)" accent="var(--primary)" onClick={() => om('Strings','ðŸ“‹','var(--primary)',
+                                <div className="result-card-body">{result.strings.length===0?<div className="no-strings">No printable strings found.</div>:result.strings.map((s,i)=><div className="string-line" key={i}><span className="string-index">{String(i+1).padStart(4,'0')}</span>{s}</div>)}</div>
+                            )} />
+                            <CCard icon="ðŸš©" title="Flags Detected" stat={result.flags_detected?.length>0?`${result.flags_detected.length} found`:'None'} statColor={result.flags_detected?.length>0?'#f87171':'var(--on-surface-variant)'} accent="var(--error)" onClick={() => om('Flags Detected','ðŸš©','var(--error)',
+                                <div className="result-card-body">{result.flags_detected?.length>0?result.flags_detected.map((f,i)=><div className="section-item section-item--flag" key={i}>{f}</div>):<div className="section-empty">No flags detected</div>}</div>
+                            )} />
+                            <CCard icon="ðŸ”" title="Interesting Findings" stat={result.patterns&&Object.keys(result.patterns).length>0?`${Object.keys(result.patterns).length} categories`:'None'} statColor="var(--secondary)" accent="var(--secondary)" onClick={() => om('Interesting Findings','ðŸ”','var(--secondary)',
+                                <div className="result-card-body">{result.patterns&&Object.keys(result.patterns).length>0?Object.entries(result.patterns).map(([cat,items])=><div className="finding-category" key={cat}><span className="finding-label">{cat.replace(/_/g,' ')}:</span>{items.map((item,j)=><div className="section-item section-item--finding" key={j}>{item}</div>)}</div>):<div className="section-empty">No interesting patterns detected</div>}</div>
+                            )} />
+                        </Carousel>
 
-                            {/* 🔗 ROP Gadgets */}
-                            {result.rop_gadgets && result.rop_gadgets.length > 0 && (
-                                <AccordionCard
-                                    id="rop-gadgets"
-                                    icon="🔗"
-                                    title="ROP Gadgets"
-                                    summary={`${result.rop_gadgets.length} gadget${result.rop_gadgets.length !== 1 ? 's' : ''} found`}
-                                    open={openSections.ropGadgets}
-                                    onToggle={() => toggleSection('ropGadgets')}
-                                    variant="rop"
-                                >
-                                    <div className="table-container">
-                                        <table className="info-table">
-                                            <thead><tr><th>Address</th><th>Gadget</th></tr></thead>
-                                            <tbody>
-                                                {result.rop_gadgets.map((g, i) => (
-                                                    <tr key={i}>
-                                                        <td style={{fontFamily: 'monospace', color: 'var(--primary)'}}>{g.address}</td>
-                                                        <td style={{fontFamily: 'monospace'}}>{g.gadget}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </AccordionCard>
-                            )}
+                        {/* â”€â”€ Section 6: Quick Commands (always visible) â”€â”€ */}
+                        <div className="bottom-section">
+                            <div className="bottom-section-header"><span className="bottom-section-icon">ðŸ“‹</span><h3 className="bottom-section-title">Quick Commands</h3></div>
+                            <div className="quick-commands">
+                                {[`file ./${result.filename}`,`checksec ./${result.filename}`,`strings ./${result.filename} | grep -i flag`,`ltrace ./${result.filename}`,`strace ./${result.filename}`,`gdb -q ./${result.filename}`,`objdump -d ./${result.filename} | grep -A 20 '<main>'`,`ROPgadget --binary ./${result.filename} --rop | head -20`,`one_gadget libc.so.6`,`python3 -c "from pwn import *; cyclic(200)" | ./${result.filename}`].map((cmd,i)=>(
+                                    <div className="quick-cmd-row" key={i}><code className="quick-cmd-text">{cmd}</code><button className="quick-cmd-copy" title="Copy" onClick={()=>{navigator.clipboard.writeText(cmd);const btn=document.querySelectorAll('.quick-cmd-copy')[i];if(btn){btn.textContent='âœ“';setTimeout(()=>btn.textContent='ðŸ“‹',1200)}}}>ðŸ“‹</button></div>
+                                ))}
+                            </div>
+                        </div>
 
-                            {/* ⚠️ Format String */}
-                            {result.format_string && (
-                                <AccordionCard
-                                    id="format-string"
-                                    icon="⚠️"
-                                    title="Format String"
-                                    summary={result.format_string.vulnerable ? `Vulnerable — ${result.format_string.severity}` : 'Safe'}
-                                    open={openSections.formatString}
-                                    onToggle={() => toggleSection('formatString')}
-                                    variant={result.format_string.vulnerable ? `fmtstr-${result.format_string.severity.toLowerCase()}` : 'fmtstr-safe'}
-                                >
-                                    <div className="fmtstr-card">
-                                        <div className="fmtstr-header">
-                                            <span className={`fmtstr-badge fmtstr-badge--${result.format_string.vulnerable ? result.format_string.severity.toLowerCase() : 'safe'}`}>
-                                                {result.format_string.vulnerable ? `⚠ VULNERABLE — ${result.format_string.severity}` : '✓ SAFE'}
-                                            </span>
-                                        </div>
-                                        {result.format_string.evidence.length > 0 && (
-                                            <ul className="fmtstr-evidence">
-                                                {result.format_string.evidence.map((e, i) => (
-                                                    <li key={i} className="fmtstr-evidence-item">{e}</li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                    </div>
-                                </AccordionCard>
-                            )}
-
-                            {/* 📚 Libc Info */}
-                            {result.libc_info && result.libc_info.glibc_version && (
-                                <AccordionCard
-                                    id="libc-info"
-                                    icon="📚"
-                                    title="Libc Info"
-                                    summary={`GLIBC ${result.libc_info.glibc_version} — ${result.libc_info.likely_os}`}
-                                    open={openSections.libcInfo}
-                                    onToggle={() => toggleSection('libcInfo')}
-                                    variant="libc"
-                                >
-                                    <div className="libc-card">
-                                        <div className="libc-row">
-                                            <span className="libc-label">GLIBC Version</span>
-                                            <span className="libc-value">{result.libc_info.glibc_version}</span>
-                                        </div>
-                                        {result.libc_info.all_versions.length > 1 && (
-                                            <div className="libc-row">
-                                                <span className="libc-label">All Versions</span>
-                                                <span className="libc-value">{result.libc_info.all_versions.join(', ')}</span>
-                                            </div>
-                                        )}
-                                        <div className="libc-row">
-                                            <span className="libc-label">Likely OS</span>
-                                            <span className="libc-value libc-value--os">{result.libc_info.likely_os}</span>
-                                        </div>
-                                        {result.libc_info.gcc_version && (
-                                            <div className="libc-row">
-                                                <span className="libc-label">GCC Version</span>
-                                                <span className="libc-value">{result.libc_info.gcc_version}</span>
-                                            </div>
-                                        )}
-                                        {result.libc_info.libc_db_url && (
-                                            <div className="libc-row">
-                                                <span className="libc-label">Libc Database</span>
-                                                <a
-                                                    href={result.libc_info.libc_db_url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="libc-link"
-                                                >
-                                                    🔍 Search libc.blukat.me →
-                                                </a>
-                                            </div>
-                                        )}
-                                    </div>
-                                </AccordionCard>
-                            )}
-
-                            {/* 📊 PLT/GOT Table */}
-                            {result.plt_got && (result.plt_got.plt?.length > 0 || result.plt_got.got?.length > 0) && (
-                                <AccordionCard
-                                    id="plt-got-table"
-                                    icon="📊"
-                                    title="PLT / GOT"
-                                    summary={`${result.plt_got.plt?.length || 0} PLT, ${result.plt_got.got?.length || 0} GOT entries`}
-                                    open={openSections.pltGot}
-                                    onToggle={() => toggleSection('pltGot')}
-                                    variant="plt-got"
-                                >
-                                    <div className="two-column-layout">
-                                        <div className="column">
-                                            <h4 className="column-title">PLT</h4>
-                                            <div className="table-container">
-                                                <table className="info-table">
-                                                    <thead><tr><th>Address</th><th>Function</th></tr></thead>
-                                                    <tbody>
-                                                        {(result.plt_got.plt || []).map((e, i) => (
-                                                            <tr key={i}>
-                                                                <td style={{fontFamily: 'monospace', color: 'var(--primary)'}}>{e.address}</td>
-                                                                <td>{e.name}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                        <div className="column">
-                                            <h4 className="column-title">GOT</h4>
-                                            <div className="table-container">
-                                                <table className="info-table">
-                                                    <thead><tr><th>Address</th><th>Function</th></tr></thead>
-                                                    <tbody>
-                                                        {(result.plt_got.got || []).map((e, i) => (
-                                                            <tr key={i}>
-                                                                <td style={{fontFamily: 'monospace', color: 'var(--secondary)'}}>{e.address}</td>
-                                                                <td>{e.name}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </AccordionCard>
-                            )}
-
-                            {/* 📐 Overflow Offset */}
-                            {result.overflow_hint && result.overflow_hint.likely_offset && (
-                                <AccordionCard
-                                    id="overflow-offset"
-                                    icon="📐"
-                                    title="Overflow Offset"
-                                    summary={`Offset ≈ ${result.overflow_hint.likely_offset} — ${result.overflow_hint.confidence}`}
-                                    open={openSections.overflowOffset}
-                                    onToggle={() => toggleSection('overflowOffset')}
-                                    variant={`overflow-${result.overflow_hint.confidence.toLowerCase()}`}
-                                >
-                                    <div className="overflow-card">
-                                        <div className="overflow-header">
-                                            <span className="overflow-offset-value">{result.overflow_hint.likely_offset}</span>
-                                            <span className="overflow-offset-label">bytes to RIP</span>
-                                            <span className={`ctf-confidence-badge ctf-confidence-badge--${result.overflow_hint.confidence.toLowerCase()}`}>
-                                                {result.overflow_hint.confidence}
-                                            </span>
-                                        </div>
-                                        {result.overflow_hint.stack_size && (
-                                            <div className="overflow-detail">
-                                                <span className="overflow-detail-label">Stack frame:</span>
-                                                <span className="overflow-detail-value">0x{result.overflow_hint.stack_size.toString(16)} ({result.overflow_hint.stack_size} bytes)</span>
-                                            </div>
-                                        )}
-                                        <p className="overflow-evidence">{result.overflow_hint.evidence}</p>
-                                    </div>
-                                </AccordionCard>
-                            )}
-
-                            {/* 🔐 Encodings Detected */}
-                            {result.encodings && Object.keys(result.encodings).length > 0 && (
-                                <AccordionCard
-                                    id="encodings-card"
-                                    icon="🔐"
-                                    title="Encodings Detected"
-                                    summary={`${Object.values(result.encodings).flat().length} match${Object.values(result.encodings).flat().length !== 1 ? 'es' : ''}`}
-                                    open={openSections.encodings}
-                                    onToggle={() => toggleSection('encodings')}
-                                    variant="encodings"
-                                >
-                                    {Object.entries(result.encodings).map(([category, items]) => (
-                                        <div className="finding-category" key={category}>
-                                            <span className="finding-label">
-                                                {category === 'base64' && '📦 Base64'}
-                                                {category === 'hex_strings' && '🔢 Hex Strings'}
-                                                {category === 'xor_hints' && '🔑 XOR / Encryption'}
-                                                {category === 'rot13_flags' && '🔄 ROT13 Hidden Flags'}
-                                            </span>
-                                            {items.map((item, j) => (
-                                                <div className="section-item section-item--encoding" key={j}>{item}</div>
-                                            ))}
-                                        </div>
-                                    ))}
-                                </AccordionCard>
-                            )}
-
-                            {/* 🛡️ VirusTotal */}
-                            {submitToVt && (vtResult || vtScanId) && result.virustotal?.status !== 'disabled' && (
-                                <AccordionCard
-                                    id="vt-results"
-                                    icon="🛡️"
-                                    title="VirusTotal Scan"
-                                    summary={
-                                        !vtResult ? 'Scanning...' :
-                                        vtResult.status === 'pending' ? 'Analysis in progress' :
-                                        vtResult.status === 'error' ? 'Scan error' :
-                                        vtResult.status === 'clean' ? `0/${vtResult.total_engines} engines flagged` :
-                                        `${vtResult.detection_count}/${vtResult.total_engines} engines flagged`
-                                    }
-                                    open={openSections.vt}
-                                    onToggle={() => toggleSection('vt')}
-                                    variant={`vt-${vtResult?.status || 'scanning'}`}
-                                >
-                                    {/* Scanning spinner */}
-                                    {!vtResult && (
-                                        <div className="vt-scanning" id="vt-scanning">
-                                            <div className="vt-spinner" />
-                                            <span className="vt-scanning-text">Scanning across 70+ engines...</span>
-                                        </div>
-                                    )}
-
-                                    {/* Error */}
-                                    {vtResult?.status === 'error' && (
-                                        <div className="section-empty" style={{ color: 'var(--error)' }}>
-                                            {vtResult.message || 'VirusTotal scan encountered an error.'}
-                                        </div>
-                                    )}
-
-                                    {/* Pending */}
-                                    {vtResult?.status === 'pending' && (
-                                        <div className="vt-pending">
-                                            <div className="vt-pending-text">
-                                                ⏳ {vtResult.message || 'Analysis is still in progress.'}
-                                            </div>
-                                            {vtResult.permalink && (
-                                                <a href={vtResult.permalink} target="_blank" rel="noopener noreferrer" className="vt-link" id="vt-permalink">
-                                                    View on VirusTotal →
-                                                </a>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Completed results */}
-                                    {vtResult && ['clean', 'suspicious', 'malicious'].includes(vtResult.status) && (
-                                        <div className="vt-results-body">
-                                            <div className="vt-detection-row">
-                                                <div className={`vt-ratio vt-ratio--${vtResult.status}`}>
-                                                    <span className="vt-ratio-count">{vtResult.detection_count}</span>
-                                                    <span className="vt-ratio-separator">/</span>
-                                                    <span className="vt-ratio-total">{vtResult.total_engines}</span>
-                                                </div>
-                                                <div className="vt-detection-info">
-                                                    <span className={`vt-verdict vt-verdict--${vtResult.status}`}>
-                                                        {vtResult.status === 'clean' && `✅ Clean — 0 / ${vtResult.total_engines} engines flagged`}
-                                                        {vtResult.status === 'suspicious' && `⚠️ Suspicious — ${vtResult.detection_count} / ${vtResult.total_engines} engines flagged`}
-                                                        {vtResult.status === 'malicious' && `🚨 Malicious — ${vtResult.detection_count} / ${vtResult.total_engines} engines flagged`}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div className="vt-bar-track">
-                                                <div
-                                                    className={`vt-bar-fill vt-bar-fill--${vtResult.status}`}
-                                                    style={{
-                                                        width: vtResult.total_engines > 0
-                                                            ? `${(vtResult.detection_count / vtResult.total_engines) * 100}%`
-                                                            : '0%'
-                                                    }}
-                                                />
-                                            </div>
-                                            {vtResult.threat_name && (
-                                                <div className="vt-threat">
-                                                    <span className="vt-threat-label">Threat:</span>
-                                                    <span className="vt-threat-name">{vtResult.threat_name}</span>
-                                                </div>
-                                            )}
-                                            {vtResult.behavior_summary && (
-                                                <div className="vt-behavior">{vtResult.behavior_summary}</div>
-                                            )}
-                                            {vtResult.permalink && (
-                                                <a href={vtResult.permalink} target="_blank" rel="noopener noreferrer" className="vt-link" id="vt-permalink">
-                                                    View Full Report →
-                                                </a>
-                                            )}
-                                        </div>
-                                    )}
-                                </AccordionCard>
-                            )}
-
-                            {/* 🔍 Hex View */}
-                            {result.hex_view && result.hex_view.length > 0 && (
-                                <AccordionCard
-                                    id="hex-viewer"
-                                    icon="🔍"
-                                    title="Hex View"
-                                    summary={`First ${result.hex_view.length * 16} bytes`}
-                                    open={openSections.hex}
-                                    onToggle={() => toggleSection('hex')}
-                                    variant="hex"
-                                >
-                                    <div className="hex-viewer-body">
-                                        <div className="hex-row hex-row--header">
-                                            <span className="hex-col-offset">Offset</span>
-                                            <span className="hex-col-hex">00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f</span>
-                                            <span className="hex-col-ascii">ASCII</span>
-                                        </div>
-                                        {result.hex_view.map((row, i) => (
-                                            <div className="hex-row" key={i}>
-                                                <span className="hex-col-offset">{row.offset}</span>
-                                                <span className="hex-col-hex">{row.hex}</span>
-                                                <span className="hex-col-ascii">{row.ascii}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </AccordionCard>
-                            )}
-
-                            {/* 🔬 Disassembly */}
-                            {result.disassembly && result.disassembly.length > 0 && (
-                                <AccordionCard
-                                    id="disasm-viewer"
-                                    icon="🔬"
-                                    title="Disassembly"
-                                    summary={`${result.disassembly_function || 'main'}\u00a0— ${result.disassembly.length} instructions`}
-                                    open={openSections.disasm}
-                                    onToggle={() => toggleSection('disasm')}
-                                    variant="disasm"
-                                >
-                                    <div className="disasm-body">
-                                        <div className="disasm-row disasm-row--header">
-                                            <span className="disasm-col-addr">Address</span>
-                                            <span className="disasm-col-mnemonic">Mnemonic</span>
-                                            <span className="disasm-col-operands">Operands</span>
-                                        </div>
-                                        {result.disassembly.map((insn, i) => {
-                                            const mn = insn.mnemonic.toLowerCase();
-                                            const isDangerous = ['call', 'jmp', 'je', 'jne', 'jz', 'jnz', 'jg', 'jl', 'jge', 'jle', 'ja', 'jb', 'ret', 'retn', 'syscall', 'int'].includes(mn);
-                                            const isPrologue = (mn === 'push' && insn.op_str.match(/[re]bp/)) ||
-                                                               (mn === 'mov' && insn.op_str.match(/[re]bp,\s*[re]sp/)) ||
-                                                               (mn === 'endbr64' || mn === 'endbr32');
-                                            return (
-                                                <div
-                                                    className={`disasm-row ${isDangerous ? 'disasm-row--danger' : ''} ${isPrologue ? 'disasm-row--prologue' : ''}`}
-                                                    key={i}
-                                                >
-                                                    <span className="disasm-col-addr">{insn.address}</span>
-                                                    <span className={`disasm-col-mnemonic ${isDangerous ? 'disasm-mnemonic--danger' : ''} ${isPrologue ? 'disasm-mnemonic--prologue' : ''}`}>{insn.mnemonic}</span>
-                                                    <span className="disasm-col-operands">{insn.op_str || ''}</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </AccordionCard>
-                            )}
-
-                            {/* 📋 Strings */}
-                            <AccordionCard
-                                id="strings-card"
-                                icon="📋"
-                                title="Strings"
-                                summary={`${result.strings_count} string${result.strings_count !== 1 ? 's' : ''} extracted`}
-                                open={openSections.strings}
-                                onToggle={() => toggleSection('strings')}
-                                variant="strings"
-                            >
-                                <div className="result-card-body">
-                                    {result.strings.length === 0 ? (
-                                        <div className="no-strings">No printable strings found.</div>
-                                    ) : (
-                                        result.strings.map((s, i) => (
-                                            <div className="string-line" key={i}>
-                                                <span className="string-index">{String(i + 1).padStart(4, '0')}</span>
-                                                {s}
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </AccordionCard>
-
-                            {/* 🚩 Flags Detected */}
-                            <AccordionCard
-                                id="flags-card"
-                                icon="🚩"
-                                title="Flags Detected"
-                                summary={
-                                    result.flags_detected && result.flags_detected.length > 0
-                                        ? `${result.flags_detected.length} flag${result.flags_detected.length !== 1 ? 's' : ''} found`
-                                        : 'None detected'
-                                }
-                                open={openSections.flags}
-                                onToggle={() => toggleSection('flags')}
-                                variant="flags"
-                            >
-                                <div className="result-card-body">
-                                    {result.flags_detected && result.flags_detected.length > 0 ? (
-                                        result.flags_detected.map((flag, i) => (
-                                            <div className="section-item section-item--flag" key={i}>{flag}</div>
-                                        ))
-                                    ) : (
-                                        <div className="section-empty">No flags detected in strings</div>
-                                    )}
-                                </div>
-                            </AccordionCard>
-
-                            {/* 🔍 Interesting Findings */}
-                            <AccordionCard
-                                id="findings-card"
-                                icon="🔍"
-                                title="Interesting Findings"
-                                summary={
-                                    result.patterns && Object.keys(result.patterns).length > 0
-                                        ? `${Object.keys(result.patterns).length} categor${Object.keys(result.patterns).length !== 1 ? 'ies' : 'y'}`
-                                        : 'No patterns'
-                                }
-                                open={openSections.findings}
-                                onToggle={() => toggleSection('findings')}
-                                variant="findings"
-                            >
-                                <div className="result-card-body">
-                                    {result.patterns && Object.keys(result.patterns).length > 0 ? (
-                                        Object.entries(result.patterns).map(([category, items]) => (
-                                            <div className="finding-category" key={category}>
-                                                <span className="finding-label">{category.replace(/_/g, ' ')}:</span>
-                                                {items.map((item, j) => (
-                                                    <div className="section-item section-item--finding" key={j}>{item}</div>
-                                                ))}
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="section-empty">No interesting patterns detected</div>
-                                    )}
-                                </div>
-                            </AccordionCard>
-
-                            {/* ⚡ Pwntools Template */}
-                            {result.pwn_template && result.extension !== '.zip' && (
-                                <AccordionCard
-                                    id="pwn-template"
-                                    icon="⚡"
-                                    title="Pwntools Template"
-                                    summary="Ready to download"
-                                    open={openSections.pwn}
-                                    onToggle={() => toggleSection('pwn')}
-                                    variant="pwn"
-                                >
-                                    <div className="pwn-template-actions">
-                                        <button
-                                            className="pwn-action-btn"
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(result.pwn_template);
-                                                const btn = document.getElementById('pwn-copy-btn');
-                                                if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => btn.textContent = '📋 Copy Template', 1500); }
-                                            }}
-                                            id="pwn-copy-btn"
-                                            type="button"
-                                        >
-                                            📋 Copy Template
-                                        </button>
-                                        <button
-                                            className="pwn-action-btn"
-                                            onClick={() => {
-                                                const blob = new Blob([result.pwn_template], { type: 'text/x-python' });
-                                                const url = URL.createObjectURL(blob);
-                                                const a = document.createElement('a');
-                                                a.href = url;
-                                                a.download = 'exploit.py';
-                                                a.click();
-                                                URL.revokeObjectURL(url);
-                                            }}
-                                            id="pwn-download-btn"
-                                            type="button"
-                                        >
-                                            ⬇️ Download exploit.py
-                                        </button>
-                                    </div>
-                                    <div className="pwn-template-body">
-                                        <pre className="pwn-code">{result.pwn_template.split('\n').map((line, i) => (
-                                            <div className="pwn-line" key={i}>
-                                                <span className="pwn-line-num">{String(i + 1).padStart(3, ' ')}</span>
-                                                <span className={`pwn-line-text${
-                                                    line.trimStart().startsWith('#') ? ' pwn-comment' :
-                                                    line.includes('from pwn') || line.includes('#!/') ? ' pwn-import' :
-                                                    line.includes('def ') ? ' pwn-func' :
-                                                    /\b(flat|process|remote|cyclic|asm|shellcraft|ELF|ROP)\b/.test(line) ? ' pwn-keyword' :
-                                                    ''
-                                                }`}>{line || ' '}</span>
-                                            </div>
-                                        ))}</pre>
-                                    </div>
-                                </AccordionCard>
-                            )}
-
-                            {/* 💡 AI Hints + Kill Chain — open by default */}
-                            <AccordionCard
-                                id="ai-hints"
-                                icon="💡"
-                                title="AI Hints + Kill Chain"
-                                summary={result.hints ? 'Analysis available' : 'Unavailable'}
-                                open={openSections.hints}
-                                onToggle={() => toggleSection('hints')}
-                                variant="hints"
-                            >
-                                <div className="result-card-body">
-                                    {result.hints ? (
-                                        result.hints.split(/\n/).filter(line => line.trim()).map((line, i) => (
-                                            <div className="section-item section-item--hint" key={i}>{line}</div>
-                                        ))
-                                    ) : (
-                                        <div className="section-empty">AI hints unavailable</div>
-                                    )}
-
-                                    {/* Thumbs Up / Down Feedback */}
-                                    {result.hints && (
-                                        <div className="hints-feedback" id="hints-feedback">
-                                            {feedbackGiven ? (
-                                                <div className="hints-feedback-thanks">✅ Thanks for your feedback!</div>
-                                            ) : (
-                                                <>
-                                                    <span className="hints-feedback-label">Were these hints helpful?</span>
-                                                    <button
-                                                        className="hints-feedback-btn hints-feedback-btn--up"
-                                                        onClick={async () => {
-                                                            setFeedbackGiven('up');
-                                                            try {
-                                                                await fetch(`${BACKEND_URL}/feedback`, {
-                                                                    method: 'POST',
-                                                                    headers: { 'Content-Type': 'application/json' },
-                                                                    body: JSON.stringify({ vote: 'up', filename: result.filename }),
-                                                                });
-                                                            } catch { /* silent */ }
-                                                        }}
-                                                        type="button"
-                                                        id="feedback-up-btn"
-                                                    >
-                                                        👍 Helpful
-                                                    </button>
-                                                    <button
-                                                        className="hints-feedback-btn hints-feedback-btn--down"
-                                                        onClick={async () => {
-                                                            setFeedbackGiven('down');
-                                                            try {
-                                                                await fetch(`${BACKEND_URL}/feedback`, {
-                                                                    method: 'POST',
-                                                                    headers: { 'Content-Type': 'application/json' },
-                                                                    body: JSON.stringify({ vote: 'down', filename: result.filename }),
-                                                                });
-                                                            } catch { /* silent */ }
-                                                        }}
-                                                        type="button"
-                                                        id="feedback-down-btn"
-                                                    >
-                                                        👎 Not helpful
-                                                    </button>
-                                                </>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </AccordionCard>
-
-                            {/* 💬 Follow-up Chat — open by default */}
-                            <AccordionCard
-                                id="chat-section"
-                                icon="💬"
-                                title="Follow-up Chat"
-                                summary={chatMessages.length > 0 ? `${chatMessages.length} message${chatMessages.length !== 1 ? 's' : ''}` : 'Ask questions'}
-                                open={openSections.chat}
-                                onToggle={() => toggleSection('chat')}
-                                variant="chat"
-                            >
-                                <div className="chat-messages" id="chat-messages">
-                                    {chatMessages.map((msg, i) => (
-                                        <div
-                                            className={`chat-bubble chat-bubble--${msg.role}`}
-                                            key={i}
-                                        >
-                                            <span className="chat-bubble-label">
-                                                {msg.role === 'user' ? 'You' : 'AI Mentor'}
-                                            </span>
-                                            {msg.image && (
-                                                <img src={msg.image} alt="Attached screenshot" className="chat-image-preview-bubble" />
-                                            )}
-                                            <div className="chat-bubble-content">
-                                                {msg.content.split(/\n/).filter(l => l.trim()).map((line, j) => (
-                                                    <div key={j}>{line}</div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {chatLoading && (
-                                        <div className="chat-bubble chat-bubble--assistant">
-                                            <span className="chat-bubble-label">AI Mentor</span>
-                                            <div className="chat-bubble-content">
-                                                <span className="chat-typing">Thinking<span className="chat-dots">...</span></span>
-                                            </div>
-                                        </div>
-                                    )}
-                                    <div ref={chatEndRef} />
-                                </div>
-                                {/* Image preview bar */}
-                                {chatImage && (
-                                    <div className="chat-image-bar">
-                                        <img src={chatImagePreview} alt="Preview" className="chat-image-thumb" />
-                                        <span className="chat-image-name">{chatImage.name}</span>
-                                        <button className="chat-image-remove" onClick={clearChatImage} title="Remove image">
-                                            <span className="material-symbols-outlined">close</span>
-                                        </button>
-                                    </div>
-                                )}
-                                <div className="chat-input-row">
-                                    <button
-                                        className="chat-image-btn"
-                                        onClick={() => chatImageRef.current?.click()}
-                                        disabled={chatLoading}
-                                        title="Attach screenshot"
-                                        type="button"
-                                    >
-                                        📷
-                                    </button>
-                                    <input
-                                        ref={chatImageRef}
-                                        type="file"
-                                        accept="image/png,image/jpeg,image/gif,image/webp"
-                                        onChange={onChatImageSelect}
-                                        style={{ display: 'none' }}
-                                    />
-                                    <input
-                                        className="chat-input"
-                                        type="text"
-                                        placeholder={chatImage ? 'Add a message about your screenshot...' : 'Ask about this binary...'}
-                                        value={chatInput}
-                                        onChange={e => setChatInput(e.target.value.slice(0, MAX_CHAT_CHARS))}
-                                        onKeyDown={onChatKeyDown}
-                                        disabled={chatLoading}
-                                        maxLength={MAX_CHAT_CHARS}
-                                        id="chat-input"
-                                    />
-                                    <button
-                                        className="chat-send-btn"
-                                        onClick={sendChat}
-                                        disabled={chatLoading || (!chatInput.trim() && !chatImage)}
-                                        id="chat-send-btn"
-                                    >
-                                        {chatLoading ? '...' : '▶ Send'}
-                                    </button>
-                                </div>
-                            </AccordionCard>
+                        {/* â”€â”€ Chat (always visible) â”€â”€ */}
+                        <div className="bottom-section">
+                            <div className="bottom-section-header"><span className="bottom-section-icon">ðŸ’¬</span><h3 className="bottom-section-title">Follow-up Chat</h3></div>
+                            <div className="chat-messages" id="chat-messages">
+                                {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content">{msg.content.split(/\n/).filter(l=>l.trim()).map((line,j)=><div key={j}>{line}</div>)}</div></div>))}
+                                {chatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
+                                <div ref={chatEndRef}/>
+                            </div>
+                            {chatImage&&<div className="chat-image-bar"><img src={chatImagePreview} alt="Preview" className="chat-image-thumb"/><span className="chat-image-name">{chatImage.name}</span><button className="chat-image-remove" onClick={clearChatImage} title="Remove image"><span className="material-symbols-outlined">close</span></button></div>}
+                            <div className="chat-input-row">
+                                <button className="chat-image-btn" onClick={()=>chatImageRef.current?.click()} disabled={chatLoading} title="Attach screenshot" type="button">ðŸ“·</button>
+                                <input ref={chatImageRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={onChatImageSelect} style={{display:'none'}}/>
+                                <input className="chat-input" type="text" placeholder={chatImage?'Add a message about your screenshot...':'Ask about this binary...'} value={chatInput} onChange={e=>setChatInput(e.target.value.slice(0,MAX_CHAT_CHARS))} onKeyDown={onChatKeyDown} disabled={chatLoading} maxLength={MAX_CHAT_CHARS} id="chat-input"/>
+                                <button className="chat-send-btn" onClick={sendChat} disabled={chatLoading||(!chatInput.trim()&&!chatImage)} id="chat-send-btn">{chatLoading?'...':'â–¶ Send'}</button>
+                            </div>
                         </div>
                     </>
-                )}
+                    );
+                })()}
 
-                {/* ═══ Source Code Results ═══ */}
+
+                {/* â•â•â• Source Code Results â•â•â• */}
                 {analysisMode === 'source' && sourceResult && (
                     <>
                         <div className="analysis-meta-bar">
@@ -1879,7 +1202,7 @@ export default function App() {
                                 title="Vulnerabilities"
                                 icon="warning"
                                 sectionKey="srcVuln"
-                                summary={`${sourceResult.vulnerabilities.split('\n').filter(l => l.startsWith('•')).length || 0} found`}
+                                summary={`${sourceResult.vulnerabilities.split('\n').filter(l => l.startsWith('â€¢')).length || 0} found`}
                                 variant="source-vuln"
                                 openSections={openSections}
                                 toggleSection={toggleSection}
@@ -1888,8 +1211,8 @@ export default function App() {
                                     {sourceResult.vulnerabilities ? (
                                         sourceResult.vulnerabilities.split('\n').filter(val => val.trim()).map((line, i) => (
                                             <div key={i} className="flag-item">
-                                                <span className="flag-icon">⚠️</span>
-                                                <span className="flag-text">{line.replace(/^•\s*/, '')}</span>
+                                                <span className="flag-icon">âš ï¸</span>
+                                                <span className="flag-text">{line.replace(/^â€¢\s*/, '')}</span>
                                             </div>
                                         ))
                                     ) : (
@@ -1912,7 +1235,7 @@ export default function App() {
                                     {sourceResult.dangerous_functions.length > 0 ? (
                                         sourceResult.dangerous_functions.map((fn, i) => (
                                             <div key={i} className="flag-item">
-                                                <span className="flag-icon">🔴</span>
+                                                <span className="flag-icon">ðŸ”´</span>
                                                 <span className="flag-text">
                                                     Line {fn.line}: <strong>{fn.function}</strong> &mdash; {fn.description}
                                                 </span>
@@ -1940,7 +1263,7 @@ export default function App() {
                                             sourceResult.hints.split('\n').filter(val => val.trim()).map((line, i) => (
                                                 <div key={i} className="ai-bullet">
                                                     <span className="bullet-point"></span>
-                                                    <span dangerouslySetInnerHTML={{ __html: line.replace(/^•\s*/, '').replace(/`(.*?)`/g, '<code class="inline-code">$1</code>') }} />
+                                                    <span dangerouslySetInnerHTML={{ __html: line.replace(/^â€¢\s*/, '').replace(/`(.*?)`/g, '<code class="inline-code">$1</code>') }} />
                                                 </div>
                                             ))
                                         ) : (
@@ -1957,7 +1280,7 @@ export default function App() {
                                                 {sourceResult.next_steps.split('\n').filter(val => val.trim()).map((line, i) => (
                                                     <div key={i} className="ai-bullet" style={{ color: 'var(--on-surface-variant)' }}>
                                                         <span className="bullet-point" style={{ background: 'var(--on-surface-variant)' }}></span>
-                                                        <span dangerouslySetInnerHTML={{ __html: line.replace(/^•\s*/, '').replace(/`(.*?)`/g, '<code class="inline-code">$1</code>') }} />
+                                                        <span dangerouslySetInnerHTML={{ __html: line.replace(/^â€¢\s*/, '').replace(/`(.*?)`/g, '<code class="inline-code">$1</code>') }} />
                                                     </div>
                                                 ))}
                                             </div>
@@ -1995,6 +1318,13 @@ export default function App() {
                 </footer>
             </div>
 
+            {/* ── Card Detail Modal ── */}
+            {modalData && (
+                <CardModal title={modalData.title} icon={modalData.icon} accent={modalData.accent} onClose={closeModal}>
+                    {modalData.content}
+                </CardModal>
+            )}
+
             {/* ── Password Modal (for protected ZIPs) ── */}
             {passwordModal && (
                 <div className="pwd-overlay" id="password-modal-overlay" onClick={() => {
@@ -2007,7 +1337,7 @@ export default function App() {
                 }}>
                     <div className="pwd-modal" id="password-modal" onClick={e => e.stopPropagation()}>
                         <div className="pwd-modal-header">
-                            <span className="pwd-modal-icon">🔒</span>
+                            <span className="pwd-modal-icon">ðŸ”’</span>
                             <h2 className="pwd-modal-title">Password Protected ZIP</h2>
                         </div>
                         <p className="pwd-modal-desc">
@@ -2016,7 +1346,7 @@ export default function App() {
 
                         {passwordError && (
                             <div className="pwd-modal-error" id="password-error">
-                                <span className="pwd-modal-error-icon">⚠️</span>
+                                <span className="pwd-modal-error-icon">âš ï¸</span>
                                 {passwordError}
                             </div>
                         )}
@@ -2068,7 +1398,7 @@ export default function App() {
                                         Unlocking...
                                     </>
                                 ) : (
-                                    '🔓 Unlock & Analyze'
+                                    'ðŸ”“ Unlock & Analyze'
                                 )}
                             </button>
                         </div>
