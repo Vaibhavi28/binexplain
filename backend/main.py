@@ -2006,6 +2006,9 @@ def generate_pwn_template(
     checksec: dict,
     patterns: dict[str, list[str]],
     strings_list: list[str],
+    overflow_hint: dict | None = None,
+    rop_gadgets: list[dict] | None = None,
+    libc_info: dict | None = None,
 ) -> str:
     """
     Generate a Python pwntools exploit template based on deep static analysis.
@@ -2019,6 +2022,9 @@ def generate_pwn_template(
     • Binary base address comments when PIE is disabled
     • Pre-filled protections from checksec
     • Payload scaffold based on detected exploit technique
+    • Predicted buffer overflow offset (from disassembly analysis)
+    • Discovered ROP gadgets listed as comments
+    • ret2libc section when libc version is identified
     """
 
     # ── 1. Detect architecture from ELF header ─────────────────────────
@@ -2258,19 +2264,41 @@ def generate_pwn_template(
             lines.append(f"# → {h}")
         lines.append("")
 
-    # ── Offset finder one-liner ────────────────────────────────────────
-    lines.append("# ═══ Find Offset ═══")
-    lines.append("# RUN THIS FIRST to find the buffer overflow offset:")
-    lines.append(f"# python3 -c \"from pwn import *; p=process('./{filename}'); p.sendline(cyclic(200)); p.wait(); core=p.corefile; print(cyclic_find(core.fault_addr))\"")
-    lines.append("")
-    lines.append(f"# Or manually:")
-    lines.append(f"# 1. Send cyclic(200) to the binary")
-    lines.append(f"# 2. Check crash address in debugger")
-    if bits == 32:
-        lines.append(f"# 3. offset = cyclic_find(0x61616161)  # 32-bit: 'aaaa' pattern")
+    # ── ROP Gadgets (from static analysis) ─────────────────────────────
+    if rop_gadgets:
+        lines.append("# ═══ ROP Gadgets Found ═══")
+        for g in rop_gadgets[:15]:
+            addr = g.get("address", "???")
+            gadget = g.get("gadget", "???")
+            lines.append(f"# {addr}: {gadget}")
+        if len(rop_gadgets) > 15:
+            lines.append(f"# ... and {len(rop_gadgets) - 15} more gadgets")
+        lines.append("")
+
+    # ── Offset finder ──────────────────────────────────────────────────
+    predicted_offset = None
+    if overflow_hint and overflow_hint.get("likely_offset"):
+        predicted_offset = overflow_hint["likely_offset"]
+        stack_size = overflow_hint.get("stack_size", 0)
+        evidence = overflow_hint.get("evidence", "")
+        confidence = overflow_hint.get("confidence", "Low")
+        lines.append("# ═══ Predicted Offset ═══")
+        lines.append(f"# Confidence: {confidence}")
+        lines.append(f"# {evidence}")
+        lines.append("")
     else:
-        lines.append(f"# 3. offset = cyclic_find(0x6161616161616161)  # 64-bit: 'aaaaaaaa' pattern")
-    lines.append("")
+        lines.append("# ═══ Find Offset ═══")
+        lines.append("# RUN THIS FIRST to find the buffer overflow offset:")
+        lines.append(f"# python3 -c \"from pwn import *; p=process('./{filename}'); p.sendline(cyclic(200)); p.wait(); core=p.corefile; print(cyclic_find(core.fault_addr))\"")
+        lines.append("")
+        lines.append(f"# Or manually:")
+        lines.append(f"# 1. Send cyclic(200) to the binary")
+        lines.append(f"# 2. Check crash address in debugger")
+        if bits == 32:
+            lines.append(f"# 3. offset = cyclic_find(0x61616161)  # 32-bit: 'aaaa' pattern")
+        else:
+            lines.append(f"# 3. offset = cyclic_find(0x6161616161616161)  # 64-bit: 'aaaaaaaa' pattern")
+        lines.append("")
 
     # Connection setup
     lines.extend([
@@ -2282,12 +2310,16 @@ def generate_pwn_template(
 
     # ── Technique-specific scaffold ────────────────────────────────────
     if technique == "shellcode":
+        if predicted_offset:
+            offset_line = f"offset = {predicted_offset}  # predicted from: sub rsp, 0x{overflow_hint.get('stack_size', 0):x}"
+        else:
+            offset_line = f"offset = 0  # TODO: replace with value from cyclic_find({cyclic_find_val})"
         lines.extend([
             "# ═══ Shellcode Exploit (NX disabled) ═══",
             "# NX is disabled — you can execute shellcode on the stack",
             "shellcode = asm(shellcraft.sh())",
             "",
-            f"offset = 0  # TODO: replace with value from cyclic_find({cyclic_find_val})",
+            offset_line,
             "",
             "payload = flat(",
             "    shellcode,",
@@ -2362,12 +2394,16 @@ def generate_pwn_template(
             "# Common techniques: UAF, tcache poisoning, fastbin dup, house-of-force",
         ])
     elif technique == "rop":
+        if predicted_offset:
+            offset_line = f"offset = {predicted_offset}  # predicted from: sub rsp, 0x{overflow_hint.get('stack_size', 0):x}"
+        else:
+            offset_line = f"offset = 0  # TODO: replace with value from cyclic_find({cyclic_find_val})"
         lines.extend([
             "# ═══ ROP Exploit (NX enabled, no PIE) ═══",
             "# Use ROP gadgets to build a chain",
             "rop = ROP(elf)",
             "",
-            f"offset = 0  # TODO: replace with value from cyclic_find({cyclic_find_val})",
+            offset_line,
             "",
         ])
         if win_func:
@@ -2428,9 +2464,13 @@ def generate_pwn_template(
             ])
     else:
         # Generic buffer overflow
+        if predicted_offset:
+            offset_line = f"offset = {predicted_offset}  # predicted from: sub rsp, 0x{overflow_hint.get('stack_size', 0):x}"
+        else:
+            offset_line = f"offset = 0  # TODO: replace with value from cyclic_find({cyclic_find_val})"
         lines.extend([
             "# ═══ Buffer Overflow Template ═══",
-            f"offset = 0  # TODO: replace with value from cyclic_find({cyclic_find_val})",
+            offset_line,
             "",
             "payload = flat(",
             f"    b'A' * offset,",
@@ -2446,6 +2486,54 @@ def generate_pwn_template(
         else:
             lines.append(f"    # {p32_or_64}(elf.sym['win_function']),  # replace with actual target")
         lines.append(")")
+
+    # ── ret2libc section (when libc version is identified) ─────────────
+    libc_version = (libc_info or {}).get("glibc_version")
+    if libc_version:
+        likely_os = (libc_info or {}).get("likely_os", "Unknown")
+        libc_db_url = (libc_info or {}).get("libc_db_url", "")
+        lines.extend([
+            "",
+            "# ═══ ret2libc Section ═══",
+            f"# Detected GLIBC version: {libc_version} (likely {likely_os})",
+            f"# Libc database: {libc_db_url}" if libc_db_url else "",
+            "#",
+            "# To use ret2libc, you need the target's libc:",
+            "#   1. Leak a GOT address (e.g., puts@GOT)",
+            "#   2. Look up the libc version at https://libc.blukat.me/",
+            "#   3. Calculate system() and /bin/sh offsets",
+            "#",
+            "# libc = ELF('./libc.so.6')",
+            "# libc.address = leaked_puts - libc.sym['puts']",
+            "# system_addr = libc.sym['system']",
+            "# bin_sh_addr = next(libc.search(b'/bin/sh'))",
+        ])
+        if bits == 64:
+            lines.extend([
+                "#",
+                "# # 64-bit ret2libc payload:",
+                "# pop_rdi = rop.find_gadget(['pop rdi', 'ret'])[0]",
+                "# ret = rop.find_gadget(['ret'])[0]",
+                "# payload_libc = flat(",
+                "#     b'A' * offset,",
+                "#     p64(ret),          # stack alignment",
+                "#     p64(pop_rdi),",
+                "#     p64(bin_sh_addr),",
+                "#     p64(system_addr),",
+                "# )",
+            ])
+        else:
+            lines.extend([
+                "#",
+                "# # 32-bit ret2libc payload:",
+                "# payload_libc = flat(",
+                "#     b'A' * offset,",
+                "#     p32(system_addr),",
+                "#     p32(0xdeadbeef),   # fake return address",
+                "#     p32(bin_sh_addr),",
+                "# )",
+            ])
+        lines.append("")
 
     # Send payload and interact
     lines.extend([
@@ -3220,7 +3308,6 @@ def _analyze_single_file(
         strings = _run_strings(tmp_path)
         patterns = detect_patterns(strings)
         flags = detect_flags(strings)
-        hints = get_ai_hints(strings, patterns)
         risk = calculate_risk_score(patterns, flags)
         encodings = detect_encodings(strings)
 
@@ -3235,11 +3322,6 @@ def _analyze_single_file(
 
         # Hex view: first 512 bytes
         hex_view = get_hex_view(content)
-
-        # Pwntools exploit template
-        pwn_template = generate_pwn_template(
-            filename, content, checksec_result, patterns, strings,
-        )
 
         # Disassembly: main function or entry point
         disasm_result = disassemble_binary(content)
@@ -3262,7 +3344,7 @@ def _analyze_single_file(
             except Exception as e:
                 logger.warning("Failed to parse ELF for deep analysis: %s", e)
 
-        # New CTF-focused analysis modules
+        # CTF-focused analysis modules
         rop_gadgets = find_rop_gadgets(content)
         format_string = detect_format_string(strings, patterns)
         libc_info = identify_libc(strings)
@@ -3277,6 +3359,22 @@ def _analyze_single_file(
         overflow_hint = predict_overflow_offset(disassembly)
         plt_got = get_plt_got(content)
         difficulty = predict_difficulty(checksec_result, patterns, ctf_category)
+
+        # AI hints — pass CTF category for category-aware prompting
+        hints = get_ai_hints(strings, patterns, ctf_category=ctf_category)
+
+        # AI decompilation hints — explain disassembly using AI
+        decompilation_hints = get_decompilation_hints(
+            disassembly, strings, ctf_category=ctf_category,
+        )
+
+        # Pwntools exploit template — uses predicted offset, ROP gadgets, libc info
+        pwn_template = generate_pwn_template(
+            filename, content, checksec_result, patterns, strings,
+            overflow_hint=overflow_hint,
+            rop_gadgets=rop_gadgets,
+            libc_info=libc_info,
+        )
 
         result = {
             "filename": filename,
@@ -3296,6 +3394,7 @@ def _analyze_single_file(
             "pwn_template": pwn_template,
             "disassembly": disassembly,
             "disassembly_function": disassembly_function,
+            "decompilation_hints": decompilation_hints,
             "function_list": function_list,
             "imports_exports": imports_exports,
             "data_flows": data_flows,
