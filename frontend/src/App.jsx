@@ -267,8 +267,10 @@ export default function App() {
         srcLang: false,
         srcVuln: true,    // open by default
         srcDanger: false,
+        srcExploitHints: true,  // open by default
         srcHints: true,   // open by default
         srcSteps: false,
+        srcExploit: true,   // open by default
         srcCode: false,
     });
 
@@ -472,13 +474,16 @@ export default function App() {
 
             setRateLimitSeconds(0);
             setFeedbackGiven(null);
+            setExplainLog([]);
             
             // Fix ZIP crash in UI
+            let resultData;
             if (data.archive && data.results && Array.isArray(data.results)) {
-                 setResult(data.results[0] || data);
+                 resultData = data.results[0] || data;
             } else {
-                 setResult(data);
+                 resultData = data;
             }
+            setResult(resultData);
             
             setFile(null);
 
@@ -497,14 +502,40 @@ export default function App() {
             }
 
             /* Initialize chat with AI hints as first assistant message */
-            const hints = data.hints || (data.results && data.results[0]?.hints);
+            const hints = resultData.hints || (data.results && data.results[0]?.hints);
             if (hints) {
                 setChatMessages([{ role: 'assistant', content: hints }]);
-                analysisContextRef.current = hints;
             } else {
                 setChatMessages([]);
-                analysisContextRef.current = '';
             }
+
+            /* Build rich context for follow-up chat */
+            const rd = resultData;
+            const ctxParts = [];
+            ctxParts.push(`Binary: ${rd.filename || 'unknown'}`);
+            if (rd.ctf_category && rd.ctf_category.category !== 'unknown') {
+                ctxParts.push(`CTF Category: ${rd.ctf_category.category} (${rd.ctf_category.confidence})`);
+            }
+            if (rd.difficulty) {
+                ctxParts.push(`Difficulty: ${rd.difficulty.difficulty} - ${rd.difficulty.reason}`);
+            }
+            if (rd.patterns) {
+                const dangerFuncs = rd.patterns.dangerous_functions || [];
+                if (dangerFuncs.length > 0) ctxParts.push(`Dangerous functions: ${dangerFuncs.join(', ')}`);
+                const flagReads = rd.patterns.flag_reads || [];
+                if (flagReads.length > 0) ctxParts.push(`Flag references: ${flagReads.join(', ')}`);
+            }
+            if (rd.flags_detected && rd.flags_detected.length > 0) {
+                ctxParts.push(`Flags detected: ${rd.flags_detected.join(', ')}`);
+            }
+            if (rd.checksec && rd.checksec.nx !== null) {
+                ctxParts.push(`Checksec: NX=${rd.checksec.nx ? 'ON' : 'OFF'}, PIE=${rd.checksec.pie ? 'ON' : 'OFF'}, Canary=${rd.checksec.canary ? 'ON' : 'OFF'}, RELRO=${rd.checksec.relro ? 'ON' : 'OFF'}`);
+            }
+            if (rd.overflow_hint && rd.overflow_hint.likely_offset) {
+                ctxParts.push(`Overflow offset: ${rd.overflow_hint.likely_offset} bytes (${rd.overflow_hint.confidence})`);
+            }
+            if (hints) ctxParts.push(`AI Hints: ${hints}`);
+            analysisContextRef.current = ctxParts.join('\n');
         } catch (err) {
             setError(
                 err.message === 'Failed to fetch'
@@ -566,12 +597,15 @@ export default function App() {
 
             setRateLimitSeconds(0);
             setFeedbackGiven(null);
+            setExplainLog([]);
             
+            let resultData;
             if (data.archive && data.results && Array.isArray(data.results)) {
-                 setResult(data.results[0] || data);
+                 resultData = data.results[0] || data;
             } else {
-                 setResult(data);
+                 resultData = data;
             }
+            setResult(resultData);
 
             /* Start VT polling if scan was submitted */
             if (data.virustotal?.status === 'scanning' && data.virustotal?.scan_id) {
@@ -586,14 +620,40 @@ export default function App() {
             }
 
             /* Initialize chat with AI hints */
-            const hints = data.hints || (data.results && data.results[0]?.hints);
+            const hints = resultData.hints || (data.results && data.results[0]?.hints);
             if (hints) {
                 setChatMessages([{ role: 'assistant', content: hints }]);
-                analysisContextRef.current = hints;
             } else {
                 setChatMessages([]);
-                analysisContextRef.current = '';
             }
+
+            /* Build rich context for follow-up chat */
+            const rd = resultData;
+            const ctxParts = [];
+            ctxParts.push(`Binary: ${rd.filename || 'unknown'}`);
+            if (rd.ctf_category && rd.ctf_category.category !== 'unknown') {
+                ctxParts.push(`CTF Category: ${rd.ctf_category.category} (${rd.ctf_category.confidence})`);
+            }
+            if (rd.difficulty) {
+                ctxParts.push(`Difficulty: ${rd.difficulty.difficulty} - ${rd.difficulty.reason}`);
+            }
+            if (rd.patterns) {
+                const dangerFuncs = rd.patterns.dangerous_functions || [];
+                if (dangerFuncs.length > 0) ctxParts.push(`Dangerous functions: ${dangerFuncs.join(', ')}`);
+                const flagReads = rd.patterns.flag_reads || [];
+                if (flagReads.length > 0) ctxParts.push(`Flag references: ${flagReads.join(', ')}`);
+            }
+            if (rd.flags_detected && rd.flags_detected.length > 0) {
+                ctxParts.push(`Flags detected: ${rd.flags_detected.join(', ')}`);
+            }
+            if (rd.checksec && rd.checksec.nx !== null) {
+                ctxParts.push(`Checksec: NX=${rd.checksec.nx ? 'ON' : 'OFF'}, PIE=${rd.checksec.pie ? 'ON' : 'OFF'}, Canary=${rd.checksec.canary ? 'ON' : 'OFF'}, RELRO=${rd.checksec.relro ? 'ON' : 'OFF'}`);
+            }
+            if (rd.overflow_hint && rd.overflow_hint.likely_offset) {
+                ctxParts.push(`Overflow offset: ${rd.overflow_hint.likely_offset} bytes (${rd.overflow_hint.confidence})`);
+            }
+            if (hints) ctxParts.push(`AI Hints: ${hints}`);
+            analysisContextRef.current = ctxParts.join('\n');
         } catch (err) {
             setPasswordError(
                 err.message === 'Failed to fetch'
@@ -824,11 +884,10 @@ export default function App() {
 
     const switchMode = (mode) => {
         setAnalysisMode(mode);
+        // Don't clear results when switching — preserve both for combined analysis
         if (mode === 'binary') {
-            setSourceResult(null);
             setSourceError('');
         } else {
-            setResult(null);
             setError('');
         }
     };
@@ -1185,8 +1244,8 @@ export default function App() {
                                     <div className="quick-cmd-row" key={i}>
                                         <code className="quick-cmd-text">{cmd}</code>
                                         <div className="quick-cmd-actions">
-                                            <button className="quick-cmd-explain" title="Explain command" onClick={() => { setExplainInput(cmd); document.getElementById('explain-input')?.focus(); }}></button>
-                                            <button className="quick-cmd-copy" title="Copy" onClick={(e)=>{navigator.clipboard.writeText(cmd);const btn=e.currentTarget;btn.textContent='[v]';setTimeout(()=>btn.textContent='',1200)}}></button>
+                                            <button className="quick-cmd-copy" title="Copy" onClick={(e)=>{navigator.clipboard.writeText(cmd);const btn=e.currentTarget;btn.textContent='Copied!';setTimeout(()=>btn.textContent='\ud83d\udccb Copy',1200)}}>{"\ud83d\udccb Copy"}</button>
+                                            <button className="quick-cmd-explain" title="Explain command" onClick={() => { handleExplainCommand(cmd); }}>{"\u2753 Explain"}</button>
                                         </div>
                                     </div>
                                 ))}
@@ -1265,6 +1324,10 @@ export default function App() {
                                 <span className="meta-label">Code:</span>
                                 <span>{sourceResult.line_count} lines ({formatBytes(sourceResult.char_count)})</span>
                             </div>
+                            <div className="meta-item">
+                                <span className="meta-label">Risk:</span>
+                                <span className={`risk-badge risk-badge--${(sourceResult.risk_score || 'low').toLowerCase()}`}>{sourceResult.risk_score}</span>
+                            </div>
                         </div>
 
                         <div className="accordion-stack">
@@ -1286,22 +1349,24 @@ export default function App() {
                                 </div>
                             </AccordionCard>
 
-                            {/* 2. Vulnerabilities */}
+                            {/* 2. Vulnerabilities (structured) */}
                             <AccordionCard
                                 title="Vulnerabilities"
                                 icon="warning"
                                 sectionKey="srcVuln"
-                                summary={`${sourceResult.vulnerabilities.split('\n').filter(l => l.startsWith('')).length || 0} found`}
+                                summary={`${Array.isArray(sourceResult.vulnerabilities) ? sourceResult.vulnerabilities.length : 0} found`}
                                 variant="source-vuln"
                                 openSections={openSections}
                                 toggleSection={toggleSection}
                             >
                                 <div className="flag-list">
-                                    {sourceResult.vulnerabilities ? (
-                                        sourceResult.vulnerabilities.split('\n').filter(val => val.trim()).map((line, i) => (
+                                    {Array.isArray(sourceResult.vulnerabilities) && sourceResult.vulnerabilities.length > 0 ? (
+                                        sourceResult.vulnerabilities.map((vuln, i) => (
                                             <div key={i} className="flag-item">
-                                                <span className="flag-icon"></span>
-                                                <span className="flag-text">{line.replace(/^\s*/, '')}</span>
+                                                <span className={`severity-badge severity-badge--${(vuln.severity || 'medium').toLowerCase()}`}>{vuln.severity}</span>
+                                                <span className="flag-text">
+                                                    Line {vuln.line}: <strong>{vuln.type.replace(/_/g, ' ')}</strong> &mdash; {vuln.description}
+                                                </span>
                                             </div>
                                         ))
                                     ) : (
@@ -1310,23 +1375,23 @@ export default function App() {
                                 </div>
                             </AccordionCard>
 
-                            {/* 3. Dangerous Functions */}
+                            {/* 3. Dangerous Functions (structured) */}
                             <AccordionCard
                                 title="Dangerous Functions"
                                 icon="pest_control"
                                 sectionKey="srcDanger"
-                                summary={`${sourceResult.dangerous_functions.length || 0} detected`}
+                                summary={`${(sourceResult.dangerous_functions || []).length} detected`}
                                 variant="source-danger"
                                 openSections={openSections}
                                 toggleSection={toggleSection}
                             >
                                 <div className="flag-list">
-                                    {sourceResult.dangerous_functions.length > 0 ? (
+                                    {(sourceResult.dangerous_functions || []).length > 0 ? (
                                         sourceResult.dangerous_functions.map((fn, i) => (
                                             <div key={i} className="flag-item">
                                                 <span className="flag-icon"></span>
                                                 <span className="flag-text">
-                                                    Line {fn.line}: <strong>{fn.function}</strong> &mdash; {fn.description}
+                                                    Line {fn.line}: <strong>{fn.name}</strong> &mdash; {fn.risk}
                                                 </span>
                                             </div>
                                         ))
@@ -1336,7 +1401,31 @@ export default function App() {
                                 </div>
                             </AccordionCard>
 
-                            {/* 4. AI Hints */}
+                            {/* 4. Exploit Hints */}
+                            {sourceResult.exploit_hints && sourceResult.exploit_hints.length > 0 && (
+                                <AccordionCard
+                                    title="Exploit Hints"
+                                    icon="tips_and_updates"
+                                    sectionKey="srcExploitHints"
+                                    summary={`${sourceResult.exploit_hints.length} specific steps`}
+                                    variant="source-hints"
+                                    openSections={openSections}
+                                    toggleSection={toggleSection}
+                                >
+                                    <div className="ai-hints-body">
+                                        <div className="ai-bullets">
+                                            {sourceResult.exploit_hints.map((hint, i) => (
+                                                <div key={i} className="ai-bullet">
+                                                    <span className="bullet-point"></span>
+                                                    <span dangerouslySetInnerHTML={{ __html: hint.replace(/`(.*?)`/g, '<code class="inline-code">$1</code>') }} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </AccordionCard>
+                            )}
+
+                            {/* 5. AI Hints */}
                             <AccordionCard
                                 title="CTF Hints"
                                 icon="lightbulb"
@@ -1378,7 +1467,28 @@ export default function App() {
                                 </div>
                             </AccordionCard>
 
-                            {/* 5. Source Code View */}
+                            {/* 6. Exploit Template */}
+                            {sourceResult.exploit_template && (
+                                <AccordionCard
+                                    title="Exploit Template"
+                                    icon="code"
+                                    sectionKey="srcExploit"
+                                    summary="Working pwntools script"
+                                    variant="source-code"
+                                    openSections={openSections}
+                                    toggleSection={toggleSection}
+                                >
+                                    <div className="pwn-template-actions">
+                                        <button className="pwn-action-btn" onClick={()=>navigator.clipboard.writeText(sourceResult.exploit_template)} type="button">[Copy]</button>
+                                        <button className="pwn-action-btn" onClick={()=>{const b=new Blob([sourceResult.exploit_template],{type:'text/x-python'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='exploit.py';a.click();URL.revokeObjectURL(u)}} type="button">[Download]</button>
+                                    </div>
+                                    <div className="pwn-template-body">
+                                        <pre className="pwn-code">{sourceResult.exploit_template.split('\n').map((line,i)=><div className="pwn-line" key={i}><span className="pwn-line-num">{String(i+1).padStart(3,' ')}</span><span className={`pwn-line-text${line.trimStart().startsWith('#')?' pwn-comment':line.includes('from pwn')||line.includes('#!/')?' pwn-import':''}`}>{line||' '}</span></div>)}</pre>
+                                    </div>
+                                </AccordionCard>
+                            )}
+
+                            {/* 7. Source Code View */}
                             <AccordionCard
                                 title="Source Code"
                                 icon="code"
@@ -1395,9 +1505,65 @@ export default function App() {
                                 </div>
                             </AccordionCard>
 
-                            {/* 6. Chat Component reused entirely */}
+                            {/* 8. Combined Analysis (binary + source) */}
                         </div>
                     </>
+                )}
+
+                {/* Combined Analysis — appears when BOTH binary and source results exist */}
+                {result && sourceResult && (
+                    <div className="bottom-section combined-analysis-section">
+                        <div className="bottom-section-header">
+                            <span className="bottom-section-icon">{"\ud83d\udd17"}</span>
+                            <h3 className="bottom-section-title">Combined Analysis</h3>
+                        </div>
+                        <div className="combined-analysis-body">
+                            <p className="combined-analysis-intro">Binary analysis and source code results cross-referenced:</p>
+                            <div className="combined-analysis-items">
+                                {/* Cross-reference dangerous functions */}
+                                {result.patterns?.dangerous_functions?.length > 0 && (sourceResult.dangerous_functions || []).length > 0 && (
+                                    <div className="combined-item combined-item--confirmed">
+                                        <span className="combined-icon">{"\u2705"}</span>
+                                        <span>Source confirms binary has dangerous functions: {(sourceResult.dangerous_functions || []).map(f => f.name).join(', ')} found in both binary strings and source code.</span>
+                                    </div>
+                                )}
+                                {/* Cross-reference overflow */}
+                                {result.overflow_hint?.likely_offset && Array.isArray(sourceResult.vulnerabilities) && sourceResult.vulnerabilities.some(v => v.type === 'buffer_overflow') && (
+                                    <div className="combined-item combined-item--confirmed">
+                                        <span className="combined-icon">{"\u2705"}</span>
+                                        <span>Source confirms binary has buffer overflow{sourceResult.vulnerabilities.filter(v => v.type === 'buffer_overflow').map(v => ` at ${v.description.split('—')[0].trim()}`).join('')} &mdash; binary overflow offset predicted at {result.overflow_hint.likely_offset} bytes.</span>
+                                    </div>
+                                )}
+                                {/* Checksec vs source vulns */}
+                                {result.checksec && !result.checksec.canary && Array.isArray(sourceResult.vulnerabilities) && sourceResult.vulnerabilities.some(v => v.type === 'buffer_overflow') && (
+                                    <div className="combined-item combined-item--critical">
+                                        <span className="combined-icon">{"\ud83d\udea8"}</span>
+                                        <span>Stack canary is DISABLED and source has buffer overflow vulnerabilities &mdash; exploitation is straightforward.</span>
+                                    </div>
+                                )}
+                                {result.checksec && !result.checksec.pie && (
+                                    <div className="combined-item combined-item--info">
+                                        <span className="combined-icon">{"\u2139\ufe0f"}</span>
+                                        <span>PIE is DISABLED &mdash; function addresses are fixed, making ret2win exploits reliable.</span>
+                                    </div>
+                                )}
+                                {/* CTF category */}
+                                {result.ctf_category?.category && result.ctf_category.category !== 'unknown' && (
+                                    <div className="combined-item combined-item--info">
+                                        <span className="combined-icon">{"\ud83c\udff7\ufe0f"}</span>
+                                        <span>CTF category: {result.ctf_category.category.replace(/_/g, ' ')} ({result.ctf_category.confidence} confidence) &mdash; source code analysis confirms this classification.</span>
+                                    </div>
+                                )}
+                                {/* Format string cross-reference */}
+                                {result.format_string?.vulnerable && Array.isArray(sourceResult.vulnerabilities) && sourceResult.vulnerabilities.some(v => v.type === 'format_string') && (
+                                    <div className="combined-item combined-item--confirmed">
+                                        <span className="combined-icon">{"\u2705"}</span>
+                                        <span>Format string vulnerability confirmed in both binary analysis and source code.</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 )}
 
                 {/* Footer */}
