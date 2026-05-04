@@ -211,6 +211,8 @@ class ChatMessage(BaseModel):
     @field_validator("content")
     @classmethod
     def cap_content_length(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Message content is empty.")
         if len(v) > MAX_CHAT_CHARS:
             raise ValueError(f"Message content exceeds {MAX_CHAT_CHARS} character limit.")
         return v
@@ -287,7 +289,15 @@ SUSPICIOUS_HEADERS: list[bytes] = [
 # ---------------------------------------------------------------------------
 # Application & middleware
 # ---------------------------------------------------------------------------
-limiter = Limiter(key_func=get_remote_address)
+def get_ipaddr(request: Request) -> str:
+    """Get the real client IP, respecting X-Forwarded-For if behind a proxy."""
+    if "x-forwarded-for" in request.headers:
+        return request.headers["x-forwarded-for"].split(",")[0].strip()
+    if not request.client or not request.client.host:
+        return "127.0.0.1"
+    return request.client.host
+
+limiter = Limiter(key_func=get_ipaddr)
 
 app = FastAPI(
     title="BinExplain API",
