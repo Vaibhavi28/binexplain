@@ -534,6 +534,9 @@ export default function App() {
             if (rd.overflow_hint && rd.overflow_hint.likely_offset) {
                 ctxParts.push(`Overflow offset: ${rd.overflow_hint.likely_offset} bytes (${rd.overflow_hint.confidence})`);
             }
+            if (rd.rop_gadgets && rd.rop_gadgets.length > 0) {
+                ctxParts.push(`ROP gadgets found: ${rd.rop_gadgets.length} gadgets available`);
+            }
             if (hints) ctxParts.push(`AI Hints: ${hints}`);
             analysisContextRef.current = ctxParts.join('\n');
         } catch (err) {
@@ -651,6 +654,9 @@ export default function App() {
             }
             if (rd.overflow_hint && rd.overflow_hint.likely_offset) {
                 ctxParts.push(`Overflow offset: ${rd.overflow_hint.likely_offset} bytes (${rd.overflow_hint.confidence})`);
+            }
+            if (rd.rop_gadgets && rd.rop_gadgets.length > 0) {
+                ctxParts.push(`ROP gadgets found: ${rd.rop_gadgets.length} gadgets available`);
             }
             if (hints) ctxParts.push(`AI Hints: ${hints}`);
             analysisContextRef.current = ctxParts.join('\n');

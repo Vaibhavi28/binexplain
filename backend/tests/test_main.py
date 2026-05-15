@@ -20,6 +20,20 @@ from main import (
 
 client = TestClient(app)
 
+# Bypass rate limiting by injecting a unique IP into every request
+# (prevents rate-limit bleed from other test files sharing the same testclient IP)
+import itertools as _itertools
+_ip_counter_main = _itertools.count(1)
+
+_original_post_main = client.post
+def _post_with_unique_ip(*args, **kwargs):
+    headers = kwargs.get("headers", {})
+    if "X-Forwarded-For" not in headers:
+        headers["X-Forwarded-For"] = f"10.20.20.{next(_ip_counter_main)}"
+        kwargs["headers"] = headers
+    return _original_post_main(*args, **kwargs)
+client.post = _post_with_unique_ip
+
 # ── Minimal ELF header for testing (64-bit x86_64 stub) ───────────────
 MINIMAL_ELF = (
     b"\x7fELF"
