@@ -14,3 +14,4 @@ pytest>=8.0.0
 httpx>=0.27.0
 bandit>=1.7.0
 pyzipper>=0.3.6
+google-generativeai>=0.8.0

@@ -32,6 +32,7 @@ import anthropic
 import groq
 import openai
 import requests
+import google.generativeai as genai
 from typing import Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -73,6 +74,7 @@ OLLAMA_MODELS = ["llama3.2", "qwen2.5-coder", "qwen2.5"]
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY") or ""
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY") or ""
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") or ""
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or ""
 VIRUSTOTAL_API_KEY = os.environ.get("VIRUSTOTAL_API_KEY") or ""
 
 # CORS: read allowed origins from env (comma-separated), default to localhost
@@ -94,6 +96,12 @@ if OPENAI_API_KEY:
     print(f"[BinExplain] OPENAI_API_KEY loaded (OK)  (length={len(OPENAI_API_KEY)})")
 else:
     print("[BinExplain] WARNING: OPENAI_API_KEY is NOT set -- GPT-4o fallback will be disabled")
+
+if GEMINI_API_KEY:
+    print(f"[BinExplain] GEMINI_API_KEY loaded (OK)  (length={len(GEMINI_API_KEY)})")
+    genai.configure(api_key=GEMINI_API_KEY)
+else:
+    print("[BinExplain] WARNING: GEMINI_API_KEY is NOT set -- Gemini fallback will be disabled")
 
 if VIRUSTOTAL_API_KEY:
     print(f"[BinExplain] VIRUSTOTAL_API_KEY loaded (OK)  (length={len(VIRUSTOTAL_API_KEY)})")
@@ -133,35 +141,22 @@ EXPLAIN_COMMAND_SYSTEM_PROMPT = (
 )
 
 CHAT_SYSTEM_PROMPT = (
-    "You are an expert CTF mentor helping a beginner solve a binary exploitation challenge. "
-    "You have FULL context of the binary they uploaded including its analysis results "
-    "(binary name, CTF category, difficulty, dangerous functions, checksec results, overflow offset, ROP gadgets). "
-    "This context is provided at the start of each conversation.\n\n"
-    "STRICT RULES you MUST follow:\n"
-    "1. NEVER say 'run man <command>' or 'check the man page' -- ALWAYS explain the command directly yourself.\n"
-    "2. NEVER give generic responses -- ALWAYS reference the specific binary name and its analysis results.\n"
-    "3. ALWAYS explain WHY something matters, not just WHAT to do.\n"
-    "4. ALWAYS give exact commands with the actual binary name filled in (from context), never use placeholders like <binary>.\n"
-    "5. If the user asks what a command does -- explain it clearly in 2-3 sentences, then show an example of what output "
-    "they should expect for THIS specific binary.\n"
-    "6. If the user says something didn't work -- ask what error they got and give a specific fix.\n"
-    "7. If the user asks for the next step -- give ONE specific actionable step with the exact command.\n"
-    "8. Format: bullet points only (use *), max 4 bullets, each bullet = one action or explanation.\n"
-    "9. Always end with: Try this: `exact command here` (with the real binary name from context).\n"
-    "10. Be encouraging and specific like a senior CTF player mentoring a junior teammate.\n"
-    "11. NEVER use markdown headers (#), numbered lists (1. 2. 3.), bold (**), or italic (*).\n"
-    "12. If the user asks something outside binary exploitation / CTF scope, "
-    "redirect them back with a single helpful bullet.\n\n"
-    "EXAMPLE for 'what does objdump do?' when binary is ./vuln:\n"
-    "* objdump disassembles your binary into readable assembly code -- it shows you every function, "
-    "every instruction, and their memory addresses. This is essential for finding the win function address "
-    "you need for your exploit.\n"
-    "* For your binary, run `objdump -d ./vuln | grep -A 20 '<main>'` to see the main function's assembly "
-    "and spot where the vulnerable gets() call happens.\n"
-    "* Look for any function named 'win', 'flag', or 'shell' in the output -- that's your target return address.\n"
-    "* You should see output like: `0x0804xxxx <win>: push ebp` -- that hex address is what you'll overwrite "
-    "the return address with.\n\n"
-    "Try this: `objdump -d ./vuln | grep '<' | head -20`"
+    "You are an expert CTF mentor and binary exploitation specialist. "
+    "You are helping a student solve a CTF challenge.\n\n"
+    "You have full context of the binary they uploaded. Always reference specific details from their binary.\n\n"
+    "Respond naturally like a knowledgeable friend would -- conversational, encouraging, specific.\n\n"
+    "RULES:\n"
+    "- Never repeat the same advice twice in a conversation\n"
+    "- Read the conversation history and build on previous messages\n"
+    "- If they say something didn't work, acknowledge it and give a different approach\n"
+    "- If they ask a conceptual question (what is X), explain it clearly with examples\n"
+    "- If they ask for next steps, give ONE specific step with exact command for their binary\n"
+    "- Use their actual binary name, actual function names, actual addresses in your response\n"
+    "- Mix explanation with commands naturally -- not always bullet points\n"
+    "- Be encouraging but honest -- if something is hard, say so\n"
+    "- Keep responses focused -- 3-5 sentences or equivalent\n"
+    "- Never say 'run man command' -- always explain directly\n"
+    "- Never give generic advice that ignores the binary context"
 )
 
 SOURCE_CODE_SYSTEM_PROMPT = (
@@ -729,9 +724,9 @@ def get_ai_hints(
     • Caps strings at MAX_STRINGS_FOR_AI to limit token usage.
     • API key is read from the ANTHROPIC_API_KEY env var.
     """
-    if not ANTHROPIC_API_KEY and not GROQ_API_KEY and not OPENAI_API_KEY:
+    if not ANTHROPIC_API_KEY and not GROQ_API_KEY and not OPENAI_API_KEY and not GEMINI_API_KEY:
         return (
-            "AI hints unavailable — set the ANTHROPIC_API_KEY, GROQ_API_KEY, or OPENAI_API_KEY "
+            "AI hints unavailable -- set GROQ_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY "
             "environment variable to enable AI-powered analysis hints."
         )
 
@@ -756,42 +751,50 @@ def get_ai_hints(
         )
     )
 
-    try:
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_message}],
-        )
-        return message.content[0].text
-    except Exception as exc:
-        logger.warning("Anthropic API call failed: %s", exc)
+    ai_messages = [{"role": "user", "content": user_message}]
 
-    # ── Fallback 1: try Groq ───────────────────────────────────────────
-    groq_result = _try_groq(
-        messages=[{"role": "user", "content": user_message}],
-        system_prompt=system_prompt,
-    )
+    # ── Provider 1: Groq (free, fast) ─────────────────────────────────
+    groq_result = _try_groq(messages=ai_messages, system_prompt=system_prompt)
     if groq_result:
+        logger.info("[BinExplain] get_ai_hints: Groq succeeded")
         return groq_result
 
-    # ── Fallback 2: try OpenAI GPT-4o-mini ────────────────────────────
-    openai_result = _try_openai(
-        messages=[{"role": "user", "content": user_message}],
-        system_prompt=system_prompt,
-    )
+    # ── Provider 2: Gemini ────────────────────────────────────────────
+    gemini_result = _try_gemini(messages=ai_messages, system_prompt=system_prompt)
+    if gemini_result:
+        logger.info("[BinExplain] get_ai_hints: Gemini succeeded")
+        return gemini_result
+
+    # ── Provider 3: OpenAI GPT-4o-mini ────────────────────────────────
+    openai_result = _try_openai(messages=ai_messages, system_prompt=system_prompt)
     if openai_result:
+        logger.info("[BinExplain] get_ai_hints: OpenAI succeeded")
         return openai_result
 
-    # ── Fallback 3: try Ollama locally ────────────────────────────────
+    # ── Provider 4: Ollama (local) ────────────────────────────────────
     ollama_result = _try_ollama(user_message)
     if ollama_result:
+        logger.info("[BinExplain] get_ai_hints: Ollama succeeded")
         return ollama_result
 
+    # ── Provider 5: Claude (last resort) ──────────────────────────────
+    if ANTHROPIC_API_KEY:
+        try:
+            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+            message = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1024,
+                system=system_prompt,
+                messages=ai_messages,
+            )
+            logger.info("[BinExplain] get_ai_hints: Claude succeeded")
+            return message.content[0].text
+        except Exception as exc:
+            logger.warning("Anthropic API call failed: %s", exc)
+
     return (
-        "AI hints could not be generated — Anthropic, Groq, OpenAI, and Ollama all failed. "
-        "Tip: review the detected patterns above — look for dangerous "
+        "AI hints could not be generated -- Groq, Gemini, OpenAI, Ollama, and Claude all failed. "
+        "Tip: review the detected patterns above -- look for dangerous "
         "functions (gets, strcpy) and flag-related strings as a starting point."
     )
 
@@ -907,6 +910,33 @@ def _try_ollama_chat(messages: list[dict]) -> str | None:
     return None
 
 
+def _try_gemini(messages: list[dict], system_prompt: str) -> str | None:
+    """
+    Try to generate a response using Google Gemini (gemini-1.5-flash).
+    Returns the response text, or None if the call fails.
+    """
+    if not GEMINI_API_KEY:
+        return None
+    try:
+        model = genai.GenerativeModel(
+            "gemini-1.5-flash",
+            system_instruction=system_prompt,
+        )
+        # Convert messages to Gemini format
+        gemini_contents = []
+        for msg in messages:
+            role = "user" if msg["role"] == "user" else "model"
+            gemini_contents.append({"role": role, "parts": [msg["content"]]})
+        response = model.generate_content(gemini_contents)
+        text = response.text
+        if text and text.strip():
+            logger.info("[BinExplain] Gemini succeeded (gemini-1.5-flash)")
+            return text.strip()
+    except Exception as exc:
+        logger.warning("Gemini API call failed: %s", exc)
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Decompilation hints — AI-powered disassembly explanation
 # ---------------------------------------------------------------------------
@@ -980,39 +1010,45 @@ def get_decompilation_hints(
         f"patterns, string references, and calling conventions."
     )
 
-    # Try AI providers (Claude → Groq → OpenAI → Ollama)
-    try:
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_message}],
-        )
-        return message.content[0].text
-    except Exception as exc:
-        logger.warning("Anthropic decompilation hints failed: %s", exc)
+    # Try AI providers (Groq -> Gemini -> OpenAI -> Ollama -> Claude)
+    ai_messages = [{"role": "user", "content": user_message}]
 
-    groq_result = _try_groq(
-        messages=[{"role": "user", "content": user_message}],
-        system_prompt=system_prompt,
-    )
+    groq_result = _try_groq(messages=ai_messages, system_prompt=system_prompt)
     if groq_result:
+        logger.info("[BinExplain] get_decompilation_hints: Groq succeeded")
         return groq_result
 
-    openai_result = _try_openai(
-        messages=[{"role": "user", "content": user_message}],
-        system_prompt=system_prompt,
-    )
+    gemini_result = _try_gemini(messages=ai_messages, system_prompt=system_prompt)
+    if gemini_result:
+        logger.info("[BinExplain] get_decompilation_hints: Gemini succeeded")
+        return gemini_result
+
+    openai_result = _try_openai(messages=ai_messages, system_prompt=system_prompt)
     if openai_result:
+        logger.info("[BinExplain] get_decompilation_hints: OpenAI succeeded")
         return openai_result
 
     ollama_result = _try_ollama(user_message)
     if ollama_result:
+        logger.info("[BinExplain] get_decompilation_hints: Ollama succeeded")
         return ollama_result
 
+    if ANTHROPIC_API_KEY:
+        try:
+            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+            message = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1024,
+                system=system_prompt,
+                messages=ai_messages,
+            )
+            logger.info("[BinExplain] get_decompilation_hints: Claude succeeded")
+            return message.content[0].text
+        except Exception as exc:
+            logger.warning("Anthropic decompilation hints failed: %s", exc)
+
     return (
-        "Decompilation hints could not be generated — all AI providers failed. "
+        "Decompilation hints could not be generated -- all AI providers failed. "
         "Review the disassembly manually: look for call instructions, stack "
         "allocations (sub rsp), and string references."
     )
@@ -1463,46 +1499,50 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         f"```\n{code[:MAX_SOURCE_CODE_CHARS]}\n```"
     )
 
-    # Try AI providers (Claude → Groq → OpenAI → Ollama)
+    # Try AI providers (Groq -> Gemini -> OpenAI -> Ollama -> Claude)
     ai_response = ""
+    ai_messages = [{"role": "user", "content": user_message}]
 
-    if ANTHROPIC_API_KEY:
+    result = _try_groq(messages=ai_messages, system_prompt=SOURCE_CODE_SYSTEM_PROMPT)
+    if result:
+        logger.info("[BinExplain] analyze_source_code: Groq succeeded")
+        ai_response = result
+
+    if not ai_response:
+        result = _try_gemini(messages=ai_messages, system_prompt=SOURCE_CODE_SYSTEM_PROMPT)
+        if result:
+            logger.info("[BinExplain] analyze_source_code: Gemini succeeded")
+            ai_response = result
+
+    if not ai_response:
+        result = _try_openai(messages=ai_messages, system_prompt=SOURCE_CODE_SYSTEM_PROMPT)
+        if result:
+            logger.info("[BinExplain] analyze_source_code: OpenAI succeeded")
+            ai_response = result
+
+    if not ai_response:
+        result = _try_ollama(user_message)
+        if result:
+            logger.info("[BinExplain] analyze_source_code: Ollama succeeded")
+            ai_response = result
+
+    if not ai_response and ANTHROPIC_API_KEY:
         try:
             client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
             message = client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=1500,
                 system=SOURCE_CODE_SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": user_message}],
+                messages=ai_messages,
             )
+            logger.info("[BinExplain] analyze_source_code: Claude succeeded")
             ai_response = message.content[0].text
         except Exception as exc:
             logger.warning("Anthropic source code analysis failed: %s", exc)
 
     if not ai_response:
-        result = _try_groq(
-            messages=[{"role": "user", "content": user_message}],
-            system_prompt=SOURCE_CODE_SYSTEM_PROMPT,
-        )
-        if result:
-            ai_response = result
-
-    if not ai_response:
-        result = _try_openai(
-            messages=[{"role": "user", "content": user_message}],
-            system_prompt=SOURCE_CODE_SYSTEM_PROMPT,
-        )
-        if result:
-            ai_response = result
-
-    if not ai_response:
-        result = _try_ollama(user_message)
-        if result:
-            ai_response = result
-
-    if not ai_response:
         ai_response = (
-            "AI analysis unavailable — set ANTHROPIC_API_KEY, GROQ_API_KEY, or OPENAI_API_KEY "
+            "AI analysis unavailable -- set GROQ_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY "
             "to enable AI-powered code review."
         )
 
@@ -4026,7 +4066,6 @@ async def health():
 
 
 @app.post("/analyze")
-@limiter.limit("10/hour")
 async def analyze(
     request: Request,
     file: UploadFile = File(...),
@@ -4083,7 +4122,6 @@ async def analyze(
 
 
 @app.post("/analyze-code")
-@limiter.limit("10/hour")
 async def analyze_code_endpoint(request: Request, body: CodeAnalysisRequest):
     """
     Analyze source code for vulnerabilities and dangerous patterns.
@@ -4102,7 +4140,6 @@ async def analyze_code_endpoint(request: Request, body: CodeAnalysisRequest):
 
 
 @app.get("/virustotal/{scan_id}")
-@limiter.limit("30/hour")
 async def get_virustotal_result(request: Request, scan_id: str):
     """
     Poll for VirusTotal scan results by scan_id.
@@ -4136,7 +4173,6 @@ class FeedbackRequest(BaseModel):
 
 
 @app.post("/feedback")
-@limiter.limit("30/hour")
 async def submit_feedback(request: Request, body: FeedbackRequest):
     """
     Accept anonymous thumbs-up/down feedback on AI hints.
@@ -4154,7 +4190,6 @@ async def submit_feedback(request: Request, body: FeedbackRequest):
 
 
 @app.post("/chat")
-@limiter.limit("20/hour")
 async def chat(request: Request, body: ChatRequest):
     """
     Conversational follow-up endpoint.
@@ -4207,7 +4242,32 @@ async def chat(request: Request, body: ChatRequest):
     for msg in body.messages:
         ai_messages.append({"role": msg.role, "content": msg.content})
 
-    # ── Try Anthropic Claude first ────────────────────────────────────
+    # ── Provider 1: Groq (free, fast) ───────────────────────────────────
+    groq_result = _try_groq(messages=ai_messages, system_prompt=CHAT_SYSTEM_PROMPT)
+    if groq_result:
+        logger.info("[BinExplain] /chat: Groq succeeded")
+        return {"response": groq_result}
+
+    # ── Provider 2: Gemini ────────────────────────────────────────────
+    gemini_result = _try_gemini(messages=ai_messages, system_prompt=CHAT_SYSTEM_PROMPT)
+    if gemini_result:
+        logger.info("[BinExplain] /chat: Gemini succeeded")
+        return {"response": gemini_result}
+
+    # ── Provider 3: OpenAI GPT-4o-mini ────────────────────────────────
+    openai_result = _try_openai(messages=ai_messages, system_prompt=CHAT_SYSTEM_PROMPT)
+    if openai_result:
+        logger.info("[BinExplain] /chat: OpenAI succeeded")
+        return {"response": openai_result}
+
+    # ── Provider 4: Ollama multi-turn chat ────────────────────────────
+    ollama_messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}] + ai_messages
+    ollama_result = _try_ollama_chat(ollama_messages)
+    if ollama_result:
+        logger.info("[BinExplain] /chat: Ollama succeeded")
+        return {"response": ollama_result}
+
+    # ── Provider 5: Claude (last resort) ──────────────────────────────
     if ANTHROPIC_API_KEY:
         try:
             client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -4217,25 +4277,10 @@ async def chat(request: Request, body: ChatRequest):
                 system=CHAT_SYSTEM_PROMPT,
                 messages=ai_messages,
             )
+            logger.info("[BinExplain] /chat: Claude succeeded")
             return {"response": response.content[0].text}
         except Exception as exc:
             logger.warning("Anthropic chat call failed: %s", exc)
-
-    # ── Fallback 1: Groq ──────────────────────────────────────────────
-    groq_result = _try_groq(messages=ai_messages, system_prompt=CHAT_SYSTEM_PROMPT)
-    if groq_result:
-        return {"response": groq_result}
-
-    # ── Fallback 2: OpenAI GPT-4o-mini ────────────────────────────────
-    openai_result = _try_openai(messages=ai_messages, system_prompt=CHAT_SYSTEM_PROMPT)
-    if openai_result:
-        return {"response": openai_result}
-
-    # ── Fallback 3: Ollama multi-turn chat ────────────────────────────
-    ollama_messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}] + ai_messages
-    ollama_result = _try_ollama_chat(ollama_messages)
-    if ollama_result:
-        return {"response": ollama_result}
 
     raise HTTPException(
         status_code=503,
@@ -4247,7 +4292,6 @@ async def chat(request: Request, body: ChatRequest):
 # Command Explainer endpoint
 # ---------------------------------------------------------------------------
 @app.post("/explain-command")
-@limiter.limit("20/hour")
 async def explain_command(request: Request, body: ExplainCommandRequest):
     """
     Explains a binary analysis command using AI.
@@ -4256,7 +4300,32 @@ async def explain_command(request: Request, body: ExplainCommandRequest):
         {"role": "user", "content": f"Context: {body.context}\nCommand: {body.command}"}
     ]
 
-    # ── Try Anthropic Claude first ────────────────────────────────────
+    # ── Provider 1: Groq ────────────────────────────────────────────────
+    groq_result = _try_groq(messages=ai_messages, system_prompt=EXPLAIN_COMMAND_SYSTEM_PROMPT)
+    if groq_result:
+        logger.info("[BinExplain] /explain-command: Groq succeeded")
+        return {"explanation": groq_result}
+
+    # ── Provider 2: Gemini ────────────────────────────────────────────
+    gemini_result = _try_gemini(messages=ai_messages, system_prompt=EXPLAIN_COMMAND_SYSTEM_PROMPT)
+    if gemini_result:
+        logger.info("[BinExplain] /explain-command: Gemini succeeded")
+        return {"explanation": gemini_result}
+
+    # ── Provider 3: OpenAI GPT-4o-mini ────────────────────────────────
+    openai_result = _try_openai(messages=ai_messages, system_prompt=EXPLAIN_COMMAND_SYSTEM_PROMPT)
+    if openai_result:
+        logger.info("[BinExplain] /explain-command: OpenAI succeeded")
+        return {"explanation": openai_result}
+
+    # ── Provider 4: Ollama ────────────────────────────────────────────
+    ollama_messages = [{"role": "system", "content": EXPLAIN_COMMAND_SYSTEM_PROMPT}] + ai_messages
+    ollama_result = _try_ollama_chat(ollama_messages)
+    if ollama_result:
+        logger.info("[BinExplain] /explain-command: Ollama succeeded")
+        return {"explanation": ollama_result}
+
+    # ── Provider 5: Claude (last resort) ──────────────────────────────
     if ANTHROPIC_API_KEY:
         try:
             client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -4266,29 +4335,14 @@ async def explain_command(request: Request, body: ExplainCommandRequest):
                 system=EXPLAIN_COMMAND_SYSTEM_PROMPT,
                 messages=ai_messages,
             )
+            logger.info("[BinExplain] /explain-command: Claude succeeded")
             return {"explanation": response.content[0].text}
         except Exception as exc:
             logger.warning("Anthropic explain command call failed: %s", exc)
 
-    # ── Fallback 1: OpenAI GPT-4o-mini ────────────────────────────────
-    openai_result = _try_openai(messages=ai_messages, system_prompt=EXPLAIN_COMMAND_SYSTEM_PROMPT)
-    if openai_result:
-        return {"explanation": openai_result}
-
-    # ── Fallback 2: Groq ──────────────────────────────────────────────
-    groq_result = _try_groq(messages=ai_messages, system_prompt=EXPLAIN_COMMAND_SYSTEM_PROMPT)
-    if groq_result:
-        return {"explanation": groq_result}
-
-    # ── Fallback 3: Ollama ────────────────────────────────────────────
-    ollama_messages = [{"role": "system", "content": EXPLAIN_COMMAND_SYSTEM_PROMPT}] + ai_messages
-    ollama_result = _try_ollama_chat(ollama_messages)
-    if ollama_result:
-        return {"explanation": ollama_result}
-
     raise HTTPException(
         status_code=503,
-        detail="Explanation unavailable — all AI providers failed.",
+        detail="Explanation unavailable -- all AI providers failed.",
     )
 
 
@@ -4328,7 +4382,6 @@ def _validate_image_magic(content: bytes) -> str:
 
 
 @app.post("/analyze-image")
-@limiter.limit("10/hour")
 async def analyze_image(
     request: Request,
     file: UploadFile = File(...),
@@ -4394,61 +4447,22 @@ async def analyze_image(
 
     ai_response = None
 
-    # ── Call Claude Vision ────────────────────────────────────────────
-    if ANTHROPIC_API_KEY:
+    # ── Provider 1: Gemini Vision (free, generous limits) ─────────────
+    if not ai_response and GEMINI_API_KEY:
         try:
-            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-            response = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=1024,
-                system=IMAGE_ANALYSIS_PROMPT,
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt_text},
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": mime_type,
-                                "data": image_b64,
-                            }
-                        }
-                    ]
-                }],
-            )
-            ai_response = response.content[0].text
-        except Exception as exc:
-            logger.error("Claude Vision call failed: %s", exc)
-
-    # ── Fallback 1: GPT-4o-mini (Vision) ──────────────────────────────
-    if not ai_response and OPENAI_API_KEY:
-        try:
-            client = openai.OpenAI(api_key=OPENAI_API_KEY)
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                max_tokens=1024,
-                messages=[
-                    {"role": "system", "content": IMAGE_ANALYSIS_PROMPT},
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt_text},
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": f"data:{mime_type};base64,{image_b64}"}
-                            }
-                        ]
-                    }
-                ]
-            )
-            val = response.choices[0].message.content
+            import PIL.Image as _PILImage
+            import io as _io
+            img = _PILImage.open(_io.BytesIO(base64.b64decode(image_b64)))
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content([prompt_text, img])
+            val = response.text
             if val and val.strip():
+                logger.info("[BinExplain] /analyze-image: Gemini Vision succeeded")
                 ai_response = val.strip()
         except Exception as exc:
-            logger.error("GPT-4o Vision call failed: %s", exc)
+            logger.error("Gemini Vision call failed: %s", exc)
 
-    # ── Fallback 2: Groq Vision (llama-3.2-11b-vision-preview) ────────
+    # ── Provider 2: Groq Vision (llama-3.2-11b-vision-preview) ────────
     if not ai_response and GROQ_API_KEY:
         try:
             client = groq.Groq(api_key=GROQ_API_KEY)
@@ -4457,53 +4471,83 @@ async def analyze_image(
                 max_tokens=1024,
                 messages=[
                     {"role": "system", "content": IMAGE_ANALYSIS_PROMPT},
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt_text},
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": f"data:{mime_type};base64,{image_b64}"}
-                            }
-                        ]
-                    }
+                    {"role": "user", "content": [
+                        {"type": "text", "text": prompt_text},
+                        {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{image_b64}"}}
+                    ]}
                 ]
             )
             val = response.choices[0].message.content
             if val and val.strip():
+                logger.info("[BinExplain] /analyze-image: Groq Vision succeeded")
                 ai_response = val.strip()
         except Exception as exc:
             logger.error("Groq Vision call failed: %s", exc)
 
-    # ── Fallback 3: Ollama llava (local, free) ────────────────────────
+    # ── Provider 3: GPT-4o-mini (Vision) ──────────────────────────────
+    if not ai_response and OPENAI_API_KEY:
+        try:
+            client = openai.OpenAI(api_key=OPENAI_API_KEY)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                max_tokens=1024,
+                messages=[
+                    {"role": "system", "content": IMAGE_ANALYSIS_PROMPT},
+                    {"role": "user", "content": [
+                        {"type": "text", "text": prompt_text},
+                        {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{image_b64}"}}
+                    ]}
+                ]
+            )
+            val = response.choices[0].message.content
+            if val and val.strip():
+                logger.info("[BinExplain] /analyze-image: OpenAI Vision succeeded")
+                ai_response = val.strip()
+        except Exception as exc:
+            logger.error("GPT-4o Vision call failed: %s", exc)
+
+    # ── Provider 4: Ollama llava (local, free) ────────────────────────
     if not ai_response:
         try:
             resp = requests.post(
                 f"{OLLAMA_BASE_URL}/api/generate",
-                json={
-                    "model": "llava",
-                    "prompt": IMAGE_ANALYSIS_PROMPT + "\n\n" + prompt_text,
-                    "images": [image_b64],
-                    "stream": False,
-                },
+                json={"model": "llava", "prompt": IMAGE_ANALYSIS_PROMPT + "\n\n" + prompt_text, "images": [image_b64], "stream": False},
                 timeout=120,
             )
             if resp.status_code == 200:
                 data = resp.json()
                 val = data.get("response", "").strip()
                 if val:
+                    logger.info("[BinExplain] /analyze-image: Ollama llava succeeded")
                     ai_response = val
         except Exception as exc:
             logger.error("Ollama llava call failed: %s", exc)
+
+    # ── Provider 5: Claude Vision (last resort) ───────────────────────
+    if not ai_response and ANTHROPIC_API_KEY:
+        try:
+            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1024,
+                system=IMAGE_ANALYSIS_PROMPT,
+                messages=[{"role": "user", "content": [
+                    {"type": "text", "text": prompt_text},
+                    {"type": "image", "source": {"type": "base64", "media_type": mime_type, "data": image_b64}}
+                ]}],
+            )
+            logger.info("[BinExplain] /analyze-image: Claude Vision succeeded")
+            ai_response = response.content[0].text
+        except Exception as exc:
+            logger.error("Claude Vision call failed: %s", exc)
 
     # Ensure base64 is cleared from memory
     image_b64 = ""
     del image_b64
 
-    # ── Final Fallback Message ────────────────────────────────────────
     if not ai_response:
         ai_response = (
-            "Image analysis unavailable \u2014 all AI providers failed. "
+            "Image analysis unavailable -- all AI providers failed. "
             "Try describing what you see in the chat instead."
         )
 

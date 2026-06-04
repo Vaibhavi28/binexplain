@@ -2752,6 +2752,7 @@ body {
 /* â”€â”€ Chat Input â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .chat-input-row {
   display: flex;
+  align-items: flex-end;
   gap: 8px;
   padding: 12px 20px;
   border-top: 1px solid rgba(68, 72, 79, 0.2);
@@ -2762,13 +2763,20 @@ body {
   flex: 1;
   background: rgba(156, 255, 147, 0.03);
   border: 1px solid var(--outline-variant);
-  border-radius: 2px;
+  border-radius: 12px;
   color: var(--on-surface);
   font-family: var(--font-body);
   font-size: 13px;
   padding: 10px 14px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
+  resize: none;
+  min-height: 54px;
+  max-height: 200px;
+  overflow-y: auto;
+  line-height: 1.5;
+  scrollbar-width: thin;
+  scrollbar-color: var(--outline-variant) transparent;
 }
 
 .chat-input::placeholder {
@@ -2790,7 +2798,7 @@ body {
   background: linear-gradient(135deg, var(--primary), var(--primary-container));
   color: var(--on-primary);
   border: none;
-  border-radius: 2px;
+  border-radius: 12px;
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 11px;

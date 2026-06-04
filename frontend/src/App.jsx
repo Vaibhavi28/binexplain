@@ -221,6 +221,13 @@ export default function App() {
     const chatImageRef = useRef(null);
     const analysisContextRef = useRef('');
 
+    /* -- Source Code Chat state -- */
+    const [srcChatMessages, setSrcChatMessages] = useState([]);
+    const [srcChatInput, setSrcChatInput] = useState('');
+    const [srcChatLoading, setSrcChatLoading] = useState(false);
+    const srcChatEndRef = useRef(null);
+    const srcChatContextRef = useRef('');
+
     /* -- Command Explainer state -- */
     const [explainInput, setExplainInput] = useState('');
     const [explainLog, setExplainLog] = useState([]);
@@ -536,6 +543,9 @@ export default function App() {
             }
             if (rd.rop_gadgets && rd.rop_gadgets.length > 0) {
                 ctxParts.push(`ROP gadgets found: ${rd.rop_gadgets.length} gadgets available`);
+            }
+            if (rd.strings && rd.strings.length > 0) {
+                ctxParts.push(`Top strings: ${rd.strings.slice(0, 10).join(', ')}`);
             }
             if (hints) ctxParts.push(`AI Hints: ${hints}`);
             analysisContextRef.current = ctxParts.join('\n');
@@ -881,10 +891,59 @@ export default function App() {
             }
             const data = await resp.json();
             setSourceResult(data);
+
+            /* Build source code chat context */
+            const srcCtx = [];
+            srcCtx.push(`Source Code Analysis: ${data.filename || sourceFile?.name || 'unknown'}`);
+            if (data.language) srcCtx.push(`Language: ${data.language}`);
+            if (data.risk_score) srcCtx.push(`Risk Score: ${data.risk_score}`);
+            if (data.dangerous_functions && data.dangerous_functions.length > 0) {
+                srcCtx.push(`Dangerous functions: ${data.dangerous_functions.map(f => f.name).join(', ')}`);
+            }
+            if (data.vulnerabilities && data.vulnerabilities.length > 0) {
+                srcCtx.push(`Vulnerabilities: ${data.vulnerabilities.map(v => v.name || v.type || 'unknown').join(', ')}`);
+            }
+            if (data.hints) srcCtx.push(`AI Hints: ${data.hints}`);
+            srcChatContextRef.current = srcCtx.join('\n');
         } catch (err) {
             setSourceError(err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message);
         } finally {
             setSourceLoading(false);
+        }
+    };
+
+    /* -- Source Code Chat send handler -- */
+    const sendSrcChat = async () => {
+        const text = srcChatInput.trim();
+        if (!text || srcChatLoading) return;
+        const userMsg = { role: 'user', content: text };
+        const updated = [...srcChatMessages, userMsg].slice(-MAX_CHAT_MESSAGES);
+        setSrcChatMessages(updated);
+        setSrcChatInput('');
+        setSrcChatLoading(true);
+        try {
+            const res = await fetch(`${BACKEND_URL}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: updated, context: srcChatContextRef.current }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setSrcChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${data.detail || 'Something went wrong.'}` }]);
+                return;
+            }
+            setSrcChatMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+        } catch (err) {
+            setSrcChatMessages(prev => [...prev, { role: 'assistant', content: err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message }]);
+        } finally {
+            setSrcChatLoading(false);
+        }
+    };
+
+    const onSrcChatKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendSrcChat();
         }
     };
 
@@ -1307,7 +1366,7 @@ export default function App() {
                             <div className="chat-input-row">
                                 <button className="chat-image-btn" onClick={()=>chatImageRef.current?.click()} disabled={chatLoading} title="Attach screenshot" type="button"></button>
                                 <input ref={chatImageRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={onChatImageSelect} style={{display:'none'}}/>
-                                <input className="chat-input" type="text" placeholder={chatImage?'Add a message about your screenshot...':'Ask about this binary...'} value={chatInput} onChange={e=>setChatInput(e.target.value.slice(0,MAX_CHAT_CHARS))} onKeyDown={onChatKeyDown} disabled={chatLoading} maxLength={MAX_CHAT_CHARS} id="chat-input"/>
+                                <textarea className="chat-input chat-textarea" placeholder={chatImage?'Add a message about your screenshot... (Shift+Enter for new line)':'Ask anything about this binary... (Shift+Enter for new line)'} value={chatInput} onChange={e=>{setChatInput(e.target.value.slice(0,MAX_CHAT_CHARS));e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,200)+'px';}} onKeyDown={onChatKeyDown} disabled={chatLoading} maxLength={MAX_CHAT_CHARS} id="chat-input" rows={3}/>
                                 <button className="chat-send-btn" onClick={sendChat} disabled={chatLoading||(!chatInput.trim()&&!chatImage)} id="chat-send-btn">{chatLoading?'...':' Send'}</button>
                             </div>
                         </div>
@@ -1512,6 +1571,20 @@ export default function App() {
                             </AccordionCard>
 
                             {/* 8. Combined Analysis (binary + source) */}
+                        </div>
+
+                        {/* -- Source Code Chat (always visible) -- */}
+                        <div className="bottom-section">
+                            <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Source Code Chat</h3></div>
+                            <div className="chat-messages" id="src-chat-messages">
+                                {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span><div className="chat-bubble-content">{msg.content.split(/\n/).filter(l=>l.trim()).map((line,j)=><div key={j}>{line}</div>)}</div></div>))}
+                                {srcChatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
+                                <div ref={srcChatEndRef}/>
+                            </div>
+                            <div className="chat-input-row">
+                                <textarea className="chat-input chat-textarea" placeholder="Ask anything about this source code... (Shift+Enter for new line)" value={srcChatInput} onChange={e=>{setSrcChatInput(e.target.value.slice(0,MAX_CHAT_CHARS));e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,200)+'px';}} onKeyDown={onSrcChatKeyDown} disabled={srcChatLoading} maxLength={MAX_CHAT_CHARS} id="src-chat-input" rows={3}/>
+                                <button className="chat-send-btn" onClick={sendSrcChat} disabled={srcChatLoading||!srcChatInput.trim()} id="src-chat-send-btn">{srcChatLoading?'...':' Send'}</button>
+                            </div>
                         </div>
                     </>
                 )}

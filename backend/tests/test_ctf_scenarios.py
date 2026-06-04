@@ -267,28 +267,30 @@ class TestPwntoolsTemplate:
 # 8. Rate Limiting Tests
 # ═══════════════════════════════════════════════════════════════════════
 class TestRateLimiting:
-    def test_analyze_rate_limit(self):
+    """Rate limits have been intentionally removed. These tests verify no throttling occurs."""
+
+    def test_analyze_no_rate_limit(self):
         status_codes = []
         for _ in range(12):
             resp = client.post("/analyze", files={"file": ("test.elf", ELF_32)})
             status_codes.append(resp.status_code)
-        assert 429 in status_codes
+        assert 429 not in status_codes
 
-    def test_chat_rate_limit(self):
+    def test_chat_no_rate_limit(self):
         payload = {"messages": [{"role": "user", "content": "hi"}], "context": ""}
         status_codes = []
         for _ in range(22):
             resp = client.post("/chat", json=payload)
             status_codes.append(resp.status_code)
-        assert 429 in status_codes
+        assert 429 not in status_codes
 
-    def test_explain_command_rate_limit(self):
+    def test_explain_command_no_rate_limit(self):
         payload = {"command": "ls", "context": ""}
         status_codes = []
         for _ in range(22):
             resp = client.post("/explain-command", json=payload)
             status_codes.append(resp.status_code)
-        assert 429 in status_codes
+        assert 429 not in status_codes
 
 
 # ═══════════════════════════════════════════════════════════════════════
