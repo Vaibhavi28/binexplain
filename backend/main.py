@@ -4059,7 +4059,10 @@ def _analyze_zip(
             pwd_bytes = None
 
         results: list[dict] = []
+        source_code_results: list[dict] = []
         skipped: list[dict] = []
+
+        MAX_SOURCE_FILES_IN_ZIP = 3  # Cap AI calls for source code files
 
         for entry in entries:
             entry_path = os.path.join(tmp_dir, entry)
@@ -4098,6 +4101,22 @@ def _analyze_zip(
             elif inner_ext == ".zip":
                 skipped.append({"filename": entry, "reason": "Nested ZIP archives are not supported."})
                 continue
+            elif inner_ext in SOURCE_CODE_EXTENSIONS:
+                # ── Source code file detected — analyze with source code engine ──
+                if len(source_code_results) >= MAX_SOURCE_FILES_IN_ZIP:
+                    skipped.append({"filename": entry, "reason": f"Source code file limit ({MAX_SOURCE_FILES_IN_ZIP}) reached."})
+                    continue
+                try:
+                    code_text = file_content.decode("utf-8", errors="replace")
+                    if len(code_text) > MAX_SOURCE_CODE_CHARS:
+                        skipped.append({"filename": entry, "reason": f"Source code exceeds {MAX_SOURCE_CODE_CHARS} character limit."})
+                        continue
+                    src_result = analyze_source_code(code_text, entry)
+                    source_code_results.append(src_result)
+                except Exception as exc:
+                    logger.warning("Failed to analyze source code '%s' from ZIP: %s", entry, exc)
+                    skipped.append({"filename": entry, "reason": f"Source code analysis failed: {exc}"})
+                continue
             elif inner_ext not in ALLOWED_EXTENSIONS:
                 skipped.append({"filename": entry, "reason": f"Extension '{inner_ext}' is not a supported binary format."})
                 continue
@@ -4124,18 +4143,20 @@ def _analyze_zip(
                 logger.warning("Failed to analyze '%s' from ZIP: %s", entry, exc)
                 skipped.append({"filename": entry, "reason": f"Analysis failed: {exc}"})
 
-        if not results:
+        if not results and not source_code_results:
             raise HTTPException(
                 status_code=400,
-                detail="No analyzable binary files found in the ZIP archive.",
+                detail="No analyzable files found in the ZIP archive (no binaries or source code).",
             )
 
         return {
             "archive": original_filename,
             "total_entries": len(entries),
             "analyzed_count": len(results),
+            "source_code_count": len(source_code_results),
             "skipped_count": len(skipped),
             "results": results,
+            "source_code_results": source_code_results,
             "skipped": skipped,
         }
     finally:

@@ -622,7 +622,97 @@ body {
   animation: risk-fade-in 0.3s ease-out;
 }
 
-/* â”€â”€ Analysis Meta Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── ZIP Source Code Banner ──────────────────────────────────────── */
+.zip-source-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.08), rgba(168, 85, 247, 0.08));
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  border-left: 4px solid #60a5fa;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  animation: risk-fade-in 0.5s ease-out;
+}
+
+.zip-source-banner:hover {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.14), rgba(168, 85, 247, 0.14));
+  border-color: rgba(96, 165, 250, 0.45);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(96, 165, 250, 0.12);
+}
+
+.zip-source-banner-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.zip-source-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.zip-source-banner-text strong {
+  font-family: var(--font-headline);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #93c5fd;
+}
+
+.zip-source-banner-files {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--on-surface-variant);
+  opacity: 0.8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zip-source-banner-action {
+  flex-shrink: 0;
+  font-family: var(--font-headline);
+  font-weight: 800;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #60a5fa;
+  padding: 6px 16px;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 2px;
+  background: rgba(96, 165, 250, 0.08);
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.zip-source-banner:hover .zip-source-banner-action {
+  background: rgba(96, 165, 250, 0.18);
+  border-color: rgba(96, 165, 250, 0.5);
+  color: #bfdbfe;
+}
+
+@media (max-width: 640px) {
+  .zip-source-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .zip-source-banner-action {
+    align-self: stretch;
+    text-align: center;
+  }
+}
+
+/* ── Analysis Meta Bar ─────────────────────────────────────────── */
 .analysis-meta-bar {
   display: flex;
   gap: 24px;

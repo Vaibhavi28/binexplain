@@ -240,6 +240,9 @@ export default function App() {
     const [passwordLoading, setPasswordLoading] = useState(false);
     const passwordFileRef = useRef(null);
 
+    /* -- ZIP source code banner state -- */
+    const [zipSourceBanner, setZipSourceBanner] = useState(null);
+
     /* -- VirusTotal polling state -- */
     const [submitToVt, setSubmitToVt] = useState(false);
     const [vtScanId, setVtScanId] = useState(null);
@@ -482,6 +485,7 @@ export default function App() {
             setRateLimitSeconds(0);
             setFeedbackGiven(null);
             setExplainLog([]);
+            setZipSourceBanner(null);
             
             // Fix ZIP crash in UI
             let resultData;
@@ -491,6 +495,16 @@ export default function App() {
                  resultData = data;
             }
             setResult(resultData);
+            
+            // Auto-populate source code results from ZIP
+            if (data.source_code_results && data.source_code_results.length > 0) {
+                setSourceResult(data.source_code_results[0]);
+                const srcNames = data.source_code_results.map(r => r.filename || 'unknown').join(', ');
+                setZipSourceBanner({
+                    count: data.source_code_results.length,
+                    filenames: srcNames,
+                });
+            }
             
             setFile(null);
 
@@ -611,6 +625,7 @@ export default function App() {
             setRateLimitSeconds(0);
             setFeedbackGiven(null);
             setExplainLog([]);
+            setZipSourceBanner(null);
             
             let resultData;
             if (data.archive && data.results && Array.isArray(data.results)) {
@@ -619,6 +634,16 @@ export default function App() {
                  resultData = data;
             }
             setResult(resultData);
+
+            // Auto-populate source code results from ZIP
+            if (data.source_code_results && data.source_code_results.length > 0) {
+                setSourceResult(data.source_code_results[0]);
+                const srcNames = data.source_code_results.map(r => r.filename || 'unknown').join(', ');
+                setZipSourceBanner({
+                    count: data.source_code_results.length,
+                    filenames: srcNames,
+                });
+            }
 
             /* Start VT polling if scan was submitted */
             if (data.virustotal?.status === 'scanning' && data.virustotal?.scan_id) {
@@ -1190,6 +1215,18 @@ export default function App() {
                             )}
                         </section>
                     </>
+                )}
+
+                {/* *** ZIP Source Code Banner *** */}
+                {analysisMode === 'binary' && zipSourceBanner && (
+                    <div className="zip-source-banner" onClick={() => { setAnalysisMode('source'); setZipSourceBanner(null); }}>
+                        <div className="zip-source-banner-icon">📄</div>
+                        <div className="zip-source-banner-text">
+                            <strong>{zipSourceBanner.count} source code file{zipSourceBanner.count > 1 ? 's' : ''} detected in this ZIP!</strong>
+                            <span className="zip-source-banner-files">{zipSourceBanner.filenames}</span>
+                        </div>
+                        <div className="zip-source-banner-action">Switch to Source Code Analysis →</div>
+                    </div>
                 )}
 
                 {/* *** Binary Results *** */}
