@@ -108,8 +108,100 @@ if VIRUSTOTAL_API_KEY:
 else:
     print("[BinExplain] WARNING: VIRUSTOTAL_API_KEY is NOT set -- VirusTotal scanning disabled")
 
+# ---------------------------------------------------------------------------
+# Category-specific guidance for AI prompts
+# ---------------------------------------------------------------------------
+CATEGORY_SPECIFIC_GUIDANCE: dict[str, str] = {
+    "format_string": (
+        "If FORMAT STRING:\n"
+        "- Focus on: %p leaks, %x leaks, finding offset with %1$p %2$p etc, %n writes, GOT overwrite\n"
+        "- Key commands: python3 -c 'print(\"%p.\"*20)' | ./binary, pwntools fmtstr_payload()\n"
+        "- Never mention: cyclic(), overflow offsets, ret2libc unless also detected\n"
+    ),
+    "ret2win": (
+        "If RET2WIN:\n"
+        "- Focus on: finding win function address, calculating overflow offset with cyclic, redirecting return address\n"
+        "- Key commands: cyclic(200), cyclic_find(), p64(elf.sym['win'])\n"
+        "- Never mention: format string techniques, heap techniques\n"
+    ),
+    "ret2libc": (
+        "If RET2LIBC:\n"
+        "- Focus on: finding system(), /bin/sh string, ret2libc chain, libc leak\n"
+        "- Key commands: ROPgadget, one_gadget, pwntools ret2libc\n"
+        "- Never mention: format string, heap techniques\n"
+    ),
+    "heap_exploitation": (
+        "If HEAP_EXPLOITATION:\n"
+        "- Focus on: malloc/free patterns, UAF, tcache poisoning, heap spray\n"
+        "- Key commands: ltrace for heap operations, pwndbg heap commands\n"
+        "- Never mention: stack overflow offsets, format string\n"
+    ),
+    "rop_chain": (
+        "If ROP_CHAIN:\n"
+        "- Focus on: finding gadgets, building ROP chain, defeating NX\n"
+        "- Key commands: ROPgadget, pwntools ROP(), ret2plt\n"
+        "- Never mention: format string, heap techniques\n"
+    ),
+    "shellcode": (
+        "If SHELLCODE:\n"
+        "- Focus on: writing shellcode, finding executable memory, jumping to shellcode\n"
+        "- Key commands: pwntools shellcraft, msfvenom\n"
+        "- Never mention: format string, ROP (NX is disabled)\n"
+    ),
+    "stack_canary_bypass": (
+        "If STACK_CANARY_BYPASS:\n"
+        "- Focus on: leaking canary via format string or brute force, then overflowing past it\n"
+        "- Key commands: %p leaks to find canary position, reconstruct canary, overflow after canary\n"
+        "- Never mention: heap techniques\n"
+    ),
+}
+
+
+def build_category_aware_prompt(base_prompt: str, ctf_category: str) -> str:
+    """
+    Build a system prompt with strict category-specific rules injected.
+
+    Parameters:
+        base_prompt:  The base AI system prompt (hints or chat style).
+        ctf_category: The detected CTF category string (e.g. 'format_string',
+                      'ret2win').  If empty or 'unknown', no category rules
+                      are added.
+
+    Returns:
+        The complete system prompt with category guidance appended.
+    """
+    if not ctf_category or ctf_category == "unknown":
+        return base_prompt
+
+    category_block = CATEGORY_SPECIFIC_GUIDANCE.get(ctf_category, "")
+
+    category_rules = (
+        f"\n\nThe binary has been classified as: {ctf_category.upper()}\n\n"
+        "STRICT RULES:\n"
+        "- ONLY give advice relevant to the detected CTF category\n"
+        "- Never mix vulnerability types\n"
+        "- If the user asks about something outside the category, gently redirect them\n\n"
+        "CATEGORY-SPECIFIC GUIDANCE:\n"
+    )
+    if category_block:
+        category_rules += category_block
+    else:
+        category_rules += f"- Focus exclusively on {ctf_category} techniques\n"
+
+    category_rules += (
+        "\nALWAYS:\n"
+        "- Reference specific function names found in THIS binary\n"
+        "- Use the actual binary filename in commands\n"
+        "- Build on previous conversation — never repeat advice already given\n"
+        "- Keep responses focused: 3-5 sentences max\n"
+        "- End with one specific actionable command\n"
+    )
+
+    return base_prompt + category_rules
+
+
 AI_SYSTEM_PROMPT = (
-    "You are a CTF mentor helping beginners learn binary exploitation. "
+    "You are an expert CTF mentor helping a beginner solve a binary exploitation challenge. "
     "Given extracted strings and patterns from a binary, respond using ONLY the format below.\n\n"
     "ABSOLUTE RULES — you must follow every single one:\n"
     "1. Start with • bullet points. ZERO prose, ZERO paragraphs, ZERO introductions or conclusions.\n"
@@ -221,6 +313,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     context: str = ""
+    ctf_category: str = ""
 
 class ExplainCommandRequest(BaseModel):
     command: str
@@ -731,13 +824,10 @@ def get_ai_hints(
         )
 
     # Build category-aware system prompt
-    system_prompt = AI_SYSTEM_PROMPT
-    if ctf_category and ctf_category.get("category") and ctf_category["category"] != "unknown":
+    cat = ""
+    if ctf_category and ctf_category.get("category"):
         cat = ctf_category["category"]
-        system_prompt += (
-            f"\n\nThis binary has been categorized as: {cat}. "
-            f"Focus your hints specifically on {cat} exploitation techniques."
-        )
+    system_prompt = build_category_aware_prompt(AI_SYSTEM_PROMPT, cat)
 
     # Build a concise summary for the prompt
     truncated = strings[:MAX_STRINGS_FOR_AI]
@@ -772,7 +862,7 @@ def get_ai_hints(
         return openai_result
 
     # ── Provider 4: Ollama (local) ────────────────────────────────────
-    ollama_result = _try_ollama(user_message)
+    ollama_result = _try_ollama(user_message, system_prompt=system_prompt)
     if ollama_result:
         logger.info("[BinExplain] get_ai_hints: Ollama succeeded")
         return ollama_result
@@ -851,12 +941,13 @@ def _try_openai(messages: list[dict], system_prompt: str) -> str | None:
     return None
 
 
-def _try_ollama(user_message: str) -> str | None:
+def _try_ollama(user_message: str, system_prompt: str | None = None) -> str | None:
     """
     Try to generate hints using a local Ollama instance.
     Attempts models in order: qwen2.5-coder, qwen2.5, qwen3.
     Returns the response text, or None if all models fail.
     """
+    prompt_to_use = system_prompt or AI_SYSTEM_PROMPT
     for model in OLLAMA_MODELS:
         try:
             resp = requests.post(
@@ -864,7 +955,7 @@ def _try_ollama(user_message: str) -> str | None:
                 json={
                     "model": model,
                     "prompt": user_message,
-                    "system": AI_SYSTEM_PROMPT,
+                    "system": prompt_to_use,
                     "stream": False,
                 },
                 timeout=120,
@@ -982,13 +1073,10 @@ def get_decompilation_hints(
         )
 
     # Build category-aware system prompt
-    system_prompt = DECOMPILATION_SYSTEM_PROMPT
-    if ctf_category and ctf_category.get("category") and ctf_category["category"] != "unknown":
+    cat = ""
+    if ctf_category and ctf_category.get("category"):
         cat = ctf_category["category"]
-        system_prompt += (
-            f"\nThis binary has been categorized as: {cat}. "
-            f"Focus your analysis specifically on {cat} exploitation techniques."
-        )
+    system_prompt = build_category_aware_prompt(DECOMPILATION_SYSTEM_PROMPT, cat)
 
     # Format disassembly as text (cap at 80 instructions)
     disasm_lines = []
@@ -1028,7 +1116,7 @@ def get_decompilation_hints(
         logger.info("[BinExplain] get_decompilation_hints: OpenAI succeeded")
         return openai_result
 
-    ollama_result = _try_ollama(user_message)
+    ollama_result = _try_ollama(user_message, system_prompt=system_prompt)
     if ollama_result:
         logger.info("[BinExplain] get_decompilation_hints: Ollama succeeded")
         return ollama_result
@@ -1521,7 +1609,7 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
             ai_response = result
 
     if not ai_response:
-        result = _try_ollama(user_message)
+        result = _try_ollama(user_message, system_prompt=SOURCE_CODE_SYSTEM_PROMPT)
         if result:
             logger.info("[BinExplain] analyze_source_code: Ollama succeeded")
             ai_response = result
@@ -4094,6 +4182,9 @@ async def analyze(
     # ── 1. Validate extension (before reading the full body) ──────────
     ext = _validate_extension(file.filename)
 
+    # ── 1b. Sanitize filename — strip directory components (path traversal) ──
+    safe_filename = Path(file.filename or "unknown").name or "unknown"
+
     # ── 2. Read content into memory & validate size ───────────────────
     content = await file.read()
     _validate_size(content, is_zip=(ext == ".zip"))
@@ -4105,7 +4196,7 @@ async def analyze(
         zip_password = password
         password = None  # clear from function scope
         try:
-            return _analyze_zip(content, file.filename or "archive.zip", password=zip_password, skip_virustotal=skip_vt)
+            return _analyze_zip(content, safe_filename, password=zip_password, skip_virustotal=skip_vt)
         finally:
             zip_password = None  # clear from memory
 
@@ -4118,7 +4209,7 @@ async def analyze(
         _validate_mime(content, ext)
 
     # ── 6. Analyze the single binary ─────────────────────────────────
-    return _analyze_single_file(content, file.filename or "unknown", ext, detected_type, skip_virustotal=skip_vt)
+    return _analyze_single_file(content, safe_filename, ext, detected_type, skip_virustotal=skip_vt)
 
 
 @app.post("/analyze-code")
@@ -4242,26 +4333,29 @@ async def chat(request: Request, body: ChatRequest):
     for msg in body.messages:
         ai_messages.append({"role": msg.role, "content": msg.content})
 
+    # ── Build category-aware system prompt dynamically ────────────────
+    chat_prompt = build_category_aware_prompt(CHAT_SYSTEM_PROMPT, body.ctf_category)
+
     # ── Provider 1: Groq (free, fast) ───────────────────────────────────
-    groq_result = _try_groq(messages=ai_messages, system_prompt=CHAT_SYSTEM_PROMPT)
+    groq_result = _try_groq(messages=ai_messages, system_prompt=chat_prompt)
     if groq_result:
         logger.info("[BinExplain] /chat: Groq succeeded")
         return {"response": groq_result}
 
     # ── Provider 2: Gemini ────────────────────────────────────────────
-    gemini_result = _try_gemini(messages=ai_messages, system_prompt=CHAT_SYSTEM_PROMPT)
+    gemini_result = _try_gemini(messages=ai_messages, system_prompt=chat_prompt)
     if gemini_result:
         logger.info("[BinExplain] /chat: Gemini succeeded")
         return {"response": gemini_result}
 
     # ── Provider 3: OpenAI GPT-4o-mini ────────────────────────────────
-    openai_result = _try_openai(messages=ai_messages, system_prompt=CHAT_SYSTEM_PROMPT)
+    openai_result = _try_openai(messages=ai_messages, system_prompt=chat_prompt)
     if openai_result:
         logger.info("[BinExplain] /chat: OpenAI succeeded")
         return {"response": openai_result}
 
     # ── Provider 4: Ollama multi-turn chat ────────────────────────────
-    ollama_messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}] + ai_messages
+    ollama_messages = [{"role": "system", "content": chat_prompt}] + ai_messages
     ollama_result = _try_ollama_chat(ollama_messages)
     if ollama_result:
         logger.info("[BinExplain] /chat: Ollama succeeded")
@@ -4274,7 +4368,7 @@ async def chat(request: Request, body: ChatRequest):
             response = client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=1024,
-                system=CHAT_SYSTEM_PROMPT,
+                system=chat_prompt,
                 messages=ai_messages,
             )
             logger.info("[BinExplain] /chat: Claude succeeded")
