@@ -23,6 +23,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time as _time_module
 import zipfile
 from pathlib import Path
 from dotenv import load_dotenv
@@ -70,6 +71,23 @@ SOURCE_CODE_EXTENSIONS: set[str] = {
 
 OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODELS = ["llama3.2", "qwen2.5-coder", "qwen2.5"]
+
+# ---------------------------------------------------------------------------
+# Provider cooldown tracking (30-second window per provider after rate limit)
+# ---------------------------------------------------------------------------
+_provider_cooldowns: dict[str, float] = {}  # provider_name -> timestamp of last 429
+PROVIDER_COOLDOWN_SECONDS = 30
+
+
+def _record_provider_cooldown(provider: str) -> None:
+    """Record that a provider hit a rate limit right now."""
+    _provider_cooldowns[provider] = _time_module.time()
+
+
+def _is_provider_cooled_down(provider: str) -> bool:
+    """Return True if the provider is NOT in cooldown (i.e., ready to use)."""
+    last_fail = _provider_cooldowns.get(provider, 0)
+    return (_time_module.time() - last_fail) > PROVIDER_COOLDOWN_SECONDS
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY") or ""
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY") or ""
@@ -236,19 +254,30 @@ CHAT_SYSTEM_PROMPT = (
     "You are an expert CTF mentor and binary exploitation specialist. "
     "You are helping a student solve a CTF challenge.\n\n"
     "You have full context of the binary they uploaded. Always reference specific details from their binary.\n\n"
-    "Respond naturally like a knowledgeable friend would -- conversational, encouraging, specific.\n\n"
+    "RESPONSE FORMAT (follow this EXACTLY every time):\n"
+    "1. Start with a one-line summary of what you're doing or suggesting\n"
+    "2. Use bullet points with the bullet character for each step (max 4-5 bullets)\n"
+    "3. For commands, ALWAYS wrap them in backtick code blocks like `command here`\n"
+    "4. For multi-line payloads or scripts, use triple-backtick code blocks:\n"
+    "```python\n"
+    "code here\n"
+    "```\n"
+    "5. End EVERY response with: **Next:** one sentence about what to do after this\n\n"
     "RULES:\n"
-    "- Never repeat the same advice twice in a conversation\n"
+    "- Never repeat the same command twice in a conversation\n"
     "- Read the conversation history and build on previous messages\n"
-    "- If they say something didn't work, acknowledge it and give a different approach\n"
+    "- If they say something didn't work, acknowledge it and give a DIFFERENT approach\n"
+    "- If the previous approach isn't working after 2 attempts, say \"Let's try a different approach:\" and suggest something completely different\n"
     "- If they ask a conceptual question (what is X), explain it clearly with examples\n"
     "- If they ask for next steps, give ONE specific step with exact command for their binary\n"
     "- Use their actual binary name, actual function names, actual addresses in your response\n"
-    "- Mix explanation with commands naturally -- not always bullet points\n"
     "- Be encouraging but honest -- if something is hard, say so\n"
-    "- Keep responses focused -- 3-5 sentences or equivalent\n"
+    "- Keep responses focused -- max 4-5 bullet points\n"
     "- Never say 'run man command' -- always explain directly\n"
-    "- Never give generic advice that ignores the binary context"
+    "- Never give generic advice that ignores the binary context\n"
+    "- If you detect the user has been trying the same type of thing 3+ times with no progress, "
+    "automatically say: \"This approach doesn't seem to be working. Let's try something completely different:\" "
+    "and suggest a fresh angle based on the CTF category"
 )
 
 SOURCE_CODE_SYSTEM_PROMPT = (
@@ -893,8 +922,12 @@ def _try_groq(messages: list[dict], system_prompt: str) -> str | None:
     """
     Try to generate a response using Groq (llama-3.3-70b-versatile).
     Returns the response text, or None if the call fails.
+    Skips if provider is in cooldown. Records cooldown on 429.
     """
     if not GROQ_API_KEY:
+        return None
+    if not _is_provider_cooled_down("groq"):
+        logger.info("Groq skipped (in cooldown)")
         return None
     try:
         client = groq.Groq(api_key=GROQ_API_KEY)
@@ -911,7 +944,12 @@ def _try_groq(messages: list[dict], system_prompt: str) -> str | None:
             logger.info("Groq hint generated with model: llama-3.3-70b-versatile")
             return text.strip()
     except Exception as exc:
-        logger.warning("Groq API call failed: %s", exc)
+        exc_str = str(exc)
+        if "429" in exc_str or "rate" in exc_str.lower():
+            logger.warning("Groq rate limited (429), recording cooldown: %s", exc)
+            _record_provider_cooldown("groq")
+        else:
+            logger.warning("Groq API call failed: %s", exc)
     return None
 
 
@@ -919,8 +957,12 @@ def _try_openai(messages: list[dict], system_prompt: str) -> str | None:
     """
     Try to generate a response using OpenAI GPT-4o-mini.
     Returns the response text, or None if the call fails.
+    Skips if provider is in cooldown. Records cooldown on 429.
     """
     if not OPENAI_API_KEY:
+        return None
+    if not _is_provider_cooled_down("openai"):
+        logger.info("OpenAI skipped (in cooldown)")
         return None
     try:
         client = openai.OpenAI(api_key=OPENAI_API_KEY)
@@ -937,7 +979,12 @@ def _try_openai(messages: list[dict], system_prompt: str) -> str | None:
             logger.info("OpenAI hint generated with model: gpt-4o-mini")
             return text.strip()
     except Exception as exc:
-        logger.warning("OpenAI API call failed (%s): %s", type(exc).__name__, exc)
+        exc_str = str(exc)
+        if "429" in exc_str or "rate" in exc_str.lower():
+            logger.warning("OpenAI rate limited (429), recording cooldown: %s", exc)
+            _record_provider_cooldown("openai")
+        else:
+            logger.warning("OpenAI API call failed (%s): %s", type(exc).__name__, exc)
     return None
 
 
@@ -1005,8 +1052,12 @@ def _try_gemini(messages: list[dict], system_prompt: str) -> str | None:
     """
     Try to generate a response using Google Gemini (gemini-1.5-flash).
     Returns the response text, or None if the call fails.
+    Skips if provider is in cooldown. Records cooldown on 429.
     """
     if not GEMINI_API_KEY:
+        return None
+    if not _is_provider_cooled_down("gemini"):
+        logger.info("Gemini skipped (in cooldown)")
         return None
     try:
         model = genai.GenerativeModel(
@@ -1024,7 +1075,12 @@ def _try_gemini(messages: list[dict], system_prompt: str) -> str | None:
             logger.info("[BinExplain] Gemini succeeded (gemini-1.5-flash)")
             return text.strip()
     except Exception as exc:
-        logger.warning("Gemini API call failed: %s", exc)
+        exc_str = str(exc)
+        if "429" in exc_str or "rate" in exc_str.lower() or "resource" in exc_str.lower():
+            logger.warning("Gemini rate limited (429), recording cooldown: %s", exc)
+            _record_provider_cooldown("gemini")
+        else:
+            logger.warning("Gemini API call failed: %s", exc)
     return None
 
 
@@ -4399,7 +4455,7 @@ async def chat(request: Request, body: ChatRequest):
 
     raise HTTPException(
         status_code=503,
-        detail="Chat is temporarily unavailable — Anthropic, Groq, OpenAI, and Ollama all failed.",
+        detail="AI is taking a short break \u2014 please try again in 30 seconds.",
     )
 
 

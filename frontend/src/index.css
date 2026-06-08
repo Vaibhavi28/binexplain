@@ -2762,6 +2762,89 @@ body {
   100% { opacity: 0.2; }
 }
 
+/* -- Chat Code Blocks with Copy Button -------------------------------- */
+.chat-code-block {
+  position: relative;
+  margin: 8px 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(156, 255, 147, 0.15);
+  background: #0d1117;
+}
+
+.chat-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: rgba(156, 255, 147, 0.06);
+  border-bottom: 1px solid rgba(156, 255, 147, 0.1);
+  min-height: 32px;
+}
+
+.chat-code-lang {
+  font-family: var(--font-headline);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--primary);
+  opacity: 0.7;
+}
+
+.chat-code-copy-btn {
+  background: rgba(156, 255, 147, 0.08);
+  border: 1px solid rgba(156, 255, 147, 0.2);
+  color: var(--primary);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.chat-code-copy-btn:hover {
+  background: rgba(156, 255, 147, 0.18);
+  border-color: rgba(156, 255, 147, 0.4);
+  transform: translateY(-1px);
+}
+
+.chat-code-copy-btn:active {
+  transform: scale(0.95);
+}
+
+.chat-code-pre {
+  margin: 0;
+  padding: 12px 16px;
+  overflow-x: auto;
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #9cff93;
+  white-space: pre;
+  tab-size: 4;
+}
+
+.chat-code-pre code {
+  font-family: inherit;
+  color: inherit;
+}
+
+/* Inline code in chat messages */
+.chat-inline-code {
+  background: rgba(156, 255, 147, 0.1);
+  border: 1px solid rgba(156, 255, 147, 0.15);
+  color: #9cff93;
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 0.9em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  word-break: break-all;
+}
+
 /* â”€â”€ Chat Image Attachment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .chat-image-bar {
   display: flex;

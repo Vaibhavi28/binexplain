@@ -185,6 +185,88 @@ function CardModal({ title, icon, accent, onClose, children }) {
     );
 }
 
+/* -- Code Block with Copy Button ---------------------------------------- */
+function CodeBlock({ code, language }) {
+    const [copied, setCopied] = useState(false);
+    const handleCopy = () => {
+        navigator.clipboard.writeText(code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+    return (
+        <div className="chat-code-block">
+            <div className="chat-code-header">
+                {language && <span className="chat-code-lang">{language}</span>}
+                <button className="chat-code-copy-btn" onClick={handleCopy} type="button" title="Copy code">
+                    {copied ? '✓ Copied!' : '📋 Copy'}
+                </button>
+            </div>
+            <pre className="chat-code-pre"><code>{code}</code></pre>
+        </div>
+    );
+}
+
+/* -- Chat Message Content (parses code blocks) ------------------------- */
+function ChatMessageContent({ content }) {
+    // Split content by triple-backtick code blocks
+    const parts = [];
+    const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = codeBlockRegex.exec(content)) !== null) {
+        // Text before the code block
+        if (match.index > lastIndex) {
+            const textBefore = content.slice(lastIndex, match.index);
+            parts.push({ type: 'text', content: textBefore });
+        }
+        // The code block itself
+        parts.push({ type: 'code', language: match[1] || '', content: match[2].trim() });
+        lastIndex = match.index + match[0].length;
+    }
+    // Remaining text after the last code block
+    if (lastIndex < content.length) {
+        parts.push({ type: 'text', content: content.slice(lastIndex) });
+    }
+
+    // If no code blocks found, just render as text lines
+    if (parts.length === 0) {
+        parts.push({ type: 'text', content });
+    }
+
+    return (
+        <>
+            {parts.map((part, i) => {
+                if (part.type === 'code') {
+                    return <CodeBlock key={i} code={part.content} language={part.language} />;
+                }
+                // Render text lines, handling inline backtick code
+                return part.content.split(/\n/).filter(l => l.trim()).map((line, j) => {
+                    // Handle inline code: `command here`
+                    const inlineParts = line.split(/(`[^`]+`)/g);
+                    return (
+                        <div key={`${i}-${j}`}>
+                            {inlineParts.map((seg, k) => {
+                                if (seg.startsWith('`') && seg.endsWith('`')) {
+                                    return <code key={k} className="chat-inline-code">{seg.slice(1, -1)}</code>;
+                                }
+                                // Handle bold: **text**
+                                const boldParts = seg.split(/(\*\*[^*]+\*\*)/g);
+                                return boldParts.map((bp, l) => {
+                                    if (bp.startsWith('**') && bp.endsWith('**')) {
+                                        return <strong key={`${k}-${l}`}>{bp.slice(2, -2)}</strong>;
+                                    }
+                                    return <span key={`${k}-${l}`}>{bp}</span>;
+                                });
+                            })}
+                        </div>
+                    );
+                });
+            })}
+        </>
+    );
+}
+
 /* -- App ------------------------------------------------------------- */
 const MAX_CHAT_CHARS = 2000;
 const MAX_CHAT_MESSAGES = 10;
@@ -1395,7 +1477,7 @@ export default function App() {
                         <div className="bottom-section">
                             <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Follow-up Chat</h3></div>
                             <div className="chat-messages" id="chat-messages">
-                                {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content">{msg.content.split(/\n/).filter(l=>l.trim()).map((line,j)=><div key={j}>{line}</div>)}</div></div>))}
+                                {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content"><ChatMessageContent content={msg.content} /></div></div>))}
                                 {chatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={chatEndRef}/>
                             </div>
@@ -1614,7 +1696,7 @@ export default function App() {
                         <div className="bottom-section">
                             <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Source Code Chat</h3></div>
                             <div className="chat-messages" id="src-chat-messages">
-                                {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span><div className="chat-bubble-content">{msg.content.split(/\n/).filter(l=>l.trim()).map((line,j)=><div key={j}>{line}</div>)}</div></div>))}
+                                {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span><div className="chat-bubble-content"><ChatMessageContent content={msg.content} /></div></div>))}
                                 {srcChatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={srcChatEndRef}/>
                             </div>
