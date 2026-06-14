@@ -4314,7 +4314,39 @@ async def analyze(
         _validate_mime(content, ext)
 
     # ── 6. Analyze the single binary ─────────────────────────────────
-    return _analyze_single_file(content, safe_filename, ext, detected_type, skip_virustotal=skip_vt)
+    analysis_result = _analyze_single_file(
+        content, safe_filename, ext, detected_type, skip_virustotal=skip_vt
+    )
+
+    # ── 7. Kick off background writeup search (non-blocking) ──────────
+    # The response is returned immediately; this thread runs after.
+    try:
+        from knowledge_base.live_search import WriteupLiveSearch  # noqa: PLC0415
+
+        _ctf_cat = analysis_result.get("ctf_category") or {}
+        _cat_str = _ctf_cat.get("category", "unknown") if isinstance(_ctf_cat, dict) else "unknown"
+        _pats = analysis_result.get("patterns") or {}
+        _dangerous = _pats.get("dangerous_functions", []) if isinstance(_pats, dict) else []
+
+        _live_searcher = WriteupLiveSearch()
+
+        def _background_search() -> None:
+            try:
+                _live_searcher.search_and_save(
+                    binary_name=safe_filename,
+                    ctf_category=_cat_str,
+                    dangerous_functions=_dangerous,
+                    filename_prefix=f"live_{_live_searcher._sanitize_filename(safe_filename)}",
+                )
+            except Exception as _exc:
+                print(f"[LiveSearch] Background search error: {_exc}")
+
+        _t = threading.Thread(target=_background_search, daemon=True)
+        _t.start()
+    except Exception as _import_exc:
+        print(f"[LiveSearch] Could not start background search: {_import_exc}")
+
+    return analysis_result
 
 
 @app.post("/analyze-code")

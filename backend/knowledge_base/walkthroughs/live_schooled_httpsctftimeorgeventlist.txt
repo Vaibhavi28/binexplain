@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://ctftime.org/event/list/
+CHALLENGE: CTFtime.org / All about CTF (Capture The Flag)
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: 2026, 03:00 UTC Jeopardy On-line 25.00 3 teams will participate Pointer Overflow CTF - 2026 27 Sept., 14:00 UTC — 06 Dec.
+---
+CTFtime.org / All about CTF (Capture The Flag) CTFs Upcoming Archive Past events Tasks Writeups Calendar Teams Rating Compare Create new team Get team members FAQ Contact us For organizers Feedback About Sign in Home / CTFs / Events CTF Events All Now running Upcoming Archive Format Jeopardy Attack-Defence Hack-quest Location All On-line On-site Restrictions Open Prequalified Academic High-school Invited only Individual Casual 2026 2025 2024 2023 2022 2021 2020 2019 2018 2017 2016 2015 2014 2013 2012 2011 Name Date Format Location Weight Notes ASIS CTF Finals 2026 27 Dec., 14:00 UTC — 28 Dec. 2026, 14:00 UTC Jeopardy On-line 99.38 SwampCTF 2026 20 Nov., 21:00 UTC — 22 Nov. 2026, 21:00 UTC Jeopardy On-line 0.00 13 teams will participate Platypwn 2026 14 Nov., 09:00 UTC — 15 Nov. 2026, 21:00 UTC Jeopardy On-line 37.00 15 teams will participate WolvCTF 2026 13 Nov., 23:00 UTC — 15 Nov. 2026, 23:00 UTC Jeopardy On-line 0.00 51 teams will participate BlackAlps CTF 2026 06 Nov., 18:15 UTC — 06 Nov. 2026, 22:30 UTC Jeopardy Switzerland, Yverdon-les-Bains 0.00 3 teams will participate H7CTF 2026 Finals 24 Oct., 06:30 UTC — 25 Oct. 2026, 06:30 UTC Attack-Defense Chennai, Tamil Nadu 0.00 6 teams will participate Hack.lu CTF 2026 23 Oct., 18:00 UTC — 25 Oct. 2026, 18:00 UTC Jeopardy On-line 94.74 28 teams will participate DEADFACE CTF 2026 17 Oct., 14:00 UTC — 19 Oct. 2026, 00:00 UTC Jeopardy On-line 35.39 6 teams will participate CDCTF 2026 03 Oct., 15:00 UTC — 04 Oct. 2026, 03:00 UTC Jeopardy On-line 25.00 3 teams will participate Pointer Overflow CTF - 2026 27 Sept., 14:00 UTC — 06 Dec. 2026, 14:00 UTC Jeopardy On-line 0 14 teams will participate FAUST CTF 2026 26 Sept., 12:00 UTC — 26 Sept. 2026, 21:00 UTC Attack-Defense On-line 72.29 8 teams will participate H7CTF 2026 Quals 26 Sept., 03:30 UTC — 27 Sept. 2026, 15:30 UTC Jeopardy On-line 27.49 8 teams will participate WATCHLIST 19 Sept., 03:30 UTC — 20 Sept. 2026, 03:30 UTC Jeopardy On-line 0.00 1 teams will participate V
