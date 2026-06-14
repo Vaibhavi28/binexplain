@@ -1377,6 +1377,34 @@ export default function App() {
                             <CCard icon="" title="AI Hints + Kill Chain" stat={result.hints?'Analysis available':'Unavailable'} statColor="var(--secondary)" accent="var(--secondary-dim)" onClick={() => om('AI Hints + Kill Chain','','var(--secondary-dim)',
                                 <div className="result-card-body">{result.hints?result.hints.split(/\n/).filter(l=>l.trim()).map((line,i)=><div className="section-item section-item--hint" key={i}>{line}</div>):<div className="section-empty">AI hints unavailable</div>}{result.hints&&<div className="hints-feedback">{feedbackGiven?<div className="hints-feedback-thanks"> Thanks for your feedback!</div>:<><span className="hints-feedback-label">Were these hints helpful?</span><button className="hints-feedback-btn hints-feedback-btn--up" onClick={async()=>{setFeedbackGiven('up');try{await fetch(`${BACKEND_URL}/feedback`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vote:'up',filename:result.filename})})}catch{}}} type="button"> Helpful</button><button className="hints-feedback-btn hints-feedback-btn--down" onClick={async()=>{setFeedbackGiven('down');try{await fetch(`${BACKEND_URL}/feedback`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vote:'down',filename:result.filename})})}catch{}}} type="button"> Not helpful</button></>}</div>}</div>
                             )} />
+                            {result.similar_writeups && result.similar_writeups.length > 0 && (
+                                <CCard
+                                    icon="🌐"
+                                    title="Similar Writeups"
+                                    stat={`${result.similar_writeups.length} similar challenges found`}
+                                    statColor="#22d3ee"
+                                    accent="#06b6d4"
+                                    onClick={() => om('Similar Writeups', '🌐', '#06b6d4',
+                                        <div className="result-card-body">
+                                            {result.similar_writeups.map((w, idx) => (
+                                                <div key={idx} style={{ marginBottom: '1.2rem', paddingBottom: '1rem', borderBottom: idx < result.similar_writeups.length - 1 ? '1px solid rgba(255, 255, 255, 0.1)' : 'none' }}>
+                                                    <div style={{ fontWeight: 'bold', fontSize: '15px', color: 'var(--on-surface)', marginBottom: '4px' }}>
+                                                        {w.title} → <span style={{ color: '#06b6d4', fontWeight: 'normal' }}>{w.key_technique}</span>
+                                                    </div>
+                                                    <div style={{ marginBottom: '8px' }}>
+                                                        <a href={w.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline', fontSize: '13px', wordBreak: 'break-all' }}>
+                                                            {w.url}
+                                                        </a>
+                                                    </div>
+                                                    <div style={{ color: 'var(--on-surface-variant)', fontSize: '13px', fontStyle: 'italic', lineHeight: '1.4' }}>
+                                                        {w.snippet && w.snippet.length > 150 ? w.snippet.slice(0, 150) + "..." : w.snippet}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                />
+                            )}
                             {result.data_flows && result.data_flows.length > 0 && <CCard icon="" title="Data Flow" stat={`${result.data_flows.length} flows`} statColor="#3b82f6" accent="#3b82f6" onClick={() => om('Data Flow Analysis','','#3b82f6',
                                 <ul className="data-flow-list">{result.data_flows.map((f,i)=><li key={i} className="data-flow-item">{f}</li>)}</ul>
                             )} />}

@@ -44,6 +44,15 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+try:
+    from knowledge_base.rag_engine import CTFKnowledgeBase
+    ctf_knowledge = CTFKnowledgeBase()
+    ctf_knowledge.load_all_walkthroughs()
+    print("[BinExplain] CTF Knowledge Base ready")
+except Exception as e:
+    print(f"[BinExplain] Knowledge base unavailable: {e}")
+    ctf_knowledge = None
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -835,6 +844,7 @@ def calculate_risk_score(
 def get_ai_hints(
     strings: list[str],
     patterns: dict[str, list[str]],
+    writeup_context: str = "",
     ctf_category: dict | None = None,
 ) -> str:
     """
@@ -858,17 +868,19 @@ def get_ai_hints(
         cat = ctf_category["category"]
     system_prompt = build_category_aware_prompt(AI_SYSTEM_PROMPT, cat)
 
-    # Build a concise summary for the prompt
-    truncated = strings[:MAX_STRINGS_FOR_AI]
-    user_message = (
-        f"Here are up to {len(truncated)} strings extracted from a binary:\n"
-        + "\n".join(truncated)
-        + "\n\nDetected patterns:\n"
-        + "\n".join(
-            f"- {category}: {', '.join(items[:10])}"
-            for category, items in patterns.items()
-        )
-    )
+    # Build user message with writeup context
+    user_message = f"""
+Binary analysis:
+Strings (first 100): {chr(10).join(strings[:100])}
+
+Detected patterns:
+{chr(10).join(f"- {k}: {', '.join(v[:5])}" for k, v in patterns.items())}
+
+{writeup_context}
+
+Give specific actionable CTF hints based on the analysis and any similar writeups above.
+Reference specific function names and strings found in this binary.
+"""
 
     ai_messages = [{"role": "user", "content": user_message}]
 
@@ -3896,8 +3908,23 @@ def _analyze_single_file(
         plt_got = get_plt_got(content)
         difficulty = predict_difficulty(checksec_result, patterns, ctf_category)
 
-        # AI hints — pass CTF category for category-aware prompting
-        hints = get_ai_hints(strings, patterns, ctf_category=ctf_category)
+        # AI hints — search knowledge base for similar writeups and pass writeup_context
+        writeup_context = ""
+        similar_writeups = []
+        if ctf_knowledge:
+            try:
+                analysis_so_far = {
+                    "ctf_category": ctf_category,
+                    "patterns": patterns,
+                    "checksec": checksec_result,
+                    "filename": filename
+                }
+                similar_writeups = ctf_knowledge.find_similar_writeups(analysis_so_far)
+                writeup_context = ctf_knowledge.format_for_ai_context(similar_writeups)
+            except Exception as e:
+                print(f"[BinExplain] KB search failed: {e}")
+
+        hints = get_ai_hints(strings, patterns, writeup_context, ctf_category=ctf_category)
 
         # AI decompilation hints — explain disassembly using AI
         decompilation_hints = get_decompilation_hints(
@@ -3941,6 +3968,7 @@ def _analyze_single_file(
             "overflow_hint": overflow_hint,
             "plt_got": plt_got,
             "difficulty": difficulty,
+            "similar_writeups": similar_writeups,
         }
         if detected_type:
             result["detected_type"] = detected_type
