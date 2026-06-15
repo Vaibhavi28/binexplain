@@ -1,4 +1,5 @@
 import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 import chromadb
 from chromadb import EmbeddingFunction
 from sentence_transformers import SentenceTransformer
@@ -20,7 +21,9 @@ class CTFKnowledgeBase:
 
     def __init__(self):
         # 1. Create ChromaDB persistent client
-        self.client = chromadb.PersistentClient(path="backend/knowledge_base/chroma_db")
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        chroma_db_dir = os.path.join(base_dir, "chroma_db")
+        self.client = chromadb.PersistentClient(path=chroma_db_dir)
         
         # 3. Load sentence-transformers model "all-MiniLM-L6-v2"
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -39,7 +42,8 @@ class CTFKnowledgeBase:
         
     def load_all_walkthroughs(self):
         # 1. Scan every .txt file in backend/knowledge_base/walkthroughs/
-        walkthroughs_dir = os.path.join("backend", "knowledge_base", "walkthroughs")
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        walkthroughs_dir = os.path.join(base_dir, "walkthroughs")
         if not os.path.exists(walkthroughs_dir):
             print(f"[BinExplain KB] Walkthroughs directory {walkthroughs_dir} does not exist.")
             return

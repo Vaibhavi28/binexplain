@@ -42,3 +42,11 @@ coverage.xml
 *.o
 *.obj
 *.dat
+
+# ChromaDB databases
+**/chroma_db/
+chroma_db/
+
+# Live search results
+backend/knowledge_base/walkthroughs/live_*
+knowledge_base/walkthroughs/live_*
