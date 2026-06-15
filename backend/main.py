@@ -49,6 +49,7 @@ def _is_testing() -> bool:
     import sys
     return "pytest" in sys.modules or os.environ.get("TESTING") == "true"
 
+_kb_scheduler = None
 try:
     if _is_testing():
         print("[BinExplain] Testing mode: Skipping CTF Knowledge Base startup")
@@ -58,6 +59,9 @@ try:
         ctf_knowledge = CTFKnowledgeBase()
         ctf_knowledge.load_all_walkthroughs()
         print("[BinExplain] CTF Knowledge Base ready")
+        # Start auto-refresh scheduler (every 24 hours)
+        from knowledge_base.scheduler import start_scheduler
+        _kb_scheduler = start_scheduler()
 except Exception as e:
     print(f"[BinExplain] Knowledge base unavailable: {e}")
     ctf_knowledge = None
@@ -4837,6 +4841,81 @@ async def analyze_image(
         )
 
     return {"response": ai_response}
+
+
+# ---------------------------------------------------------------------------
+# Knowledge Base Management Endpoints
+# ---------------------------------------------------------------------------
+@app.post("/refresh-knowledge-base")
+async def refresh_knowledge_base():
+    """
+    Manually trigger a knowledge base refresh.
+    Runs the scraper and reloads walkthroughs into ChromaDB.
+    """
+    global ctf_knowledge
+    try:
+        from knowledge_base.scraper import WriteupScraper
+        from knowledge_base.rag_engine import CTFKnowledgeBase
+
+        scraper = WriteupScraper()
+        scraper.run()
+
+        if ctf_knowledge is None:
+            ctf_knowledge = CTFKnowledgeBase()
+        ctf_knowledge.update_from_scraper()
+
+        doc_count = ctf_knowledge.collection.count()
+        return {
+            "status": "success",
+            "message": f"Knowledge base refreshed. {doc_count} documents loaded.",
+            "document_count": doc_count,
+        }
+    except Exception as exc:
+        logger.error("Knowledge base refresh failed: %s", exc)
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "detail": str(exc)},
+        )
+
+
+@app.get("/knowledge-base-stats")
+async def knowledge_base_stats():
+    """
+    Return stats about the knowledge base: document count, categories,
+    scheduler status, and walkthrough directory info.
+    """
+    stats = {
+        "status": "unavailable",
+        "document_count": 0,
+        "categories": {},
+        "scheduler_running": _kb_scheduler is not None and _kb_scheduler.running,
+        "walkthrough_files": 0,
+    }
+
+    # Count walkthrough files on disk
+    walkthroughs_dir = Path(__file__).resolve().parent / "knowledge_base" / "walkthroughs"
+    if walkthroughs_dir.exists():
+        stats["walkthrough_files"] = len(list(walkthroughs_dir.glob("*.txt")))
+
+    if ctf_knowledge is not None:
+        try:
+            doc_count = ctf_knowledge.collection.count()
+            stats["status"] = "ready"
+            stats["document_count"] = doc_count
+
+            # Gather category breakdown
+            all_docs = ctf_knowledge.collection.get(include=["metadatas"])
+            if all_docs and all_docs.get("metadatas"):
+                categories: dict[str, int] = {}
+                for meta in all_docs["metadatas"]:
+                    cat = (meta or {}).get("category", "unknown")
+                    categories[cat] = categories.get(cat, 0) + 1
+                stats["categories"] = categories
+        except Exception as exc:
+            logger.warning("Failed to get KB stats: %s", exc)
+            stats["status"] = "error"
+
+    return stats
 
 
 # ---------------------------------------------------------------------------

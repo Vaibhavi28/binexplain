@@ -377,6 +377,11 @@ export default function App() {
     const openModal = useCallback((d) => setModalData(d), []);
     const closeModal = useCallback(() => setModalData(null), []);
 
+    /* -- Knowledge Base stats -- */
+    const [kbStats, setKbStats] = useState(null);
+    const [kbPopupOpen, setKbPopupOpen] = useState(false);
+    const [kbRefreshing, setKbRefreshing] = useState(false);
+
     /* Toggle an accordion section */
     const toggleSection = useCallback((key) => {
         setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
@@ -457,6 +462,40 @@ export default function App() {
         }, 1000);
         return () => clearInterval(id);
     }, [rateLimitSeconds]);
+
+    /* Fetch KB stats on mount */
+    useEffect(() => {
+        const fetchKbStats = async () => {
+            try {
+                const res = await fetch(`${BACKEND_URL}/knowledge-base-stats`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setKbStats(data);
+                }
+            } catch {
+                // Backend not reachable
+            }
+        };
+        fetchKbStats();
+    }, []);
+
+    /* Manually refresh KB */
+    const refreshKb = async () => {
+        setKbRefreshing(true);
+        try {
+            const res = await fetch(`${BACKEND_URL}/refresh-knowledge-base`, { method: 'POST' });
+            if (res.ok) {
+                const statsRes = await fetch(`${BACKEND_URL}/knowledge-base-stats`);
+                if (statsRes.ok) {
+                    setKbStats(await statsRes.json());
+                }
+            }
+        } catch {
+            // ignore
+        } finally {
+            setKbRefreshing(false);
+        }
+    };
 
     /* Validate & stage a file */
     const stageFile = useCallback((f) => {
@@ -1076,6 +1115,74 @@ export default function App() {
                         Secure, sandboxed static analysis for binary executables.
                         Upload a binary to extract strings, detect CTF flags, and get AI-powered hints.
                     </p>
+
+                    {/* KB Stats Badge */}
+                    {kbStats && (
+                        <div className="kb-stats-container" id="kb-stats-badge">
+                            <button
+                                className={`kb-badge ${kbStats.status === 'ready' ? 'kb-badge--ready' : 'kb-badge--offline'}`}
+                                onClick={() => setKbPopupOpen(prev => !prev)}
+                                type="button"
+                                title="Knowledge Base Stats"
+                            >
+                                <span className="kb-badge-icon">{'\u{1F4DA}'}</span>
+                                <span className="kb-badge-count">{kbStats.document_count}</span>
+                                <span className="kb-badge-label">KB docs</span>
+                                <span className={`kb-badge-dot ${kbStats.scheduler_running ? 'kb-badge-dot--active' : ''}`} />
+                            </button>
+
+                            {kbPopupOpen && (
+                                <div className="kb-popup" id="kb-stats-popup">
+                                    <div className="kb-popup-header">
+                                        <span>{'\u{1F4DA}'} Knowledge Base</span>
+                                        <button className="kb-popup-close" onClick={() => setKbPopupOpen(false)} type="button">{'\u00D7'}</button>
+                                    </div>
+                                    <div className="kb-popup-body">
+                                        <div className="kb-stat-row">
+                                            <span className="kb-stat-label">Status</span>
+                                            <span className={`kb-stat-value ${kbStats.status === 'ready' ? 'kb-stat--ready' : 'kb-stat--offline'}`}>
+                                                {kbStats.status === 'ready' ? '\u2705 Ready' : '\u274C Offline'}
+                                            </span>
+                                        </div>
+                                        <div className="kb-stat-row">
+                                            <span className="kb-stat-label">Documents</span>
+                                            <span className="kb-stat-value">{kbStats.document_count}</span>
+                                        </div>
+                                        <div className="kb-stat-row">
+                                            <span className="kb-stat-label">Walkthrough Files</span>
+                                            <span className="kb-stat-value">{kbStats.walkthrough_files}</span>
+                                        </div>
+                                        <div className="kb-stat-row">
+                                            <span className="kb-stat-label">Auto-Refresh</span>
+                                            <span className="kb-stat-value">
+                                                {kbStats.scheduler_running ? '\u{1F7E2} Active (24h)' : '\u{1F534} Inactive'}
+                                            </span>
+                                        </div>
+                                        {kbStats.categories && Object.keys(kbStats.categories).length > 0 && (
+                                            <div className="kb-categories">
+                                                <div className="kb-stat-label" style={{ marginBottom: '6px' }}>Categories</div>
+                                                {Object.entries(kbStats.categories).map(([cat, count]) => (
+                                                    <div key={cat} className="kb-cat-row">
+                                                        <span className="kb-cat-name">{cat}</span>
+                                                        <span className="kb-cat-count">{count}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <button
+                                            className="kb-refresh-btn"
+                                            id="kb-refresh-btn"
+                                            onClick={refreshKb}
+                                            disabled={kbRefreshing}
+                                            type="button"
+                                        >
+                                            {kbRefreshing ? '\u{1F504} Refreshing...' : '\u{1F504} Refresh Now'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </header>
 
                 {/* -- Mode Toggle -- */}
