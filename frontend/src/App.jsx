@@ -382,6 +382,9 @@ export default function App() {
     const [kbPopupOpen, setKbPopupOpen] = useState(false);
     const [kbRefreshing, setKbRefreshing] = useState(false);
 
+    /* -- CAG (Cache Augmented Generation) stats -- */
+    const [cagStats, setCagStats] = useState(null);
+
     /* Toggle an accordion section */
     const toggleSection = useCallback((key) => {
         setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
@@ -477,6 +480,22 @@ export default function App() {
             }
         };
         fetchKbStats();
+    }, []);
+
+    /* Fetch CAG cache stats on mount */
+    useEffect(() => {
+        const fetchCagStats = async () => {
+            try {
+                const res = await fetch(`${BACKEND_URL}/cache-stats`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setCagStats(data);
+                }
+            } catch {
+                // Backend not reachable
+            }
+        };
+        fetchCagStats();
     }, []);
 
     /* Manually refresh KB */
@@ -1901,8 +1920,13 @@ export default function App() {
 
                 {/* Footer */}
                 <footer className="footer">
-                    BinExplain performs static analysis only. Uploaded files are deleted
-                    immediately after analysis. No binaries are ever executed.
+                    <span>BinExplain performs static analysis only. Uploaded files are deleted
+                    immediately after analysis. No binaries are ever executed.</span>
+                    {cagStats && cagStats.total_cached > 0 && (
+                        <span className="cag-footer-badge" id="cag-stats-badge" title={`${cagStats.total_cached} cached entries, ${cagStats.total_hits} total hits`}>
+                            {'\u26A1'} CAG: {cagStats.hit_rate}% hit rate
+                        </span>
+                    )}
                 </footer>
             </div>
 

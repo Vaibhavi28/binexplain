@@ -1,0 +1,5 @@
+1836: import threading
+2141: import json as _json
+3883: def _analyze_single_file(
+4272: result = _analyze_single_file(file_content, entry, inner_ext, detected_type, skip_virustotal=skip_virustotal)
+4365: analysis_result = _analyze_single_file(

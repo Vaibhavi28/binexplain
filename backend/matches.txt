@@ -1,0 +1,70 @@
+200: def build_category_aware_prompt(base_prompt: str, ctf_category: str) -> str:
+206: ctf_category: The detected CTF category string (e.g. 'format_string',
+213: if not ctf_category or ctf_category == "unknown":
+216: category_block = CATEGORY_SPECIFIC_GUIDANCE.get(ctf_category, "")
+219: f"\n\nThe binary has been classified as: {ctf_category.upper()}\n\n"
+229: category_rules += f"- Focus exclusively on {ctf_category} techniques\n"
+258: "• Run `checksec ./binary` to see if NX, PIE, or stack canaries are enabled.\n"
+266: "🔥 Try this first: `checksec ./binary`"
+367: ctf_category: str = ""
+861: ctf_category: dict | None = None,
+874: "• Run `checksec ./binary` to see protections.\n"
+879: "🔥 Try this first: `checksec ./binary`"
+890: if ctf_category and ctf_category.get("category"):
+891: cat = ctf_category["category"]
+1146: ctf_category: dict | None = None,
+1178: if ctf_category and ctf_category.get("category"):
+1179: cat = ctf_category["category"]
+2145: def run_checksec(filepath: str) -> dict:
+2150: 1. Try running the system `checksec` tool (JSON output).
+2157: # ── 1. Try system checksec ────────────────────────────────────────
+2160: ["checksec", f"--file={filepath}", "--format=json"],
+2167: # checksec JSON format: {filepath: {properties}}
+2602: checksec: dict,
+2619: • Pre-filled protections from checksec
+2736: nx_val = checksec.get("nx")
+2737: pie_val = checksec.get("pie")
+2738: canary_val = checksec.get("canary")
+2739: relro_val = checksec.get("relro")
+2740: fortify_val = checksec.get("fortify")
+3184: def calculate_cvss_score(patterns: dict[str, list[str]], flags_detected: list[str], checksec: dict):
+3187: nx = checksec.get("nx", True)
+3188: canary = checksec.get("canary", True)
+3189: pie = checksec.get("pie", True)
+3544: def detect_ctf_category(
+3546: checksec: dict,
+3568: nx = checksec.get("nx", True)
+3569: pie = checksec.get("pie", True)
+3570: canary = checksec.get("canary", True)
+3652: "explanation": "Could not confidently determine the CTF exploitation category. Try manual analysis w
+3808: def predict_difficulty(checksec: dict, patterns: dict, ctf_category: dict) -> dict:
+3820: nx = checksec.get("nx", True)
+3821: pie = checksec.get("pie", True)
+3822: canary = checksec.get("canary", True)
+3823: relro = checksec.get("relro", True)
+3855: category = ctf_category.get("category", "unknown")
+3917: checksec_result = run_checksec(tmp_path)
+3939: cvss = calculate_cvss_score(patterns, flags, checksec_result)
+3947: ctf_category = detect_ctf_category(
+3948: patterns, checksec_result, strings,
+3957: difficulty = predict_difficulty(checksec_result, patterns, ctf_category)
+3965: "ctf_category": ctf_category,
+3967: "checksec": checksec_result,
+3975: hints = get_ai_hints(strings, patterns, writeup_context, ctf_category=ctf_category)
+3979: disassembly, strings, ctf_category=ctf_category,
+3984: filename, content, checksec_result, patterns, strings,
+4003: "checksec": checksec_result,
+4015: "ctf_category": ctf_category,
+4309: @app.post("/analyze")
+4375: _ctf_cat = analysis_result.get("ctf_category") or {}
+4386: ctf_category=_cat_str,
+4401: @app.post("/analyze-code")
+4494: return {"response": "Mocked AI response for chat.\n• Observation 1.\n• Observation 2.\n**Next:** Try
+4507: "Use the binary name, CTF category, checksec results, and findings above "
+4526: chat_prompt = build_category_aware_prompt(CHAT_SYSTEM_PROMPT, body.ctf_category)
+4670: @app.post("/analyze-image")
+4749: logger.info("[BinExplain] /analyze-image: Gemini Vision succeeded")
+4771: logger.info("[BinExplain] /analyze-image: Groq Vision succeeded")
+4793: logger.info("[BinExplain] /analyze-image: OpenAI Vision succeeded")
+4810: logger.info("[BinExplain] /analyze-image: Ollama llava succeeded")
+4828: logger.info("[BinExplain] /analyze-image: Claude Vision succeeded")

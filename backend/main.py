@@ -67,6 +67,101 @@ except Exception as e:
     ctf_knowledge = None
 
 # ---------------------------------------------------------------------------
+# Cache Augmented Generation (CAG)
+# ---------------------------------------------------------------------------
+from cache import hint_cache as _hint_cache
+
+
+def _prewarm_cache() -> None:
+    """Pre-generate cached hints for the 6 most common CTF patterns.
+
+    Only runs when the cache is completely empty (first launch).
+    Uses the real LLM pipeline so that subsequent requests for these
+    common patterns are served instantly.
+    """
+    stats = _hint_cache.get_stats()
+    if stats["total_cached"] > 0:
+        print(f"[CAG] Cache already populated ({stats['total_cached']} entries) — skipping pre-warm")
+        return
+
+    PREWARM_PATTERNS = [
+        {
+            "category": "format_string",
+            "checksec": {"nx": True, "pie": True, "canary": False},
+            "dangerous": ["printf"],
+            "strings": ["printf", "%s", "%p", "flag.txt"],
+            "patterns": {"dangerous_functions": ["printf"]},
+        },
+        {
+            "category": "ret2win",
+            "checksec": {"nx": True, "pie": False, "canary": False},
+            "dangerous": ["gets"],
+            "strings": ["gets", "flag.txt", "You win!"],
+            "patterns": {"dangerous_functions": ["gets"], "win_conditions": ["You win!"], "flag_reads": ["flag.txt"]},
+        },
+        {
+            "category": "ret2libc",
+            "checksec": {"nx": True, "pie": False, "canary": False},
+            "dangerous": ["system"],
+            "strings": ["system", "/bin/sh", "gets"],
+            "patterns": {"dangerous_functions": ["system", "gets"]},
+        },
+        {
+            "category": "heap_exploitation",
+            "checksec": {"nx": True, "pie": False, "canary": False},
+            "dangerous": ["free", "malloc"],
+            "strings": ["malloc", "free", "1) Create", "2) Delete"],
+            "patterns": {"dangerous_functions": ["malloc", "free"], "memory_functions": ["malloc", "free"]},
+        },
+        {
+            "category": "rop_chain",
+            "checksec": {"nx": True, "pie": False, "canary": False},
+            "dangerous": [],
+            "strings": ["gets", "Enter input:"],
+            "patterns": {"dangerous_functions": ["gets"]},
+        },
+        {
+            "category": "shellcode",
+            "checksec": {"nx": False, "pie": False, "canary": False},
+            "dangerous": [],
+            "strings": ["gets", "Enter shellcode:"],
+            "patterns": {"dangerous_functions": ["gets"]},
+        },
+    ]
+
+    print("[CAG] Cache is empty — pre-warming with 6 common patterns...")
+    for pw in PREWARM_PATTERNS:
+        key = _hint_cache.generate_key(pw["category"], pw["checksec"], pw["dangerous"])
+        try:
+            # Build a minimal category dict for the hint generator
+            cat_dict = {"category": pw["category"], "confidence": "High", "explanation": "Pre-warm"}
+            hints = get_ai_hints(
+                pw["strings"], pw["patterns"], "",
+                ctf_category=cat_dict,
+                checksec=pw["checksec"],
+                _skip_cache=True,  # avoid infinite recursion
+            )
+            # Extract kill chain section
+            kill_chain = ""
+            if "Kill Chain" in hints:
+                kill_chain = hints.split("Kill Chain", 1)[1].split("\n\n", 1)[0] if "Kill Chain" in hints else ""
+            _hint_cache.set(key, hints, kill_chain, pw["category"])
+            print(f"[CAG]   Pre-warmed: {key}")
+        except Exception as exc:
+            print(f"[CAG]   Pre-warm failed for {key}: {exc}")
+
+    final_stats = _hint_cache.get_stats()
+    print(f"[CAG] Pre-warm complete — {final_stats['total_cached']} entries cached")
+
+
+# Run pre-warm in a background thread so it doesn't block startup
+if not _is_testing():
+    import threading as _cag_threading
+    _cag_threading.Thread(target=_prewarm_cache, daemon=True).start()
+else:
+    print("[CAG] Testing mode — skipping pre-warm")
+
+# ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
@@ -859,10 +954,18 @@ def get_ai_hints(
     patterns: dict[str, list[str]],
     writeup_context: str = "",
     ctf_category: dict | None = None,
+    checksec: dict | None = None,
+    _skip_cache: bool = False,
 ) -> str:
     """
     Send extracted strings and detected patterns to Claude for beginner-
     friendly CTF hints.  Returns hints as a string.
+
+    Cache Augmented Generation (CAG):
+    • Before calling any LLM, checks the hint cache using a key built from
+      ctf_category + checksec + top 3 dangerous functions.
+    • On cache hit, returns cached hints instantly (zero LLM calls).
+    • On cache miss, calls LLM then stores the result.
 
     Security:
     • Never sends the raw binary — only extracted strings.
@@ -885,10 +988,22 @@ def get_ai_hints(
             "environment variable to enable AI-powered analysis hints."
         )
 
-    # Build category-aware system prompt
+    # ── CAG: cache lookup ─────────────────────────────────────────────
     cat = ""
     if ctf_category and ctf_category.get("category"):
         cat = ctf_category["category"]
+
+    cache_key = None
+    if not _skip_cache and checksec is not None:
+        dangerous_funcs = patterns.get("dangerous_functions", [])
+        cache_key = _hint_cache.generate_key(cat or "unknown", checksec, dangerous_funcs)
+        cached = _hint_cache.get(cache_key)
+        if cached:
+            print(f"[CAG] Cache HIT for {cache_key}")
+            return cached["hints"]
+        print(f"[CAG] Cache MISS — calling LLM for {cache_key}")
+
+    # Build category-aware system prompt
     system_prompt = build_category_aware_prompt(AI_SYSTEM_PROMPT, cat)
 
     # Build user message with writeup context
@@ -907,32 +1022,37 @@ Reference specific function names and strings found in this binary.
 
     ai_messages = [{"role": "user", "content": user_message}]
 
+    result_text = None
+
     # ── Provider 1: Groq (free, fast) ─────────────────────────────────
     groq_result = _try_groq(messages=ai_messages, system_prompt=system_prompt)
     if groq_result:
         logger.info("[BinExplain] get_ai_hints: Groq succeeded")
-        return groq_result
+        result_text = groq_result
 
     # ── Provider 2: Gemini ────────────────────────────────────────────
-    gemini_result = _try_gemini(messages=ai_messages, system_prompt=system_prompt)
-    if gemini_result:
-        logger.info("[BinExplain] get_ai_hints: Gemini succeeded")
-        return gemini_result
+    if not result_text:
+        gemini_result = _try_gemini(messages=ai_messages, system_prompt=system_prompt)
+        if gemini_result:
+            logger.info("[BinExplain] get_ai_hints: Gemini succeeded")
+            result_text = gemini_result
 
     # ── Provider 3: OpenAI GPT-4o-mini ────────────────────────────────
-    openai_result = _try_openai(messages=ai_messages, system_prompt=system_prompt)
-    if openai_result:
-        logger.info("[BinExplain] get_ai_hints: OpenAI succeeded")
-        return openai_result
+    if not result_text:
+        openai_result = _try_openai(messages=ai_messages, system_prompt=system_prompt)
+        if openai_result:
+            logger.info("[BinExplain] get_ai_hints: OpenAI succeeded")
+            result_text = openai_result
 
     # ── Provider 4: Ollama (local) ────────────────────────────────────
-    ollama_result = _try_ollama(user_message, system_prompt=system_prompt)
-    if ollama_result:
-        logger.info("[BinExplain] get_ai_hints: Ollama succeeded")
-        return ollama_result
+    if not result_text:
+        ollama_result = _try_ollama(user_message, system_prompt=system_prompt)
+        if ollama_result:
+            logger.info("[BinExplain] get_ai_hints: Ollama succeeded")
+            result_text = ollama_result
 
     # ── Provider 5: Claude (last resort) ──────────────────────────────
-    if ANTHROPIC_API_KEY:
+    if not result_text and ANTHROPIC_API_KEY:
         try:
             client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
             message = client.messages.create(
@@ -942,15 +1062,26 @@ Reference specific function names and strings found in this binary.
                 messages=ai_messages,
             )
             logger.info("[BinExplain] get_ai_hints: Claude succeeded")
-            return message.content[0].text
+            result_text = message.content[0].text
         except Exception as exc:
             logger.warning("Anthropic API call failed: %s", exc)
 
-    return (
-        "AI hints could not be generated -- Groq, Gemini, OpenAI, Ollama, and Claude all failed. "
-        "Tip: review the detected patterns above -- look for dangerous "
-        "functions (gets, strcpy) and flag-related strings as a starting point."
-    )
+    if not result_text:
+        return (
+            "AI hints could not be generated -- Groq, Gemini, OpenAI, Ollama, and Claude all failed. "
+            "Tip: review the detected patterns above -- look for dangerous "
+            "functions (gets, strcpy) and flag-related strings as a starting point."
+        )
+
+    # ── CAG: store in cache ───────────────────────────────────────────
+    if cache_key and not _skip_cache:
+        kill_chain = ""
+        if "Kill Chain" in result_text:
+            kill_chain = result_text.split("Kill Chain", 1)[1].split("\n\n", 1)[0]
+        _hint_cache.set(cache_key, result_text, kill_chain, cat or "unknown")
+        print(f"[CAG] Cached result for {cache_key}")
+
+    return result_text
 
 
 def _try_groq(messages: list[dict], system_prompt: str) -> str | None:
@@ -3972,7 +4103,7 @@ def _analyze_single_file(
             except Exception as e:
                 print(f"[BinExplain] KB search failed: {e}")
 
-        hints = get_ai_hints(strings, patterns, writeup_context, ctf_category=ctf_category)
+        hints = get_ai_hints(strings, patterns, writeup_context, ctf_category=ctf_category, checksec=checksec_result)
 
         # AI decompilation hints — explain disassembly using AI
         decompilation_hints = get_decompilation_hints(
@@ -4916,6 +5047,18 @@ async def knowledge_base_stats():
             stats["status"] = "error"
 
     return stats
+
+
+# ---------------------------------------------------------------------------
+# Cache Augmented Generation (CAG) stats endpoint
+# ---------------------------------------------------------------------------
+@app.get("/cache-stats")
+async def cache_stats():
+    """
+    Return aggregate CAG cache statistics: total cached entries,
+    total cache hits, hit rate %, and most common categories.
+    """
+    return _hint_cache.get_stats()
 
 
 # ---------------------------------------------------------------------------

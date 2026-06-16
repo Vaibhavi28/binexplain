@@ -1,0 +1,15 @@
+381: const [kbStats, setKbStats] = useState(null);
+470: const res = await fetch(`${BACKEND_URL}/knowledge-base-stats`);
+486: const res = await fetch(`${BACKEND_URL}/refresh-knowledge-base`, { method: 'POST' });
+488: const statsRes = await fetch(`${BACKEND_URL}/knowledge-base-stats`);
+1120: {kbStats && (
+1123: className={`kb-badge ${kbStats.status === 'ready' ? 'kb-badge--ready' : 'kb-badge--offline'}`}
+1129: <span className="kb-badge-count">{kbStats.document_count}</span>
+1131: <span className={`kb-badge-dot ${kbStats.scheduler_running ? 'kb-badge-dot--active' : ''}`} />
+1143: <span className={`kb-stat-value ${kbStats.status === 'ready' ? 'kb-stat--ready' : 'kb-stat--offline'}`}>
+1144: {kbStats.status === 'ready' ? '\u2705 Ready' : '\u274C Offline'}
+1149: <span className="kb-stat-value">{kbStats.document_count}</span>
+1153: <span className="kb-stat-value">{kbStats.walkthrough_files}</span>
+1158: {kbStats.scheduler_running ? '\u{1F7E2} Active (24h)' : '\u{1F534} Inactive'}
+1161: {kbStats.categories && Object.keys(kbStats.categories).length > 0 && (
+1164: {Object.entries(kbStats.categories).map(([cat, count]) => (

@@ -1,0 +1,31 @@
+393: const badges = [
+400: return badges.map(b => `${b.label}${result.checksec[b.key] ? '[v]' : ''}`).join(' ');
+1119: {/* KB Stats Badge */}
+1121: <div className="kb-stats-container" id="kb-stats-badge">
+1123: className={`kb-badge ${kbStats.status === 'ready' ? 'kb-badge--ready' : 'kb-badge--offline'}`}
+1128: <span className="kb-badge-icon">{'\u{1F4DA}'}</span>
+1129: <span className="kb-badge-count">{kbStats.document_count}</span>
+1130: <span className="kb-badge-label">KB docs</span>
+1131: <span className={`kb-badge-dot ${kbStats.scheduler_running ? 'kb-badge-dot--active' : ''}`} />
+1233: <div className="dropzone-icon-badge">
+1242: <div className="format-badges">
+1243: <span className="format-badge">.ELF</span>
+1244: <span className="format-badge">.EXE</span>
+1245: <span className="format-badge">.BIN</span>
+1246: <span className="format-badge">.SO</span>
+1247: <span className="format-badge">.DLL</span>
+1248: <span className="format-badge">.ZIP</span>
+1249: <span className="format-badge">No Ext</span>
+1449: <span className={`ctf-category-badge ctf-category-badge--${result.ctf_category.confidence.toLowerCase()}`}>{result.ctf_c
+1450: <span className={`ctf-confidence-badge ctf-confidence-badge--${result.ctf_category.confidence.toLowerCase()}`}>{result.c
+1459: <span className={`difficulty-badge difficulty-badge--${result.difficulty.difficulty.toLowerCase()}`}>{result.difficulty.
+1469: <div className="checksec-badges">{[{key:'nx',label:'NX',desc:'No-Execute'},{key:'pie',label:'PIE',desc:'Position Indepen
+1472: <div className={`risk-card risk-card--${result.cvss_severity.toLowerCase()}`}><div className="risk-header"><div classNam
+1475: <div className="overflow-card"><div className="overflow-header"><span className="overflow-offset-value">{result.overflow
+1519: <div className="fmtstr-card"><div className="fmtstr-header"><span className={`fmtstr-badge fmtstr-badge--${result.format
+1648: <span className={`risk-badge risk-badge--${(sourceResult.risk_score || 'low').toLowerCase()}`}>{sourceResult.risk_score}
+1666: <p><strong>Risk Score:</strong> <span className={`risk-badge risk-badge--${sourceResult.risk_score.toLowerCase()}`}>{sou
+1685: <span className={`severity-badge severity-badge--${(vuln.severity || 'medium').toLowerCase()}`}>{vuln.severity}</span>
+1902: {/* Footer */}
+1903: <footer className="footer">
+1906: </footer>
