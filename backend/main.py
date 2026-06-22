@@ -49,6 +49,21 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+
+SENTRY_DSN = os.getenv("SENTRY_DSN", "")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[FastApiIntegration()],
+        traces_sample_rate=0.1,
+        environment="production"
+    )
+    print("[BinExplain] Sentry error monitoring active")
+else:
+    print("[BinExplain] Sentry DSN not set - error monitoring disabled")
+
 def _is_testing() -> bool:
     import sys
     return "pytest" in sys.modules or os.environ.get("TESTING") == "true"
