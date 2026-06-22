@@ -54,3 +54,6 @@ knowledge_base/walkthroughs/live_*
 
 # CAG hint cache database
 cache/hints.db
+
+# Analytics and feedback logs
+logs/*.log

@@ -17,6 +17,7 @@ Security invariants
 • ZIP passwords are NEVER stored or logged — used only for extraction, then discarded.
 """
 
+import datetime
 import logging
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -63,6 +64,41 @@ if SENTRY_DSN:
     print("[BinExplain] Sentry error monitoring active")
 else:
     print("[BinExplain] Sentry DSN not set - error monitoring disabled")
+
+# ---------------------------------------------------------------------------
+# Analytics & feedback logging
+# ---------------------------------------------------------------------------
+def log_analytics(
+    filename: str,
+    category: str,
+    difficulty: str,
+    rag_hits: int,
+    provider_used: str,
+) -> None:
+    """Append one line to logs/analytics.log for each successful analysis."""
+    os.makedirs("logs", exist_ok=True)
+    with open("logs/analytics.log", "a", encoding="utf-8") as f:
+        f.write(
+            f"{datetime.datetime.now().isoformat()} | {filename} | "
+            f"{category} | {difficulty} | {rag_hits} | {provider_used}\n"
+        )
+
+
+def log_feedback(
+    filename: str,
+    category: str,
+    provider: str,
+    is_positive: bool,
+) -> None:
+    """Append one line to logs/feedback.log for each feedback vote."""
+    os.makedirs("logs", exist_ok=True)
+    with open("logs/feedback.log", "a", encoding="utf-8") as f:
+        sentiment = "positive" if is_positive else "negative"
+        f.write(
+            f"{datetime.datetime.now().isoformat()} | {filename} | "
+            f"{category} | {provider} | {sentiment}\n"
+        )
+
 
 def _is_testing() -> bool:
     import sys
@@ -4850,6 +4886,26 @@ async def analyze(
         except Exception as _import_exc:
             print(f"[LiveSearch] Could not start background search: {_import_exc}")
 
+    # ── 8. Analytics logging ──────────────────────────────────────────
+    if not _is_testing():
+        try:
+            _ar = analysis_result
+            _cat = _ar.get("ctf_category") or {}
+            _cat_str = _cat.get("category", "unknown") if isinstance(_cat, dict) else "unknown"
+            _diff = _ar.get("difficulty") or {}
+            _diff_str = _diff.get("difficulty", "unknown") if isinstance(_diff, dict) else "unknown"
+            _rag_hits = len(_ar.get("similar_writeups") or [])
+            # Infer which provider was used from hints_result keys
+            if hints_result and hints_result.get("enhanced"):
+                _prov = "groq+nemotron"
+            elif hints_result and hints_result.get("quick"):
+                _prov = "groq"
+            else:
+                _prov = "fallback"
+            log_analytics(safe_filename, _cat_str, _diff_str, _rag_hits, _prov)
+        except Exception as _log_exc:
+            print(f"[BinExplain] Analytics log error: {_log_exc}")
+
     return analysis_result
 
 
@@ -4909,7 +4965,7 @@ async def submit_feedback(request: Request, body: FeedbackRequest):
     """
     Accept anonymous thumbs-up/down feedback on AI hints.
 
-    Nothing is stored — the vote is logged to stdout only for now.
+    Votes are logged to logs/feedback.log for quality tracking.
     Rate limited to 30/hour per IP to prevent abuse.
     """
     logger.info(
@@ -4918,6 +4974,15 @@ async def submit_feedback(request: Request, body: FeedbackRequest):
         body.filename or "(none)",
         get_remote_address(request),
     )
+    try:
+        log_feedback(
+            filename=body.filename or "(none)",
+            category="unknown",
+            provider="unknown",
+            is_positive=(body.vote == "up"),
+        )
+    except Exception as _fb_exc:
+        print(f"[BinExplain] Feedback log error: {_fb_exc}")
     return {"status": "ok", "message": "Thanks for your feedback!"}
 
 
