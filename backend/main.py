@@ -1036,41 +1036,40 @@ Reference specific function names and strings found in this binary.
         logger.info("[BinExplain] get_ai_hints: Groq succeeded")
         result_text = groq_result
 
-    # ── Provider 2: Gemini ────────────────────────────────────────────
+    # ── Provider 2: Nemotron ──────────────────────────────────────────
+    if not result_text:
+        nemotron_result = _try_nemotron(prompt=ai_messages, system=system_prompt)
+        if nemotron_result:
+            logger.info("[BinExplain] get_ai_hints: Nemotron succeeded")
+            result_text = nemotron_result
+
+    # ── Provider 3: Gemini ────────────────────────────────────────────
     if not result_text:
         gemini_result = _try_gemini(messages=ai_messages, system_prompt=system_prompt)
         if gemini_result:
             logger.info("[BinExplain] get_ai_hints: Gemini succeeded")
             result_text = gemini_result
 
-    # ── Provider 3: OpenAI GPT-4o-mini ────────────────────────────────
+    # ── Provider 4: OpenAI GPT-4o-mini ────────────────────────────────
     if not result_text:
         openai_result = _try_openai(messages=ai_messages, system_prompt=system_prompt)
         if openai_result:
             logger.info("[BinExplain] get_ai_hints: OpenAI succeeded")
             result_text = openai_result
 
-    # ── Provider 4: Ollama (local) ────────────────────────────────────
+    # ── Provider 5: Ollama (local) ────────────────────────────────────
     if not result_text:
         ollama_result = _try_ollama(user_message, system_prompt=system_prompt)
         if ollama_result:
             logger.info("[BinExplain] get_ai_hints: Ollama succeeded")
             result_text = ollama_result
 
-    # ── Provider 5: Claude (last resort) ──────────────────────────────
-    if not result_text and ANTHROPIC_API_KEY:
-        try:
-            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-            message = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=1024,
-                system=system_prompt,
-                messages=ai_messages,
-            )
+    # ── Provider 6: Claude (last resort) ──────────────────────────────
+    if not result_text:
+        claude_result = _try_claude(messages=ai_messages, system_prompt=system_prompt)
+        if claude_result:
             logger.info("[BinExplain] get_ai_hints: Claude succeeded")
-            result_text = message.content[0].text
-        except Exception as exc:
-            logger.warning("Anthropic API call failed: %s", exc)
+            result_text = claude_result
 
     if not result_text:
         return (
@@ -1270,7 +1269,7 @@ def _try_gemini(messages: list[dict], system_prompt: str) -> str | None:
     return None
 
 
-def _try_nemotron(prompt: str, system: str) -> str | None:
+def _try_nemotron(prompt: str | list[dict], system: str) -> str | None:
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         return None
@@ -1280,12 +1279,16 @@ def _try_nemotron(prompt: str, system: str) -> str | None:
             base_url="https://openrouter.ai/api/v1",
             api_key=api_key
         )
-        response = client.chat.completions.create(
-            model="nvidia/nemotron-3-ultra-550b-a55b:free",
-            messages=[
+        if isinstance(prompt, list):
+            messages = [{"role": "system", "content": system}] + prompt
+        else:
+            messages = [
                 {"role": "system", "content": system},
                 {"role": "user", "content": prompt}
-            ],
+            ]
+        response = client.chat.completions.create(
+            model="nvidia/nemotron-3-ultra-550b-a55b:free",
+            messages=messages,
             max_tokens=1000,
             timeout=20
         )
@@ -1295,6 +1298,34 @@ def _try_nemotron(prompt: str, system: str) -> str | None:
     except Exception as e:
         print(f"[BinExplain AI] Nemotron failed: {e}")
         return None
+
+
+def _try_claude(messages: list[dict] | str, system_prompt: str, max_tokens: int = 1024) -> str | None:
+    """
+    Try to generate a response using Anthropic Claude.
+    Returns the response text, or None if the call fails.
+    """
+    if not ANTHROPIC_API_KEY:
+        return None
+    try:
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        if isinstance(messages, str):
+            messages_list = [{"role": "user", "content": messages}]
+        else:
+            messages_list = messages
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=max_tokens,
+            system=system_prompt,
+            messages=messages_list,
+        )
+        text = response.content[0].text
+        if text and text.strip():
+            logger.info("[BinExplain] Claude succeeded (claude-sonnet-4-20250514)")
+            return text.strip()
+    except Exception as exc:
+        logger.warning("Anthropic API call failed: %s", exc)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -1377,13 +1408,18 @@ def get_decompilation_hints(
         f"patterns, string references, and calling conventions."
     )
 
-    # Try AI providers (Groq -> Gemini -> OpenAI -> Ollama -> Claude)
+    # Try AI providers (Groq -> Nemotron -> Gemini -> OpenAI -> Ollama -> Claude)
     ai_messages = [{"role": "user", "content": user_message}]
 
     groq_result = _try_groq(messages=ai_messages, system_prompt=system_prompt)
     if groq_result:
         logger.info("[BinExplain] get_decompilation_hints: Groq succeeded")
         return groq_result
+
+    nemotron_result = _try_nemotron(prompt=ai_messages, system=system_prompt)
+    if nemotron_result:
+        logger.info("[BinExplain] get_decompilation_hints: Nemotron succeeded")
+        return nemotron_result
 
     gemini_result = _try_gemini(messages=ai_messages, system_prompt=system_prompt)
     if gemini_result:
@@ -1400,19 +1436,10 @@ def get_decompilation_hints(
         logger.info("[BinExplain] get_decompilation_hints: Ollama succeeded")
         return ollama_result
 
-    if ANTHROPIC_API_KEY:
-        try:
-            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-            message = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=1024,
-                system=system_prompt,
-                messages=ai_messages,
-            )
-            logger.info("[BinExplain] get_decompilation_hints: Claude succeeded")
-            return message.content[0].text
-        except Exception as exc:
-            logger.warning("Anthropic decompilation hints failed: %s", exc)
+    claude_result = _try_claude(messages=ai_messages, system_prompt=system_prompt)
+    if claude_result:
+        logger.info("[BinExplain] get_decompilation_hints: Claude succeeded")
+        return claude_result
 
     return (
         "Decompilation hints could not be generated -- all AI providers failed. "
@@ -1882,10 +1909,17 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         )
     ai_messages = [{"role": "user", "content": user_message}]
 
+    # Try AI providers (Groq -> Nemotron -> Gemini -> OpenAI -> Ollama -> Claude)
     result = _try_groq(messages=ai_messages, system_prompt=SOURCE_CODE_SYSTEM_PROMPT)
     if result:
         logger.info("[BinExplain] analyze_source_code: Groq succeeded")
         ai_response = result
+
+    if not ai_response:
+        result = _try_nemotron(prompt=ai_messages, system=SOURCE_CODE_SYSTEM_PROMPT)
+        if result:
+            logger.info("[BinExplain] analyze_source_code: Nemotron succeeded")
+            ai_response = result
 
     if not ai_response:
         result = _try_gemini(messages=ai_messages, system_prompt=SOURCE_CODE_SYSTEM_PROMPT)
@@ -1905,19 +1939,11 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
             logger.info("[BinExplain] analyze_source_code: Ollama succeeded")
             ai_response = result
 
-    if not ai_response and ANTHROPIC_API_KEY:
-        try:
-            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-            message = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=1500,
-                system=SOURCE_CODE_SYSTEM_PROMPT,
-                messages=ai_messages,
-            )
+    if not ai_response:
+        result = _try_claude(messages=ai_messages, system_prompt=SOURCE_CODE_SYSTEM_PROMPT, max_tokens=1500)
+        if result:
             logger.info("[BinExplain] analyze_source_code: Claude succeeded")
-            ai_response = message.content[0].text
-        except Exception as exc:
-            logger.warning("Anthropic source code analysis failed: %s", exc)
+            ai_response = result
 
     if not ai_response:
         ai_response = (
@@ -4708,39 +4734,36 @@ async def chat(request: Request, body: ChatRequest):
         logger.info("[BinExplain] /chat: Groq succeeded")
         return {"response": groq_result}
 
-    # ── Provider 2: Gemini ────────────────────────────────────────────
+    # ── Provider 2: Nemotron ──────────────────────────────────────────
+    nemotron_result = _try_nemotron(prompt=ai_messages, system=chat_prompt)
+    if nemotron_result:
+        logger.info("[BinExplain] /chat: Nemotron succeeded")
+        return {"response": nemotron_result}
+
+    # ── Provider 3: Gemini ────────────────────────────────────────────
     gemini_result = _try_gemini(messages=ai_messages, system_prompt=chat_prompt)
     if gemini_result:
         logger.info("[BinExplain] /chat: Gemini succeeded")
         return {"response": gemini_result}
 
-    # ── Provider 3: OpenAI GPT-4o-mini ────────────────────────────────
+    # ── Provider 4: OpenAI GPT-4o-mini ────────────────────────────────
     openai_result = _try_openai(messages=ai_messages, system_prompt=chat_prompt)
     if openai_result:
         logger.info("[BinExplain] /chat: OpenAI succeeded")
         return {"response": openai_result}
 
-    # ── Provider 4: Ollama multi-turn chat ────────────────────────────
+    # ── Provider 5: Ollama multi-turn chat ────────────────────────────
     ollama_messages = [{"role": "system", "content": chat_prompt}] + ai_messages
     ollama_result = _try_ollama_chat(ollama_messages)
     if ollama_result:
         logger.info("[BinExplain] /chat: Ollama succeeded")
         return {"response": ollama_result}
 
-    # ── Provider 5: Claude (last resort) ──────────────────────────────
-    if ANTHROPIC_API_KEY:
-        try:
-            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-            response = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=1024,
-                system=chat_prompt,
-                messages=ai_messages,
-            )
-            logger.info("[BinExplain] /chat: Claude succeeded")
-            return {"response": response.content[0].text}
-        except Exception as exc:
-            logger.warning("Anthropic chat call failed: %s", exc)
+    # ── Provider 6: Claude (last resort) ──────────────────────────────
+    claude_result = _try_claude(messages=ai_messages, system_prompt=chat_prompt)
+    if claude_result:
+        logger.info("[BinExplain] /chat: Claude succeeded")
+        return {"response": claude_result}
 
     raise HTTPException(
         status_code=503,
@@ -4769,39 +4792,36 @@ async def explain_command(request: Request, body: ExplainCommandRequest):
         logger.info("[BinExplain] /explain-command: Groq succeeded")
         return {"explanation": groq_result}
 
-    # ── Provider 2: Gemini ────────────────────────────────────────────
+    # ── Provider 2: Nemotron ──────────────────────────────────────────
+    nemotron_result = _try_nemotron(prompt=ai_messages, system=EXPLAIN_COMMAND_SYSTEM_PROMPT)
+    if nemotron_result:
+        logger.info("[BinExplain] /explain-command: Nemotron succeeded")
+        return {"explanation": nemotron_result}
+
+    # ── Provider 3: Gemini ────────────────────────────────────────────
     gemini_result = _try_gemini(messages=ai_messages, system_prompt=EXPLAIN_COMMAND_SYSTEM_PROMPT)
     if gemini_result:
         logger.info("[BinExplain] /explain-command: Gemini succeeded")
         return {"explanation": gemini_result}
 
-    # ── Provider 3: OpenAI GPT-4o-mini ────────────────────────────────
+    # ── Provider 4: OpenAI GPT-4o-mini ────────────────────────────────
     openai_result = _try_openai(messages=ai_messages, system_prompt=EXPLAIN_COMMAND_SYSTEM_PROMPT)
     if openai_result:
         logger.info("[BinExplain] /explain-command: OpenAI succeeded")
         return {"explanation": openai_result}
 
-    # ── Provider 4: Ollama ────────────────────────────────────────────
+    # ── Provider 5: Ollama ────────────────────────────────────────────
     ollama_messages = [{"role": "system", "content": EXPLAIN_COMMAND_SYSTEM_PROMPT}] + ai_messages
     ollama_result = _try_ollama_chat(ollama_messages)
     if ollama_result:
         logger.info("[BinExplain] /explain-command: Ollama succeeded")
         return {"explanation": ollama_result}
 
-    # ── Provider 5: Claude (last resort) ──────────────────────────────
-    if ANTHROPIC_API_KEY:
-        try:
-            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-            response = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=1024,
-                system=EXPLAIN_COMMAND_SYSTEM_PROMPT,
-                messages=ai_messages,
-            )
-            logger.info("[BinExplain] /explain-command: Claude succeeded")
-            return {"explanation": response.content[0].text}
-        except Exception as exc:
-            logger.warning("Anthropic explain command call failed: %s", exc)
+    # ── Provider 6: Claude (last resort) ──────────────────────────────
+    claude_result = _try_claude(messages=ai_messages, system_prompt=EXPLAIN_COMMAND_SYSTEM_PROMPT)
+    if claude_result:
+        logger.info("[BinExplain] /explain-command: Claude succeeded")
+        return {"explanation": claude_result}
 
     raise HTTPException(
         status_code=503,
