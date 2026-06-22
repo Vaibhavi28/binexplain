@@ -12,6 +12,16 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    env:
+      ANTHROPIC_API_KEY: "test-key-not-real"
+      OPENAI_API_KEY: "test-key-not-real"
+      GROQ_API_KEY: "test-key-not-real"
+      GEMINI_API_KEY: "test-key-not-real"
+      OPENROUTER_API_KEY: "test-key-not-real"
+      VIRUSTOTAL_API_KEY: "test-key-not-real"
+      ALLOWED_ORIGINS: "http://localhost:5173"
+      SENTRY_DSN: ""
+      KB_PERSISTENT: "false"
     steps:
       - name: Checkout
         uses: actions/checkout@v4

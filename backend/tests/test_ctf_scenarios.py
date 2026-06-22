@@ -8,6 +8,17 @@ import tempfile
 import pytest
 from fastapi.testclient import TestClient
 
+# Set dummy values for all API keys so imports don't crash on CI
+os.environ.setdefault("ANTHROPIC_API_KEY", "test-key-not-real")
+os.environ.setdefault("OPENAI_API_KEY", "test-key-not-real")
+os.environ.setdefault("GROQ_API_KEY", "test-key-not-real")
+os.environ.setdefault("GEMINI_API_KEY", "test-key-not-real")
+os.environ.setdefault("OPENROUTER_API_KEY", "test-key-not-real")
+os.environ.setdefault("VIRUSTOTAL_API_KEY", "test-key-not-real")
+os.environ.setdefault("ALLOWED_ORIGINS", "http://localhost:5173")
+os.environ.setdefault("SENTRY_DSN", "")
+os.environ.setdefault("KB_PERSISTENT", "false")
+
 # ── Import the app and core functions ──────────────────────────────────
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 

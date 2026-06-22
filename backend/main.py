@@ -34,7 +34,9 @@ import anthropic
 import groq
 import openai
 import requests
-import google.generativeai as genai
+from google import genai
+from google.genai import types
+gemini_client = None
 from typing import Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -50,6 +52,7 @@ def _is_testing() -> bool:
     return "pytest" in sys.modules or os.environ.get("TESTING") == "true"
 
 _kb_scheduler = None
+ctf_knowledge = None
 try:
     if _is_testing():
         print("[BinExplain] Testing mode: Skipping CTF Knowledge Base startup")
@@ -234,7 +237,10 @@ else:
 
 if GEMINI_API_KEY:
     print(f"[BinExplain] GEMINI_API_KEY loaded (OK)  (length={len(GEMINI_API_KEY)})")
-    genai.configure(api_key=GEMINI_API_KEY)
+    try:
+        gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+    except Exception as exc:
+        print(f"[BinExplain] ERROR: Gemini client failed to initialize: {exc}")
 else:
     print("[BinExplain] WARNING: GEMINI_API_KEY is NOT set -- Gemini fallback will be disabled")
 
@@ -1216,29 +1222,43 @@ def _try_ollama_chat(messages: list[dict]) -> str | None:
 
 def _try_gemini(messages: list[dict], system_prompt: str) -> str | None:
     """
-    Try to generate a response using Google Gemini (gemini-1.5-flash).
+    Try to generate a response using Google Gemini.
     Returns the response text, or None if the call fails.
     Skips if provider is in cooldown. Records cooldown on 429.
     """
+    global gemini_client
     if not GEMINI_API_KEY:
         return None
+    if not gemini_client:
+        try:
+            gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+        except Exception as exc:
+            logger.warning("Gemini client initialization failed: %s", exc)
+            return None
     if not _is_provider_cooled_down("gemini"):
         logger.info("Gemini skipped (in cooldown)")
         return None
     try:
-        model = genai.GenerativeModel(
-            "gemini-1.5-flash",
-            system_instruction=system_prompt,
-        )
-        # Convert messages to Gemini format
+        # Convert messages to Gemini format using types.Content and types.Part
         gemini_contents = []
         for msg in messages:
             role = "user" if msg["role"] == "user" else "model"
-            gemini_contents.append({"role": role, "parts": [msg["content"]]})
-        response = model.generate_content(gemini_contents)
+            gemini_contents.append(
+                types.Content(
+                    role=role,
+                    parts=[types.Part.from_text(text=msg["content"])]
+                )
+            )
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=gemini_contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+            ),
+        )
         text = response.text
         if text and text.strip():
-            logger.info("[BinExplain] Gemini succeeded (gemini-1.5-flash)")
+            logger.info("[BinExplain] Gemini succeeded (gemini-2.5-flash)")
             return text.strip()
     except Exception as exc:
         exc_str = str(exc)
@@ -4873,8 +4893,13 @@ async def analyze_image(
             import PIL.Image as _PILImage
             import io as _io
             img = _PILImage.open(_io.BytesIO(base64.b64decode(image_b64)))
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            response = model.generate_content([prompt_text, img])
+            global gemini_client
+            if not gemini_client:
+                gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+            response = gemini_client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[prompt_text, img]
+            )
             val = response.text
             if val and val.strip():
                 logger.info("[BinExplain] /analyze-image: Gemini Vision succeeded")
