@@ -26,6 +26,8 @@ import subprocess
 import tempfile
 import time as _time_module
 import zipfile
+import asyncio
+import concurrent.futures
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent / ".env")
@@ -1087,6 +1089,180 @@ Reference specific function names and strings found in this binary.
         print(f"[CAG] Cached result for {cache_key}")
 
     return result_text
+
+
+# ---------------------------------------------------------------------------
+# Parallel AI inference — async wrappers and merge logic
+# ---------------------------------------------------------------------------
+def _build_hint_user_message(
+    strings: list[str],
+    patterns: dict[str, list[str]],
+    writeup_context: str = "",
+) -> str:
+    """Build the user-message prompt for AI hint generation."""
+    return f"""
+Binary analysis:
+Strings (first 100): {chr(10).join(strings[:100])}
+
+Detected patterns:
+{chr(10).join(f"- {k}: {', '.join(v[:5])}" for k, v in patterns.items())}
+
+{writeup_context}
+
+Give specific actionable CTF hints based on the analysis and any similar writeups above.
+Reference specific function names and strings found in this binary.
+"""
+
+
+async def _try_groq_async(messages: list[dict], system_prompt: str) -> str | None:
+    """Async wrapper around _try_groq using a thread pool."""
+    loop = asyncio.get_event_loop()
+    with concurrent.futures.ThreadPoolExecutor() as pool:
+        return await loop.run_in_executor(
+            pool, _try_groq, messages, system_prompt
+        )
+
+
+async def _try_nemotron_async(prompt: str | list[dict], system: str) -> str | None:
+    """Async wrapper around _try_nemotron using a thread pool."""
+    loop = asyncio.get_event_loop()
+    with concurrent.futures.ThreadPoolExecutor() as pool:
+        return await loop.run_in_executor(
+            pool, _try_nemotron, prompt, system
+        )
+
+
+def merge_ai_responses(groq_response: str, nemotron_response: str) -> str:
+    """
+    Merge two AI analyses into one coherent response.
+    Uses Groq for the merge call (fast). Falls back to simple concatenation.
+    """
+    if not nemotron_response:
+        return groq_response
+    if not groq_response:
+        return nemotron_response
+
+    merge_system = "You are merging two AI analyses of the same binary into ONE clear response."
+    merge_prompt = f"""
+Analysis A (fast model):
+{groq_response}
+
+Analysis B (deep reasoning model):
+{nemotron_response}
+
+Combine these into ONE response.
+Keep specific commands and technical details from both.
+Keep unique insights from both.
+Remove duplicate information.
+Format as bullet points, max 5 bullets.
+End with one specific actionable command.
+"""
+    merged = _try_groq(
+        messages=[{"role": "user", "content": merge_prompt}],
+        system_prompt=merge_system,
+    )
+    if merged:
+        return merged
+    return f"{groq_response}\n\n--- Deep analysis added ---\n{nemotron_response}"
+
+
+async def get_ai_hints_parallel(
+    strings: list[str],
+    patterns: dict[str, list[str]],
+    writeup_context: str = "",
+    ctf_category: dict | None = None,
+    checksec: dict | None = None,
+    _skip_cache: bool = False,
+) -> dict:
+    """
+    Run Groq and Nemotron in PARALLEL for AI hint generation.
+
+    Returns a dict with:
+      - quick:    Groq's fast response (or None)
+      - enhanced: Nemotron's deep response (or None)
+      - merged:   Best combined result
+    """
+    if _is_testing():
+        test_hint = (
+            "\u2022 Run `checksec ./binary` to see protections.\n"
+            "\u2022 Buffer overflow detected in gets.\n\n"
+            "\U0001f517 Kill Chain:\n"
+            "\u2022 Goal: redirect execution to win.\n"
+            "\u2022 Exploit path: overflow gets.\n\n"
+            "\U0001f525 Try this first: `checksec ./binary`"
+        )
+        return {"quick": test_hint, "enhanced": None, "merged": test_hint}
+
+    if not ANTHROPIC_API_KEY and not GROQ_API_KEY and not OPENAI_API_KEY and not GEMINI_API_KEY:
+        no_key_msg = (
+            "AI hints unavailable -- set GROQ_API_KEY, GEMINI_API_KEY, "
+            "OPENAI_API_KEY, or ANTHROPIC_API_KEY to enable AI-powered analysis hints."
+        )
+        return {"quick": None, "enhanced": None, "merged": no_key_msg}
+
+    # ── CAG: cache lookup ─────────────────────────────────────────────
+    cat = ""
+    if ctf_category and ctf_category.get("category"):
+        cat = ctf_category["category"]
+
+    cache_key = None
+    if not _skip_cache and checksec is not None:
+        dangerous_funcs = patterns.get("dangerous_functions", [])
+        cache_key = _hint_cache.generate_key(cat or "unknown", checksec, dangerous_funcs)
+        cached = _hint_cache.get(cache_key)
+        if cached:
+            print(f"[CAG] Cache HIT for {cache_key}")
+            return {"quick": cached["hints"], "enhanced": None, "merged": cached["hints"]}
+        print(f"[CAG] Cache MISS — calling LLMs in parallel for {cache_key}")
+
+    # Build category-aware system prompt
+    system_prompt = build_category_aware_prompt(AI_SYSTEM_PROMPT, cat)
+
+    # Build user message
+    user_message = _build_hint_user_message(strings, patterns, writeup_context)
+    ai_messages = [{"role": "user", "content": user_message}]
+
+    # ── Launch Groq and Nemotron in PARALLEL ──────────────────────────
+    print("[BinExplain] Launching parallel AI inference: Groq + Nemotron")
+    groq_task = asyncio.create_task(_try_groq_async(ai_messages, system_prompt))
+    nemotron_task = asyncio.create_task(_try_nemotron_async(ai_messages, system_prompt))
+
+    groq_result = await groq_task
+    if groq_result:
+        logger.info("[BinExplain] Parallel hints: Groq succeeded")
+
+    nemotron_result = await nemotron_task
+    if nemotron_result:
+        logger.info("[BinExplain] Parallel hints: Nemotron succeeded")
+
+    # ── Determine final result ────────────────────────────────────────
+    if groq_result and nemotron_result:
+        merged = merge_ai_responses(groq_result, nemotron_result)
+        result = {"quick": groq_result, "enhanced": nemotron_result, "merged": merged}
+    elif groq_result:
+        result = {"quick": groq_result, "enhanced": None, "merged": groq_result}
+    elif nemotron_result:
+        result = {"quick": None, "enhanced": nemotron_result, "merged": nemotron_result}
+    else:
+        # Both failed — fall back to sequential chain
+        logger.info("[BinExplain] Parallel hints: both failed, falling back to sequential")
+        fallback = get_ai_hints(
+            strings, patterns, writeup_context,
+            ctf_category=ctf_category, checksec=checksec,
+            _skip_cache=_skip_cache,
+        )
+        return {"quick": None, "enhanced": None, "merged": fallback}
+
+    # ── CAG: store merged result in cache ─────────────────────────────
+    merged_text = result["merged"]
+    if cache_key and not _skip_cache and merged_text:
+        kill_chain = ""
+        if "Kill Chain" in merged_text:
+            kill_chain = merged_text.split("Kill Chain", 1)[1].split("\n\n", 1)[0]
+        _hint_cache.set(cache_key, merged_text, kill_chain, cat or "unknown")
+        print(f"[CAG] Cached parallel result for {cache_key}")
+
+    return result
 
 
 def _try_groq(messages: list[dict], system_prompt: str) -> str | None:
@@ -4089,6 +4265,7 @@ def _analyze_single_file(
     ext: str,
     detected_type: str = "",
     skip_virustotal: bool = False,
+    hints_override: dict | None = None,
 ) -> dict:
     """
     Analyze a single binary file's content.  Writes to a temp file, extracts
@@ -4177,6 +4354,15 @@ def _analyze_single_file(
 
         hints = get_ai_hints(strings, patterns, writeup_context, ctf_category=ctf_category, checksec=checksec_result)
 
+        # If parallel hints were pre-computed, override
+        if hints_override is not None:
+            hints = hints_override["merged"]
+            hints_quick = hints_override.get("quick")
+            hints_enhanced = hints_override.get("enhanced")
+        else:
+            hints_quick = None
+            hints_enhanced = None
+
         # AI decompilation hints — explain disassembly using AI
         decompilation_hints = get_decompilation_hints(
             disassembly, strings, ctf_category=ctf_category,
@@ -4199,6 +4385,8 @@ def _analyze_single_file(
             "patterns": patterns,
             "flags_detected": flags,
             "hints": hints,
+            "ai_hints_quick": hints_quick,
+            "ai_hints_enhanced": hints_enhanced,
             "cvss_score": cvss["cvss_score"],
             "cvss_severity": cvss["cvss_severity"],
             "encodings": encodings,
@@ -4565,8 +4753,56 @@ async def analyze(
         _validate_mime(content, ext)
 
     # ── 6. Analyze the single binary ─────────────────────────────────
+    # Run parallel AI inference BEFORE calling _analyze_single_file
+    # so we can pass pre-computed hints into it.
+    # We need strings/patterns first — do a quick pre-extract.
+    import tempfile as _tmp_mod
+    _fd, _pre_tmp = _tmp_mod.mkstemp(
+        suffix=(ext if ext else ".bin"), dir=_tmp_mod.gettempdir()
+    )
+    os.write(_fd, content)
+    os.close(_fd)
+    try:
+        _pre_strings = _run_strings(_pre_tmp)
+        _pre_patterns = detect_patterns(_pre_strings)
+        _pre_checksec = run_checksec(_pre_tmp)
+
+        # CTF category for category-aware prompts
+        _pre_format_string = detect_format_string(_pre_strings, _pre_patterns)
+        _pre_rop_gadgets = find_rop_gadgets(content)
+        _pre_ctf_category = detect_ctf_category(
+            _pre_patterns, _pre_checksec, _pre_strings,
+            format_string_result=_pre_format_string,
+            rop_gadgets=_pre_rop_gadgets,
+        )
+
+        # Knowledge base writeup context
+        _pre_writeup_context = ""
+        if ctf_knowledge:
+            try:
+                _analysis_so_far = {
+                    "ctf_category": _pre_ctf_category,
+                    "patterns": _pre_patterns,
+                    "checksec": _pre_checksec,
+                    "filename": safe_filename,
+                }
+                _similar = ctf_knowledge.find_similar_writeups(_analysis_so_far)
+                _pre_writeup_context = ctf_knowledge.format_for_ai_context(_similar)
+            except Exception:
+                pass
+
+        # Launch parallel AI hints
+        hints_result = await get_ai_hints_parallel(
+            _pre_strings, _pre_patterns, _pre_writeup_context,
+            ctf_category=_pre_ctf_category, checksec=_pre_checksec,
+        )
+    finally:
+        if os.path.exists(_pre_tmp):
+            os.unlink(_pre_tmp)
+
     analysis_result = _analyze_single_file(
-        content, safe_filename, ext, detected_type, skip_virustotal=skip_vt
+        content, safe_filename, ext, detected_type,
+        skip_virustotal=skip_vt, hints_override=hints_result,
     )
 
     # ── 7. Kick off background writeup search (non-blocking) ──────────
