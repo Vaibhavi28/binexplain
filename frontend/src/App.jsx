@@ -328,7 +328,6 @@ export default function App() {
     /* -- VirusTotal polling state -- */
     const [submitToVt, setSubmitToVt] = useState(false);
     const [vtScanId, setVtScanId] = useState(null);
-    const [vtResult, setVtResult] = useState(null);
 
     /* -- Accordion section open/close state -- */
     const [openSections, setOpenSections] = useState({
@@ -433,7 +432,7 @@ export default function App() {
                 if (cancelled) return;
 
                 if (data.status !== 'scanning') {
-                    setVtResult(data);
+                    setResult(prev => prev ? { ...prev, virustotal: data } : null);
                     setVtScanId(null); // stop polling
                 }
             } catch {
@@ -571,6 +570,82 @@ export default function App() {
         setError('');
     };
 
+    const handleAnalysisResponse = (data) => {
+        setRateLimitSeconds(0);
+        setFeedbackGiven(null);
+        setExplainLog([]);
+        setZipSourceBanner(null);
+        
+        let resultData;
+        if (data.archive && data.results && Array.isArray(data.results)) {
+             resultData = data.results[0] || data;
+        } else {
+             resultData = data;
+        }
+        setResult(resultData);
+        
+        // Auto-populate source code results from ZIP
+        if (data.source_code_results && data.source_code_results.length > 0) {
+            setSourceResult(data.source_code_results[0]);
+            const srcNames = data.source_code_results.map(r => r.filename || 'unknown').join(', ');
+            setZipSourceBanner({
+                count: data.source_code_results.length,
+                filenames: srcNames,
+            });
+        }
+        
+        /* Start VT polling if scan was submitted */
+        if (data.virustotal?.status === 'scanning' && data.virustotal?.scan_id) {
+            setVtScanId(data.virustotal.scan_id);
+        } else if (data.virustotal?.status === 'disabled') {
+            setVtScanId(null);
+        } else {
+            setVtScanId(null);
+        }
+
+        /* Initialize chat with AI hints as first assistant message */
+        const hints = resultData.ai_hints || resultData.hints || (data.results && data.results[0]?.ai_hints) || (data.results && data.results[0]?.hints);
+        if (hints) {
+            setChatMessages([{ role: 'assistant', content: hints }]);
+        } else {
+            setChatMessages([]);
+        }
+
+        /* Build rich context for follow-up chat */
+        const rd = resultData;
+        const ctxParts = [];
+        ctxParts.push(`Binary: ${rd.filename || 'unknown'}`);
+        if (rd.ctf_category && rd.ctf_category.category !== 'unknown') {
+            ctxParts.push(`CTF Category: ${rd.ctf_category.category} (${rd.ctf_category.confidence})`);
+        }
+        if (rd.difficulty) {
+            ctxParts.push(`Difficulty: ${rd.difficulty.difficulty} - ${rd.difficulty.reason}`);
+        }
+        if (rd.patterns) {
+            const dangerFuncs = rd.patterns.dangerous_functions || [];
+            if (dangerFuncs.length > 0) ctxParts.push(`Dangerous functions: ${dangerFuncs.join(', ')}`);
+            const flagReads = rd.patterns.flag_reads || [];
+            if (flagReads.length > 0) ctxParts.push(`Flag references: ${flagReads.join(', ')}`);
+        }
+        if (rd.flags_detected && rd.flags_detected.length > 0) {
+            ctxParts.push(`Flags detected: ${rd.flags_detected.join(', ')}`);
+        }
+        if (rd.checksec && rd.checksec.nx !== null) {
+            ctxParts.push(`Checksec: NX=${rd.checksec.nx ? 'ON' : 'OFF'}, PIE=${rd.checksec.pie ? 'ON' : 'OFF'}, Canary=${rd.checksec.canary ? 'ON' : 'OFF'}, RELRO=${rd.checksec.relro ? 'ON' : 'OFF'}`);
+        }
+        if (rd.overflow_hint && rd.overflow_hint.likely_offset) {
+            ctxParts.push(`Overflow offset: ${rd.overflow_hint.likely_offset} bytes (${rd.overflow_hint.confidence})`);
+        }
+        if (rd.rop_gadgets && rd.rop_gadgets.length > 0) {
+            ctxParts.push(`ROP gadgets found: ${rd.rop_gadgets.length} gadgets available`);
+        }
+        if (rd.strings && rd.strings.length > 0) {
+            ctxParts.push(`Top strings: ${rd.strings.slice(0, 10).join(', ')}`);
+        }
+        if (hints) ctxParts.push(`AI Hints: ${hints}`);
+        analysisContextRef.current = ctxParts.join('\n');
+    };
+
     /* Upload & analyse */
     const upload = async () => {
         if (!file) return;
@@ -622,87 +697,8 @@ export default function App() {
                 return;
             }
 
-            setRateLimitSeconds(0);
-            setFeedbackGiven(null);
-            setExplainLog([]);
-            setZipSourceBanner(null);
-            
-            // Fix ZIP crash in UI
-            let resultData;
-            if (data.archive && data.results && Array.isArray(data.results)) {
-                 resultData = data.results[0] || data;
-            } else {
-                 resultData = data;
-            }
-            setResult(resultData);
-            
-            // Auto-populate source code results from ZIP
-            if (data.source_code_results && data.source_code_results.length > 0) {
-                setSourceResult(data.source_code_results[0]);
-                const srcNames = data.source_code_results.map(r => r.filename || 'unknown').join(', ');
-                setZipSourceBanner({
-                    count: data.source_code_results.length,
-                    filenames: srcNames,
-                });
-            }
-            
+            handleAnalysisResponse(data);
             setFile(null);
-
-            /* Start VT polling if scan was submitted */
-            if (data.virustotal?.status === 'scanning' && data.virustotal?.scan_id) {
-                setVtScanId(data.virustotal.scan_id);
-                setVtResult(null);
-            } else if (data.virustotal?.status === 'disabled') {
-                setVtScanId(null);
-                setVtResult(null);
-            } else {
-                // error or other immediate result
-                setVtScanId(null);
-                // For zip array we still pass the top-level data virustotal if it exists, else result
-                setVtResult(data.virustotal || (data.results && data.results[0]?.virustotal) || null);
-            }
-
-            /* Initialize chat with AI hints as first assistant message */
-            const hints = resultData.hints || (data.results && data.results[0]?.hints);
-            if (hints) {
-                setChatMessages([{ role: 'assistant', content: hints }]);
-            } else {
-                setChatMessages([]);
-            }
-
-            /* Build rich context for follow-up chat */
-            const rd = resultData;
-            const ctxParts = [];
-            ctxParts.push(`Binary: ${rd.filename || 'unknown'}`);
-            if (rd.ctf_category && rd.ctf_category.category !== 'unknown') {
-                ctxParts.push(`CTF Category: ${rd.ctf_category.category} (${rd.ctf_category.confidence})`);
-            }
-            if (rd.difficulty) {
-                ctxParts.push(`Difficulty: ${rd.difficulty.difficulty} - ${rd.difficulty.reason}`);
-            }
-            if (rd.patterns) {
-                const dangerFuncs = rd.patterns.dangerous_functions || [];
-                if (dangerFuncs.length > 0) ctxParts.push(`Dangerous functions: ${dangerFuncs.join(', ')}`);
-                const flagReads = rd.patterns.flag_reads || [];
-                if (flagReads.length > 0) ctxParts.push(`Flag references: ${flagReads.join(', ')}`);
-            }
-            if (rd.flags_detected && rd.flags_detected.length > 0) {
-                ctxParts.push(`Flags detected: ${rd.flags_detected.join(', ')}`);
-            }
-            if (rd.checksec && rd.checksec.nx !== null) {
-                ctxParts.push(`Checksec: NX=${rd.checksec.nx ? 'ON' : 'OFF'}, PIE=${rd.checksec.pie ? 'ON' : 'OFF'}, Canary=${rd.checksec.canary ? 'ON' : 'OFF'}, RELRO=${rd.checksec.relro ? 'ON' : 'OFF'}`);
-            }
-            if (rd.overflow_hint && rd.overflow_hint.likely_offset) {
-                ctxParts.push(`Overflow offset: ${rd.overflow_hint.likely_offset} bytes (${rd.overflow_hint.confidence})`);
-            }
-            if (rd.rop_gadgets && rd.rop_gadgets.length > 0) {
-                ctxParts.push(`ROP gadgets found: ${rd.rop_gadgets.length} gadgets available`);
-            }
-            if (rd.strings && rd.strings.length > 0) {
-                ctxParts.push(`Top strings: ${rd.strings.slice(0, 10).join(', ')}`);
-            }
-            if (hints) ctxParts.push(`AI Hints: ${hints}`);
-            analysisContextRef.current = ctxParts.join('\n');
         } catch (err) {
             setError(
                 err.message === 'Failed to fetch'
@@ -762,79 +758,7 @@ export default function App() {
             setPasswordError('');
             passwordFileRef.current = null;
 
-            setRateLimitSeconds(0);
-            setFeedbackGiven(null);
-            setExplainLog([]);
-            setZipSourceBanner(null);
-            
-            let resultData;
-            if (data.archive && data.results && Array.isArray(data.results)) {
-                 resultData = data.results[0] || data;
-            } else {
-                 resultData = data;
-            }
-            setResult(resultData);
-
-            // Auto-populate source code results from ZIP
-            if (data.source_code_results && data.source_code_results.length > 0) {
-                setSourceResult(data.source_code_results[0]);
-                const srcNames = data.source_code_results.map(r => r.filename || 'unknown').join(', ');
-                setZipSourceBanner({
-                    count: data.source_code_results.length,
-                    filenames: srcNames,
-                });
-            }
-
-            /* Start VT polling if scan was submitted */
-            if (data.virustotal?.status === 'scanning' && data.virustotal?.scan_id) {
-                setVtScanId(data.virustotal.scan_id);
-                setVtResult(null);
-            } else if (data.virustotal?.status === 'disabled') {
-                setVtScanId(null);
-                setVtResult(null);
-            } else {
-                setVtScanId(null);
-                setVtResult(data.virustotal || (data.results && data.results[0]?.virustotal) || null);
-            }
-
-            /* Initialize chat with AI hints */
-            const hints = resultData.hints || (data.results && data.results[0]?.hints);
-            if (hints) {
-                setChatMessages([{ role: 'assistant', content: hints }]);
-            } else {
-                setChatMessages([]);
-            }
-
-            /* Build rich context for follow-up chat */
-            const rd = resultData;
-            const ctxParts = [];
-            ctxParts.push(`Binary: ${rd.filename || 'unknown'}`);
-            if (rd.ctf_category && rd.ctf_category.category !== 'unknown') {
-                ctxParts.push(`CTF Category: ${rd.ctf_category.category} (${rd.ctf_category.confidence})`);
-            }
-            if (rd.difficulty) {
-                ctxParts.push(`Difficulty: ${rd.difficulty.difficulty} - ${rd.difficulty.reason}`);
-            }
-            if (rd.patterns) {
-                const dangerFuncs = rd.patterns.dangerous_functions || [];
-                if (dangerFuncs.length > 0) ctxParts.push(`Dangerous functions: ${dangerFuncs.join(', ')}`);
-                const flagReads = rd.patterns.flag_reads || [];
-                if (flagReads.length > 0) ctxParts.push(`Flag references: ${flagReads.join(', ')}`);
-            }
-            if (rd.flags_detected && rd.flags_detected.length > 0) {
-                ctxParts.push(`Flags detected: ${rd.flags_detected.join(', ')}`);
-            }
-            if (rd.checksec && rd.checksec.nx !== null) {
-                ctxParts.push(`Checksec: NX=${rd.checksec.nx ? 'ON' : 'OFF'}, PIE=${rd.checksec.pie ? 'ON' : 'OFF'}, Canary=${rd.checksec.canary ? 'ON' : 'OFF'}, RELRO=${rd.checksec.relro ? 'ON' : 'OFF'}`);
-            }
-            if (rd.overflow_hint && rd.overflow_hint.likely_offset) {
-                ctxParts.push(`Overflow offset: ${rd.overflow_hint.likely_offset} bytes (${rd.overflow_hint.confidence})`);
-            }
-            if (rd.rop_gadgets && rd.rop_gadgets.length > 0) {
-                ctxParts.push(`ROP gadgets found: ${rd.rop_gadgets.length} gadgets available`);
-            }
-            if (hints) ctxParts.push(`AI Hints: ${hints}`);
-            analysisContextRef.current = ctxParts.join('\n');
+            handleAnalysisResponse(data);
         } catch (err) {
             setPasswordError(
                 err.message === 'Failed to fetch'
@@ -1500,9 +1424,91 @@ export default function App() {
 
                         {/* -- Section 3: AI Analysis -- */}
                         <Carousel title="AI Analysis" icon="">
-                            <CCard icon="" title="AI Hints + Kill Chain" stat={result.hints?'Analysis available':'Unavailable'} statColor="var(--secondary)" accent="var(--secondary-dim)" onClick={() => om('AI Hints + Kill Chain','','var(--secondary-dim)',
-                                <div className="result-card-body">{result.hints?result.hints.split(/\n/).filter(l=>l.trim()).map((line,i)=><div className="section-item section-item--hint" key={i}>{line}</div>):<div className="section-empty">AI hints unavailable</div>}{result.hints&&<div className="hints-feedback">{feedbackGiven?<div className="hints-feedback-thanks"> Thanks for your feedback!</div>:<><span className="hints-feedback-label">Were these hints helpful?</span><button className="hints-feedback-btn hints-feedback-btn--up" onClick={async()=>{setFeedbackGiven('up');try{await fetch(`${BACKEND_URL}/feedback`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vote:'up',filename:result.filename})})}catch{}}} type="button"> Helpful</button><button className="hints-feedback-btn hints-feedback-btn--down" onClick={async()=>{setFeedbackGiven('down');try{await fetch(`${BACKEND_URL}/feedback`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vote:'down',filename:result.filename})})}catch{}}} type="button"> Not helpful</button></>}</div>}</div>
-                            )} />
+                            <CCard
+                                icon=""
+                                title="AI Hints + Kill Chain"
+                                stat={
+                                    result.ai_hints_enhanced ? "✅ Enhanced with deep reasoning" :
+                                    result.ai_hints_quick ? "⚡ Quick analysis" :
+                                    (result.ai_hints || result.hints) ? "Analysis available" : "Unavailable"
+                                }
+                                statColor={
+                                    result.ai_hints_enhanced ? "#4ade80" :
+                                    result.ai_hints_quick ? "#fbbf24" :
+                                    "var(--secondary)"
+                                }
+                                accent="var(--secondary-dim)"
+                                onClick={() => {
+                                    const mainHints = result.ai_hints || result.hints;
+                                    om(
+                                        'AI Hints + Kill Chain',
+                                        '',
+                                        'var(--secondary-dim)',
+                                        <div className="result-card-body">
+                                            {result.ai_hints_enhanced && (
+                                                <div className="ai-system-badge ai-system-badge--enhanced">
+                                                    ✅ Enhanced with deep reasoning
+                                                </div>
+                                            )}
+                                            {!result.ai_hints_enhanced && result.ai_hints_quick && (
+                                                <div className="ai-system-badge ai-system-badge--quick">
+                                                    ⚡ Quick analysis
+                                                </div>
+                                            )}
+                                            {mainHints ? (
+                                                mainHints.split(/\n/).filter(l => l.trim()).map((line, i) => (
+                                                    <div className="section-item section-item--hint" key={i}>{line}</div>
+                                                ))
+                                            ) : (
+                                                <div className="section-empty">AI hints unavailable</div>
+                                            )}
+                                            {mainHints && (
+                                                <div className="hints-feedback">
+                                                    {feedbackGiven ? (
+                                                        <div className="hints-feedback-thanks"> Thanks for your feedback!</div>
+                                                    ) : (
+                                                        <>
+                                                            <span className="hints-feedback-label">Were these hints helpful?</span>
+                                                            <button
+                                                                className="hints-feedback-btn hints-feedback-btn--up"
+                                                                onClick={async () => {
+                                                                    setFeedbackGiven('up');
+                                                                    try {
+                                                                        await fetch(`${BACKEND_URL}/feedback`, {
+                                                                            method: 'POST',
+                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify({ vote: 'up', filename: result.filename }),
+                                                                        });
+                                                                    } catch {}
+                                                                }}
+                                                                type="button"
+                                                            >
+                                                                Helpful
+                                                            </button>
+                                                            <button
+                                                                className="hints-feedback-btn hints-feedback-btn--down"
+                                                                onClick={async () => {
+                                                                    setFeedbackGiven('down');
+                                                                    try {
+                                                                        await fetch(`${BACKEND_URL}/feedback`, {
+                                                                            method: 'POST',
+                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify({ vote: 'down', filename: result.filename }),
+                                                                        });
+                                                                    } catch {}
+                                                                }}
+                                                                type="button"
+                                                            >
+                                                                Not helpful
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }}
+                            />
                             {result.similar_writeups && result.similar_writeups.length > 0 && (
                                 <CCard
                                     icon="🌐"

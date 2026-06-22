@@ -4386,3 +4386,32 @@ body {
   }
 }
 
+/* -- Parallel AI Inference Badges -- */
+.ai-system-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 11px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ai-system-badge--enhanced {
+  background: rgba(74, 222, 128, 0.08);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.1);
+}
+
+.ai-system-badge--quick {
+  background: rgba(251, 191, 36, 0.08);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.1);
+}
+
+

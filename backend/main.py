@@ -4385,6 +4385,7 @@ def _analyze_single_file(
             "patterns": patterns,
             "flags_detected": flags,
             "hints": hints,
+            "ai_hints": hints,
             "ai_hints_quick": hints_quick,
             "ai_hints_enhanced": hints_enhanced,
             "cvss_score": cvss["cvss_score"],
