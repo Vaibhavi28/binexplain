@@ -1,44 +1,24 @@
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-import chromadb
-from chromadb import EmbeddingFunction
-from sentence_transformers import SentenceTransformer
-
-class SentenceTransformersEmbeddingFunction(EmbeddingFunction):
-    def __init__(self, model):
-        self.model = model
-
-    def __call__(self, input: list) -> list:
-        # ChromaDB expects a list of list of floats
-        embeddings = self.model.encode(input, convert_to_numpy=True)
-        return embeddings.tolist()
-
-    @staticmethod
-    def name() -> str:
-        return "SentenceTransformersEmbeddingFunction"
 
 class CTFKnowledgeBase:
 
     def __init__(self):
-        # 1. Create ChromaDB persistent client
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        chroma_db_dir = os.path.join(base_dir, "chroma_db")
-        self.client = chromadb.PersistentClient(path=chroma_db_dir)
+        import chromadb
+        use_persistent = os.getenv("KB_PERSISTENT", "true").lower() == "true"
         
-        # 3. Load sentence-transformers model "all-MiniLM-L6-v2"
-        self.model = SentenceTransformer("all-MiniLM-L6-v2")
-        
-        # 2. Create or get collection named "ctf_writeups"
-        self.emb_fn = SentenceTransformersEmbeddingFunction(self.model)
-        self.collection = self.client.get_or_create_collection(
-            name="ctf_writeups",
-            embedding_function=self.emb_fn,
-            metadata={"hnsw:space": "cosine"}
-        )
-        
-        # 4. Print: "[BinExplain KB] Loaded. Collection has X documents."
-        doc_count = self.collection.count()
-        print(f"[BinExplain KB] Loaded. Collection has {doc_count} documents.")
+        if use_persistent:
+            self.client = chromadb.PersistentClient(path="backend/knowledge_base/chroma_db")
+            print("[BinExplain KB] Using persistent ChromaDB")
+        else:
+            self.client = chromadb.Client()
+            print("[BinExplain KB] Using in-memory ChromaDB")
+            
+        self.collection = self.client.get_or_create_collection("ctf_writeups")
+        self.model = None
+        self.load_all_walkthroughs()
+        count = self.collection.count()
+        print(f"[BinExplain KB] Ready with {count} documents")
         
     def load_all_walkthroughs(self):
         # 1. Scan every .txt file in backend/knowledge_base/walkthroughs/
@@ -142,6 +122,9 @@ class CTFKnowledgeBase:
             query_str = f"{ctf_category} {' '.join(dangerous_functions[:5])} NX={nx} PIE={pie} canary={canary}"
             
             # 2. Use sentence-transformers to encode the query
+            if self.model is None:
+                from sentence_transformers import SentenceTransformer
+                self.model = SentenceTransformer("all-MiniLM-L6-v2")
             query_vector = self.model.encode(query_str).tolist()
             
             # 3. Query ChromaDB for n_results most similar documents

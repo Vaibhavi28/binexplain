@@ -46,6 +46,7 @@ coverage.xml
 # ChromaDB databases
 **/chroma_db/
 chroma_db/
+knowledge_base/chroma_db/
 
 # Live search results
 backend/knowledge_base/walkthroughs/live_*
