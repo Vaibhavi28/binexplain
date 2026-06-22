@@ -1270,6 +1270,33 @@ def _try_gemini(messages: list[dict], system_prompt: str) -> str | None:
     return None
 
 
+def _try_nemotron(prompt: str, system: str) -> str | None:
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        return None
+    try:
+        from openai import OpenAI
+        client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key
+        )
+        response = client.chat.completions.create(
+            model="nvidia/nemotron-3-ultra-550b-a55b:free",
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1000,
+            timeout=20
+        )
+        result = response.choices[0].message.content
+        print("[BinExplain AI] Nemotron 3 Ultra succeeded")
+        return result
+    except Exception as e:
+        print(f"[BinExplain AI] Nemotron failed: {e}")
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Decompilation hints — AI-powered disassembly explanation
 # ---------------------------------------------------------------------------
@@ -2330,7 +2357,6 @@ def run_checksec(filepath: str) -> dict:
     # ── 2. Fall back to pyelftools ────────────────────────────────────
     try:
         from elftools.elf.elffile import ELFFile
-        from elftools.elf.segments import Segment
         from elftools.elf.dynamic import DynamicSection
 
         with open(filepath, "rb") as f:
