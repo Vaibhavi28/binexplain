@@ -2243,6 +2243,8 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
             risk_score = "High"
 
     ctf_category = detect_ctf_category_from_source(code, lang, vulnerabilities)
+    difficulty = predict_difficulty_from_source(vulnerabilities, ctf_category, code)
+    cvss = calculate_cvss_score_from_source(vulnerabilities, ctf_category, code)
 
     return {
         "language": sections["language"],
@@ -2259,6 +2261,9 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         "raw_ai_response": ai_response,
         "risk_score": risk_score,
         "ctf_category": ctf_category,
+        "difficulty": difficulty,
+        "cvss_score": cvss["cvss_score"],
+        "cvss_severity": cvss["cvss_severity"],
     }
 
 
@@ -4155,6 +4160,82 @@ def detect_ctf_category_from_source(code: str, language: str, vulnerabilities: l
         "confidence": "Low",
         "explanation": "Could not determine a specific CTF category from the source code alone."
     }
+
+
+def predict_difficulty_from_source(vulnerabilities: list, ctf_category: dict, code: str) -> dict:
+    severity_count = sum(1 for v in vulnerabilities if v.get("severity") == "Critical")
+    has_win_function = ctf_category.get("category") == "ret2win"
+    has_input_validation = "if (" in code.lower() and ("len(" in code.lower() or "strlen(" in code.lower() or "sizeof(" in code.lower())
+    
+    if has_win_function and not has_input_validation:
+        difficulty = "Easy"
+        reason = "Win function present, no input validation detected"
+    elif severity_count >= 2:
+        difficulty = "Hard"
+        reason = f"{severity_count} critical vulnerabilities require chaining multiple techniques"
+    elif severity_count == 1:
+        difficulty = "Medium"
+        reason = "Single critical vulnerability identified, exploit path moderately complex"
+    else:
+        difficulty = "Medium"
+        reason = "Vulnerabilities present but exploitation path unclear from source alone"
+    
+    return {"difficulty": difficulty, "reason": reason}
+
+
+def calculate_cvss_score_from_source(vulnerabilities: list, ctf_category: dict, code: str) -> dict:
+    vuln_score = 0.0
+    
+    # 1. Number and severity of vulnerabilities
+    for v in vulnerabilities:
+        sev = v.get("severity", "Low")
+        if sev == "Critical":
+            vuln_score += 4.0
+        elif sev == "High":
+            vuln_score += 3.0
+        elif sev == "Medium":
+            vuln_score += 2.0
+        else:
+            vuln_score += 1.0
+            
+    # If no vulnerabilities found but category identified, set default base score
+    if not vulnerabilities:
+        cat = ctf_category.get("category", "unknown")
+        if cat != "unknown":
+            vuln_score += 3.0
+            
+    # 2. Adjustments based on authentication and user interaction patterns in code
+    code_lower = code.lower()
+    
+    requires_auth = any(p in code_lower for p in ("login", "auth", "password", "admin", "token", "credentials"))
+    if requires_auth:
+        vuln_score -= 1.0
+        
+    has_user_interaction = any(p in code_lower for p in ("input(", "scanf(", "cin >>", "gets(", "fgets(", "read("))
+    if has_user_interaction:
+        vuln_score -= 0.5
+        
+    # Category adjustments
+    cat = ctf_category.get("category", "unknown")
+    if cat in ("ret2win", "format_string", "ret2libc"):
+        vuln_score += 1.5
+    elif cat in ("heap_exploitation", "rop_chain", "shellcode"):
+        vuln_score += 1.0
+        
+    score = max(0.0, min(vuln_score, 10.0))
+    
+    if score >= 9.0:
+        severity = "Critical"
+    elif score >= 7.0:
+        severity = "High"
+    elif score >= 4.0:
+        severity = "Medium"
+    elif score > 0.0:
+        severity = "Low"
+    else:
+        severity = "None"
+        
+    return {"cvss_score": round(score, 1), "cvss_severity": severity}
 
 
 # ---------------------------------------------------------------------------

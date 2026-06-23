@@ -393,3 +393,47 @@ def test_source_result_has_ctf_category():
     assert src["ctf_category"]["category"] == "ret2win"
     assert src["ctf_category"]["confidence"] == "High"
 
+
+def test_predict_difficulty_from_source_logic():
+    from main import predict_difficulty_from_source
+    
+    # Easy
+    res = predict_difficulty_from_source([], {"category": "ret2win"}, "void win() {}")
+    assert res["difficulty"] == "Easy"
+    
+    # Hard
+    res = predict_difficulty_from_source([{"severity": "Critical"}, {"severity": "Critical"}], {"category": "rop_chain"}, "void vuln() {}")
+    assert res["difficulty"] == "Hard"
+    
+    # Medium
+    res = predict_difficulty_from_source([{"severity": "Critical"}], {"category": "rop_chain"}, "void vuln() {}")
+    assert res["difficulty"] == "Medium"
+
+
+def test_calculate_cvss_score_from_source_logic():
+    from main import calculate_cvss_score_from_source
+    
+    res = calculate_cvss_score_from_source(
+        [{"severity": "Critical"}],
+        {"category": "ret2win"},
+        "void win() { login(); input(); }"
+    )
+    assert res["cvss_score"] == 4.0
+    assert res["cvss_severity"] == "Medium"
+
+
+def test_source_result_has_difficulty_and_cvss():
+    """Source code analysis should include difficulty and cvss score in response."""
+    zip_data = _make_zip({"win.c": VULN_C_CODE})
+    response = client.post("/analyze", files={"file": ("src.zip", zip_data)})
+    assert response.status_code == 200
+    data = response.json()
+
+    assert len(data["source_code_results"]) == 1
+    src = data["source_code_results"][0]
+    assert "difficulty" in src
+    assert "cvss_score" in src
+    assert "cvss_severity" in src
+    assert src["difficulty"]["difficulty"] == "Easy"
+
+

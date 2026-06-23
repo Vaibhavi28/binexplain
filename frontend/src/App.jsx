@@ -1674,17 +1674,57 @@ export default function App() {
                             </div>
                         </div>
 
-                        {sourceResult.ctf_category && sourceResult.ctf_category.category !== 'unknown' && (
+                        {(sourceResult.ctf_category && sourceResult.ctf_category.category !== 'unknown') || sourceResult.difficulty ? (
                             <div className="hero-row">
-                                <div className={`hero-card hero-card--${sourceResult.ctf_category.confidence.toLowerCase()}`}>
-                                    <div className="hero-card-label"> CTF Category</div>
-                                    <div className="hero-card-main">
-                                        <span className={`ctf-category-badge ctf-category-badge--${sourceResult.ctf_category.confidence.toLowerCase()}`}>{sourceResult.ctf_category.category.replace(/_/g, ' ').toUpperCase()}</span>
-                                        <span className={`ctf-confidence-badge ctf-confidence-badge--${sourceResult.ctf_category.confidence.toLowerCase()}`}>{sourceResult.ctf_category.confidence}</span>
+                                {sourceResult.ctf_category && sourceResult.ctf_category.category !== 'unknown' && (
+                                    <div className={`hero-card hero-card--${sourceResult.ctf_category.confidence.toLowerCase()}`}>
+                                        <div className="hero-card-label"> CTF Category</div>
+                                        <div className="hero-card-main">
+                                            <span className={`ctf-category-badge ctf-category-badge--${sourceResult.ctf_category.confidence.toLowerCase()}`}>{sourceResult.ctf_category.category.replace(/_/g, ' ').toUpperCase()}</span>
+                                            <span className={`ctf-confidence-badge ctf-confidence-badge--${sourceResult.ctf_category.confidence.toLowerCase()}`}>{sourceResult.ctf_category.confidence}</span>
+                                        </div>
+                                        <p className="hero-card-desc">{sourceResult.ctf_category.explanation}</p>
                                     </div>
-                                    <p className="hero-card-desc">{sourceResult.ctf_category.explanation}</p>
-                                </div>
+                                )}
+                                {sourceResult.difficulty && (
+                                    <div className={`hero-card hero-card--diff-${sourceResult.difficulty.difficulty.toLowerCase()}`}>
+                                        <div className="hero-card-label"> Difficulty</div>
+                                        <div className="hero-card-main">
+                                            <span className={`difficulty-badge difficulty-badge--${sourceResult.difficulty.difficulty.toLowerCase()}`}>{sourceResult.difficulty.difficulty}</span>
+                                        </div>
+                                        <p className="hero-card-desc">{sourceResult.difficulty.reason}</p>
+                                    </div>
+                                )}
                             </div>
+                        ) : null}
+
+                        {sourceResult.cvss_score !== undefined && (
+                            <Carousel title="Vulnerability Analysis" icon="">
+                                <CCard
+                                    icon=""
+                                    title="CVSS Score"
+                                    stat={`${sourceResult.cvss_score}/10.0 ${sourceResult.cvss_severity}`}
+                                    statColor={cvssC(sourceResult.cvss_severity)}
+                                    accent={cvssC(sourceResult.cvss_severity)}
+                                    onClick={() => om('CVSS 3.1 Scoring', '', cvssC(sourceResult.cvss_severity),
+                                        <div className={`risk-card risk-card--${sourceResult.cvss_severity.toLowerCase()}`}>
+                                            <div className="risk-header">
+                                                <div className="risk-score-circle">
+                                                    <span className="risk-score-number">{sourceResult.cvss_score}</span>
+                                                    <span className="risk-score-max">/10.0</span>
+                                                </div>
+                                                <div className="risk-info">
+                                                    <span className={`risk-badge risk-badge--${sourceResult.cvss_severity.toLowerCase()}`}>{sourceResult.cvss_severity}</span>
+                                                    <span className="risk-label">Base Score Equivalent</span>
+                                                </div>
+                                            </div>
+                                            <div className="risk-bar-track">
+                                                <div className={`risk-bar-fill risk-bar-fill--${sourceResult.cvss_severity.toLowerCase()}`} style={{width: `${(sourceResult.cvss_score/10)*100}%`}}/>
+                                            </div>
+                                        </div>
+                                    )}
+                                />
+                            </Carousel>
                         )}
 
                         <div className="accordion-stack">
