@@ -2245,6 +2245,8 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
     ctf_category = detect_ctf_category_from_source(code, lang, vulnerabilities)
     difficulty = predict_difficulty_from_source(vulnerabilities, ctf_category, code)
     cvss = calculate_cvss_score_from_source(vulnerabilities, ctf_category, code)
+    data_flows = analyze_data_flow_from_source(code, lang)
+    overflow_hint = predict_overflow_offset_from_source(code, lang)
 
     return {
         "language": sections["language"],
@@ -2264,6 +2266,8 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         "difficulty": difficulty,
         "cvss_score": cvss["cvss_score"],
         "cvss_severity": cvss["cvss_severity"],
+        "data_flows": data_flows,
+        "overflow_hint": overflow_hint,
     }
 
 
@@ -4235,7 +4239,83 @@ def calculate_cvss_score_from_source(vulnerabilities: list, ctf_category: dict, 
     else:
         severity = "None"
         
-    return {"cvss_score": round(score, 1), "cvss_severity": severity}
+    return {
+        "cvss_score": round(score, 1),
+        "cvss_severity": severity,
+    }
+
+
+def analyze_data_flow_from_source(code: str, language: str) -> list:
+    import re
+    flows = []
+    lines = code.split("\n")
+    
+    input_functions = {
+        "c": ["gets(", "scanf(", "fgets(", "read("],
+        "cpp": ["cin >>", "gets(", "scanf("],
+        "python": ["input(", "sys.argv"],
+    }
+    
+    sink_functions = {
+        "c": ["strcpy(", "system(", "exec(", "printf("],
+        "cpp": ["system(", "exec("],
+        "python": ["eval(", "exec(", "os.system(", "subprocess"],
+    }
+    
+    lang_inputs = input_functions.get(language, [])
+    lang_sinks = sink_functions.get(language, [])
+    
+    for i, line in enumerate(lines):
+        for input_fn in lang_inputs:
+            if input_fn in line:
+                # find variable being assigned
+                var_match = re.search(r'(\w+)\s*[,)]', line)
+                var_name = var_match.group(1) if var_match else "input"
+                
+                # search forward for that variable reaching a sink
+                for j in range(i, min(i + 15, len(lines))):
+                    for sink_fn in lang_sinks:
+                        if sink_fn in lines[j] and var_name in lines[j]:
+                            flows.append(
+                                f"Line {i+1}: Input read via {input_fn.strip('(')} into '{var_name}' → "
+                                f"Line {j+1}: reaches {sink_fn.strip('(')} with no visible bounds check → "
+                                f"potential vulnerability"
+                            )
+                            break
+    
+    return flows if flows else ["No clear input-to-sink data flow detected in static analysis of source"]
+
+
+def predict_overflow_offset_from_source(code: str, language: str) -> dict:
+    import re
+    
+    if language not in ("c", "cpp"):
+        return {"likely_offset": None, "confidence": "N/A", "evidence": "Offset prediction only applies to C/C++"}
+    
+    # Find buffer declarations like: char buf[64]; or char name[32];
+    buffer_pattern = re.findall(r'char\s+(\w+)\s*\[\s*(\d+)\s*\]', code)
+    
+    if not buffer_pattern:
+        return {"likely_offset": None, "confidence": "Low", "evidence": "No fixed-size char buffer declarations found"}
+    
+    # Take the largest buffer as the most likely overflow target
+    largest = max(buffer_pattern, key=lambda x: int(x[1]))
+    var_name, size = largest
+    
+    # Check if this buffer is used with a known dangerous function
+    if f"gets({var_name})" in code or f"gets( {var_name} )" in code:
+        confidence = "High"
+        evidence = f"Buffer '{var_name}' declared as {size} bytes, used directly with gets() — no bounds checking"
+    else:
+        confidence = "Medium"
+        evidence = f"Buffer '{var_name}' declared as {size} bytes — exact offset depends on stack layout and padding"
+    
+    return {
+        "likely_offset": int(size),
+        "confidence": confidence,
+        "evidence": evidence,
+        "buffer_name": var_name
+    }
 
 
 # ---------------------------------------------------------------------------

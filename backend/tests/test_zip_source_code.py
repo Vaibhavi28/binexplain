@@ -437,3 +437,50 @@ def test_source_result_has_difficulty_and_cvss():
     assert src["difficulty"]["difficulty"] == "Easy"
 
 
+def test_analyze_data_flow_from_source_logic():
+    from main import analyze_data_flow_from_source
+    
+    code = (
+        "void vuln() {\n"
+        "    char your_name[64];\n"
+        "    gets(your_name);\n"
+        "    strcpy(dest, your_name);\n"
+        "}"
+    )
+    flows = analyze_data_flow_from_source(code, "c")
+    assert len(flows) >= 1
+    assert "Input read via gets into 'your_name'" in flows[0]
+    assert "reaches strcpy" in flows[0]
+
+
+def test_predict_overflow_offset_from_source_logic():
+    from main import predict_overflow_offset_from_source
+    
+    code = (
+        "void vuln() {\n"
+        "    char your_name[64];\n"
+        "    gets(your_name);\n"
+        "}"
+    )
+    res = predict_overflow_offset_from_source(code, "c")
+    assert res["likely_offset"] == 64
+    assert res["confidence"] == "High"
+    assert res["buffer_name"] == "your_name"
+
+
+def test_source_result_has_data_flows_and_overflow_hint():
+    """Source code analysis should include data_flows and overflow_hint in response."""
+    zip_data = _make_zip({"win.c": VULN_C_CODE})
+    response = client.post("/analyze", files={"file": ("src.zip", zip_data)})
+    assert response.status_code == 200
+    data = response.json()
+
+    assert len(data["source_code_results"]) == 1
+    src = data["source_code_results"][0]
+    assert "data_flows" in src
+    assert "overflow_hint" in src
+    assert src["overflow_hint"]["likely_offset"] == 64
+    assert src["overflow_hint"]["confidence"] == "High"
+
+
+

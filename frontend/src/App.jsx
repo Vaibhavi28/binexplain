@@ -1698,32 +1698,69 @@ export default function App() {
                             </div>
                         ) : null}
 
-                        {sourceResult.cvss_score !== undefined && (
+                        {((sourceResult.cvss_score !== undefined) ||
+                          (sourceResult.overflow_hint && sourceResult.overflow_hint.likely_offset) ||
+                          (sourceResult.data_flows && sourceResult.data_flows.length > 0)) && (
                             <Carousel title="Vulnerability Analysis" icon="">
-                                <CCard
-                                    icon=""
-                                    title="CVSS Score"
-                                    stat={`${sourceResult.cvss_score}/10.0 ${sourceResult.cvss_severity}`}
-                                    statColor={cvssC(sourceResult.cvss_severity)}
-                                    accent={cvssC(sourceResult.cvss_severity)}
-                                    onClick={() => om('CVSS 3.1 Scoring', '', cvssC(sourceResult.cvss_severity),
-                                        <div className={`risk-card risk-card--${sourceResult.cvss_severity.toLowerCase()}`}>
-                                            <div className="risk-header">
-                                                <div className="risk-score-circle">
-                                                    <span className="risk-score-number">{sourceResult.cvss_score}</span>
-                                                    <span className="risk-score-max">/10.0</span>
+                                {sourceResult.cvss_score !== undefined && (
+                                    <CCard
+                                        icon=""
+                                        title="CVSS Score"
+                                        stat={`${sourceResult.cvss_score}/10.0 ${sourceResult.cvss_severity}`}
+                                        statColor={cvssC(sourceResult.cvss_severity)}
+                                        accent={cvssC(sourceResult.cvss_severity)}
+                                        onClick={() => om('CVSS 3.1 Scoring', '', cvssC(sourceResult.cvss_severity),
+                                            <div className={`risk-card risk-card--${sourceResult.cvss_severity.toLowerCase()}`}>
+                                                <div className="risk-header">
+                                                    <div className="risk-score-circle">
+                                                        <span className="risk-score-number">{sourceResult.cvss_score}</span>
+                                                        <span className="risk-score-max">/10.0</span>
+                                                    </div>
+                                                    <div className="risk-info">
+                                                        <span className={`risk-badge risk-badge--${sourceResult.cvss_severity.toLowerCase()}`}>{sourceResult.cvss_severity}</span>
+                                                        <span className="risk-label">Base Score Equivalent</span>
+                                                    </div>
                                                 </div>
-                                                <div className="risk-info">
-                                                    <span className={`risk-badge risk-badge--${sourceResult.cvss_severity.toLowerCase()}`}>{sourceResult.cvss_severity}</span>
-                                                    <span className="risk-label">Base Score Equivalent</span>
+                                                <div className="risk-bar-track">
+                                                    <div className={`risk-bar-fill risk-bar-fill--${sourceResult.cvss_severity.toLowerCase()}`} style={{width: `${(sourceResult.cvss_score/10)*100}%`}}/>
                                                 </div>
                                             </div>
-                                            <div className="risk-bar-track">
-                                                <div className={`risk-bar-fill risk-bar-fill--${sourceResult.cvss_severity.toLowerCase()}`} style={{width: `${(sourceResult.cvss_score/10)*100}%`}}/>
+                                        )}
+                                    />
+                                )}
+                                {sourceResult.overflow_hint && sourceResult.overflow_hint.likely_offset && (
+                                    <CCard
+                                        icon=""
+                                        title="Overflow Offset"
+                                        stat={`${sourceResult.overflow_hint.likely_offset} bytes  ${sourceResult.overflow_hint.confidence}`}
+                                        statColor="var(--primary)"
+                                        accent="var(--primary)"
+                                        onClick={() => om('Overflow Offset', '', 'var(--primary)',
+                                            <div className="overflow-card">
+                                                <div className="overflow-header">
+                                                    <span className="overflow-offset-value">{sourceResult.overflow_hint.likely_offset}</span>
+                                                    <span className="overflow-offset-label">bytes to RIP</span>
+                                                    <span className={`ctf-confidence-badge ctf-confidence-badge--${sourceResult.overflow_hint.confidence.toLowerCase()}`}>{sourceResult.overflow_hint.confidence}</span>
+                                                </div>
+                                                <p className="overflow-evidence">{sourceResult.overflow_hint.evidence}</p>
                                             </div>
-                                        </div>
-                                    )}
-                                />
+                                        )}
+                                    />
+                                )}
+                                {sourceResult.data_flows && sourceResult.data_flows.length > 0 && (
+                                    <CCard
+                                        icon=""
+                                        title="Data Flow"
+                                        stat={`${sourceResult.data_flows.length} flows`}
+                                        statColor="#3b82f6"
+                                        accent="#3b82f6"
+                                        onClick={() => om('Data Flow Analysis', '', '#3b82f6',
+                                            <ul className="data-flow-list">
+                                                {sourceResult.data_flows.map((f, i) => <li key={i} className="data-flow-item">{f}</li>)}
+                                            </ul>
+                                        )}
+                                    />
+                                )}
                             </Carousel>
                         )}
 
