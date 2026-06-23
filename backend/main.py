@@ -2089,6 +2089,69 @@ p.interactive()
     return ""
 
 
+def generate_quick_commands_from_source(code: str, language: str, vulnerabilities: list) -> list:
+    """
+    Generate contextual quick commands for source code CTF challenges.
+    Returns a list of command strings tailored to the language and detected vulns.
+    """
+    code_lower = code.lower()
+    has_overflow = any(v.get("type") == "buffer_overflow" for v in vulnerabilities)
+    has_format_string = any(v.get("type") == "format_string" for v in vulnerabilities)
+    has_shell = "system(" in code_lower or "execve(" in code_lower or "/bin/sh" in code_lower
+    has_heap = "malloc(" in code_lower or "free(" in code_lower
+
+    # Derive a target name from the code (best-effort)
+    target = "vuln"
+
+    cmds = []
+
+    if language in ("c", "cpp"):
+        cmds.append(f"gcc -o {target} source.c -no-pie -fno-stack-protector -z execstack")
+        cmds.append(f"checksec --file={target}")
+        cmds.append(f"file {target}")
+
+        if has_overflow:
+            cmds.append(f"python3 -c \"from pwn import *; cyclic(200)\" | ./{target}")
+            cmds.append(f"python3 -c \"from pwn import *; print(cyclic_find(0x6161616c))\"")
+            cmds.append(f"gdb -q ./{target} -ex 'run' -ex 'bt'")
+
+        if has_format_string:
+            cmds.append(f"python3 -c \"print('%p ' * 20)\" | ./{target}")
+            cmds.append(f"python3 -c \"print('%7$s')\" | ./{target}")
+
+        if has_shell:
+            cmds.append(f"python3 -c \"from pwn import *; p=process('./{target}'); p.sendline(b'A'*64+p64(0xdeadbeef)); p.interactive()\"")
+
+        if has_heap:
+            cmds.append(f"valgrind --leak-check=full --track-origins=yes ./{target}")
+            cmds.append(f"ltrace ./{target}")
+
+        cmds.append(f"strace ./{target}")
+        cmds.append(f"objdump -d {target} | grep -A 20 '<main>'")
+        cmds.append(f"strings {target} | grep -i flag")
+        cmds.append(f"ROPgadget --binary {target} --rop | head -20")
+
+    elif language == "python":
+        cmds.append(f"python3 source.py")
+        cmds.append(f"python3 -m py_compile source.py && echo 'Syntax OK'")
+
+        if any(v.get("type") == "command_injection" for v in vulnerabilities):
+            cmds.append("# Test for command injection:")
+            cmds.append("echo '; cat /etc/passwd' | python3 source.py")
+
+        if any(v.get("type") == "eval_injection" for v in vulnerabilities):
+            cmds.append("echo '__import__(\"os\").system(\"id\")' | python3 source.py")
+
+        cmds.append("bandit -r source.py")
+
+    else:
+        # Generic fallback
+        cmds.append(f"cat source.{language} | grep -i 'flag\\|secret\\|password'")
+        cmds.append(f"grep -n 'TODO\\|FIXME\\|HACK' source.{language}")
+
+    return cmds
+
+
 def analyze_source_code(code: str, filename: str = "") -> dict:
     """
     Analyze source code for vulnerabilities and dangerous patterns.
@@ -2247,6 +2310,21 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
     cvss = calculate_cvss_score_from_source(vulnerabilities, ctf_category, code)
     data_flows = analyze_data_flow_from_source(code, lang)
     overflow_hint = predict_overflow_offset_from_source(code, lang)
+    quick_commands = generate_quick_commands_from_source(code, lang, vulnerabilities)
+
+    # Knowledge-base: find similar CTF writeups (same RAG used for binary flow)
+    similar_writeups = []
+    if ctf_knowledge:
+        try:
+            analysis_for_rag = {
+                "ctf_category": ctf_category,
+                "patterns": {"dangerous_functions": [v.get("name", "") for v in dangerous_structured]},
+                "checksec": {},  # not applicable for source code
+                "filename": filename or "pasted_code",
+            }
+            similar_writeups = ctf_knowledge.find_similar_writeups(analysis_for_rag)
+        except Exception as e:
+            print(f"[BinExplain] KB search failed for source code: {e}")
 
     return {
         "language": sections["language"],
@@ -2268,7 +2346,10 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         "cvss_severity": cvss["cvss_severity"],
         "data_flows": data_flows,
         "overflow_hint": overflow_hint,
+        "similar_writeups": similar_writeups,
+        "quick_commands": quick_commands,
     }
+
 
 
 # ---------------------------------------------------------------------------

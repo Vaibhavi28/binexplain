@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+﻿import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
 /* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -198,7 +198,7 @@ function CodeBlock({ code, language }) {
             <div className="chat-code-header">
                 {language && <span className="chat-code-lang">{language}</span>}
                 <button className="chat-code-copy-btn" onClick={handleCopy} type="button" title="Copy code">
-                    {copied ? '✓ Copied!' : '📋 Copy'}
+                    {copied ? 'âœ“ Copied!' : 'ðŸ“‹ Copy'}
                 </button>
             </div>
             <pre className="chat-code-pre"><code>{code}</code></pre>
@@ -1038,7 +1038,7 @@ export default function App() {
 
     const switchMode = (mode) => {
         setAnalysisMode(mode);
-        // Don't clear results when switching — preserve both for combined analysis
+        // Don't clear results when switching â€” preserve both for combined analysis
         if (mode === 'binary') {
             setSourceError('');
         } else {
@@ -1352,12 +1352,12 @@ export default function App() {
                 {/* *** ZIP Source Code Banner *** */}
                 {analysisMode === 'binary' && zipSourceBanner && (
                     <div className="zip-source-banner" onClick={() => { setAnalysisMode('source'); setZipSourceBanner(null); }}>
-                        <div className="zip-source-banner-icon">📄</div>
+                        <div className="zip-source-banner-icon">ðŸ“„</div>
                         <div className="zip-source-banner-text">
                             <strong>{zipSourceBanner.count} source code file{zipSourceBanner.count > 1 ? 's' : ''} detected in this ZIP!</strong>
                             <span className="zip-source-banner-files">{zipSourceBanner.filenames}</span>
                         </div>
-                        <div className="zip-source-banner-action">Switch to Source Code Analysis →</div>
+                        <div className="zip-source-banner-action">Switch to Source Code Analysis â†’</div>
                     </div>
                 )}
 
@@ -1428,8 +1428,8 @@ export default function App() {
                                 icon=""
                                 title="AI Hints + Kill Chain"
                                 stat={
-                                    result.ai_hints_enhanced ? "✅ Enhanced with deep reasoning" :
-                                    result.ai_hints_quick ? "⚡ Quick analysis" :
+                                    result.ai_hints_enhanced ? "âœ… Enhanced with deep reasoning" :
+                                    result.ai_hints_quick ? "âš¡ Quick analysis" :
                                     (result.ai_hints || result.hints) ? "Analysis available" : "Unavailable"
                                 }
                                 statColor={
@@ -1447,12 +1447,12 @@ export default function App() {
                                         <div className="result-card-body">
                                             {result.ai_hints_enhanced && (
                                                 <div className="ai-system-badge ai-system-badge--enhanced">
-                                                    ✅ Enhanced with deep reasoning
+                                                    âœ… Enhanced with deep reasoning
                                                 </div>
                                             )}
                                             {!result.ai_hints_enhanced && result.ai_hints_quick && (
                                                 <div className="ai-system-badge ai-system-badge--quick">
-                                                    ⚡ Quick analysis
+                                                    âš¡ Quick analysis
                                                 </div>
                                             )}
                                             {mainHints ? (
@@ -1511,17 +1511,17 @@ export default function App() {
                             />
                             {result.similar_writeups && result.similar_writeups.length > 0 && (
                                 <CCard
-                                    icon="🌐"
+                                    icon="🌐"
                                     title="Similar Writeups"
                                     stat={`${result.similar_writeups.length} similar challenges found`}
                                     statColor="#22d3ee"
                                     accent="#06b6d4"
-                                    onClick={() => om('Similar Writeups', '🌐', '#06b6d4',
+                                    onClick={() => om('Similar Writeups', '🌐', '#06b6d4',
                                         <div className="result-card-body">
                                             {result.similar_writeups.map((w, idx) => (
                                                 <div key={idx} style={{ marginBottom: '1.2rem', paddingBottom: '1rem', borderBottom: idx < result.similar_writeups.length - 1 ? '1px solid rgba(255, 255, 255, 0.1)' : 'none' }}>
                                                     <div style={{ fontWeight: 'bold', fontSize: '15px', color: 'var(--on-surface)', marginBottom: '4px' }}>
-                                                        {w.title} → <span style={{ color: '#06b6d4', fontWeight: 'normal' }}>{w.key_technique}</span>
+                                                        {w.title} â†’ <span style={{ color: '#06b6d4', fontWeight: 'normal' }}>{w.key_technique}</span>
                                                     </div>
                                                     <div style={{ marginBottom: '8px' }}>
                                                         <a href={w.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline', fontSize: '13px', wordBreak: 'break-all' }}>
@@ -1757,11 +1757,97 @@ export default function App() {
                                         onClick={() => om('Data Flow Analysis', '', '#3b82f6',
                                             <ul className="data-flow-list">
                                                 {sourceResult.data_flows.map((f, i) => <li key={i} className="data-flow-item">{f}</li>)}
-                                            </ul>
-                                        )}
-                                    />
-                                )}
+                                             </ul>
+                                         )}
+                                     />
+                                 )}
+                             </Carousel>
+                         )}
+
+                        {/* -- Source: AI Analysis carousel (Similar Writeups) -- */}
+                        {sourceResult.similar_writeups && sourceResult.similar_writeups.length > 0 && (
+                            <Carousel title="AI Analysis" icon="">
+                                <CCard
+                                    icon="🌐"
+                                    title="Similar Writeups"
+                                    stat={`${sourceResult.similar_writeups.length} similar challenges found`}
+                                    statColor="#22d3ee"
+                                    accent="#06b6d4"
+                                    onClick={() => om('Similar Writeups', '🌐', '#06b6d4',
+                                        <div className="result-card-body">
+                                            {sourceResult.similar_writeups.map((w, idx) => (
+                                                <div key={idx} style={{ marginBottom: '1.2rem', paddingBottom: '1rem', borderBottom: idx < sourceResult.similar_writeups.length - 1 ? '1px solid rgba(255, 255, 255, 0.1)' : 'none' }}>
+                                                    <div style={{ fontWeight: 'bold', fontSize: '15px', color: 'var(--on-surface)', marginBottom: '4px' }}>
+                                                        {w.title} â†’ <span style={{ color: '#06b6d4', fontWeight: 'normal' }}>{w.key_technique}</span>
+                                                    </div>
+                                                    <div style={{ marginBottom: '8px' }}>
+                                                        <a href={w.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline', fontSize: '13px', wordBreak: 'break-all' }}>
+                                                            {w.url}
+                                                        </a>
+                                                    </div>
+                                                    <div style={{ color: 'var(--on-surface-variant)', fontSize: '13px', fontStyle: 'italic', lineHeight: '1.4' }}>
+                                                        {w.snippet && w.snippet.length > 150 ? w.snippet.slice(0, 150) + "..." : w.snippet}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                />
                             </Carousel>
+                        )}
+
+                        {/* -- Source: Quick Commands (always visible) -- */}
+                        {sourceResult.quick_commands && sourceResult.quick_commands.length > 0 && (
+                            <div className="bottom-section">
+                                <div className="bottom-section-header"><span className="bottom-section-icon">[Commands]</span><h3 className="bottom-section-title">Quick Commands</h3></div>
+                                <div className="quick-commands">
+                                    {sourceResult.quick_commands.map((cmd, i) => (
+                                        <div className="quick-cmd-row" key={i}>
+                                            <code className="quick-cmd-text">{cmd}</code>
+                                            <div className="quick-cmd-actions">
+                                                <button className="quick-cmd-copy" title="Copy" onClick={(e) => { navigator.clipboard.writeText(cmd); const btn = e.currentTarget; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'ðŸ“‹ Copy', 1200); }}>{"ðŸ“‹ Copy"}</button>
+                                                <button className="quick-cmd-explain" title="Explain command" onClick={() => { handleExplainCommand(cmd); }}>{"â“ Explain"}</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                {/* -- Command Explainer UI (shared) -- */}
+                                <div className="explain-container">
+                                    {explainLog.length > 0 && (
+                                        <div className="explain-log">
+                                            {explainLog.map((log, i) => (
+                                                <div className="explain-entry" key={i}>
+                                                    <div className="explain-entry-cmd">&gt; {log.command}</div>
+                                                    <div className="explain-entry-text">
+                                                        {log.explanation.split(/\n/).filter(l => l.trim()).map((line, j) => (
+                                                            <div className={line.trim().startsWith('*') || line.trim().startsWith('-') ? 'explain-bullet' : 'explain-text'} key={j}>{line.replace(/^[-*]\s*/, '* ')}</div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <div className="explain-input-row">
+                                        <input
+                                            id="src-explain-input"
+                                            className="explain-input"
+                                            type="text"
+                                            placeholder=" Explain a command..."
+                                            value={explainInput}
+                                            onChange={e => setExplainInput(e.target.value.slice(0, 500))}
+                                            onKeyDown={onExplainKeyDown}
+                                            disabled={explainLoading}
+                                        />
+                                        <button
+                                            className="explain-btn"
+                                            onClick={() => handleExplainCommand()}
+                                            disabled={explainLoading || !explainInput.trim()}
+                                        >
+                                            {explainLoading ? '...' : 'Explain'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         )}
 
                         <div className="accordion-stack">
@@ -1958,7 +2044,7 @@ export default function App() {
                     </>
                 )}
 
-                {/* Combined Analysis — appears when BOTH binary and source results exist */}
+                {/* Combined Analysis â€” appears when BOTH binary and source results exist */}
                 {result && sourceResult && (
                     <div className="bottom-section combined-analysis-section">
                         <div className="bottom-section-header">
@@ -1979,7 +2065,7 @@ export default function App() {
                                 {result.overflow_hint?.likely_offset && Array.isArray(sourceResult.vulnerabilities) && sourceResult.vulnerabilities.some(v => v.type === 'buffer_overflow') && (
                                     <div className="combined-item combined-item--confirmed">
                                         <span className="combined-icon">{"\u2705"}</span>
-                                        <span>Source confirms binary has buffer overflow{sourceResult.vulnerabilities.filter(v => v.type === 'buffer_overflow').map(v => ` at ${v.description.split('—')[0].trim()}`).join('')} &mdash; binary overflow offset predicted at {result.overflow_hint.likely_offset} bytes.</span>
+                                        <span>Source confirms binary has buffer overflow{sourceResult.vulnerabilities.filter(v => v.type === 'buffer_overflow').map(v => ` at ${v.description.split('â€”')[0].trim()}`).join('')} &mdash; binary overflow offset predicted at {result.overflow_hint.likely_offset} bytes.</span>
                                     </div>
                                 )}
                                 {/* Checksec vs source vulns */}
