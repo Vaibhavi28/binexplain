@@ -28,7 +28,6 @@ import tempfile
 import time as _time_module
 import zipfile
 import asyncio
-import concurrent.futures
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent / ".env")
@@ -2243,6 +2242,8 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         elif has_high and risk_score != "Critical":
             risk_score = "High"
 
+    ctf_category = detect_ctf_category_from_source(code, lang, vulnerabilities)
+
     return {
         "language": sections["language"],
         "line_count": line_count,
@@ -2257,6 +2258,7 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         "exploit_template": exploit_template,
         "raw_ai_response": ai_response,
         "risk_score": risk_score,
+        "ctf_category": ctf_category,
     }
 
 
@@ -4090,6 +4092,68 @@ def detect_ctf_category(
         "category": best_cat,
         "confidence": best_conf,
         "explanation": best_expl,
+    }
+
+
+def detect_ctf_category_from_source(code: str, language: str, vulnerabilities: list) -> dict:
+    code_lower = code.lower()
+    
+    # ret2win - look for a win/flag function definition
+    if "void win(" in code_lower or "def win(" in code_lower or "win_function" in code_lower or "print_flag" in code_lower or "getflag" in code_lower:
+        return {
+            "category": "ret2win",
+            "confidence": "High",
+            "explanation": "A win/flag function exists in the source code. The exploit goal is to redirect execution to this function."
+        }
+    
+    # format_string - printf with variable instead of format string
+    if language in ("c", "cpp") and ("printf(" in code_lower):
+        import re
+        # Look for printf(variable) pattern without explicit format string
+        if re.search(r'printf\s*\(\s*[a-z_][a-z0-9_]*\s*\)', code_lower):
+            return {
+                "category": "format_string",
+                "confidence": "High",
+                "explanation": "printf() is called with a variable directly instead of a format string literal. This is a classic format string vulnerability."
+            }
+    
+    # ret2libc - system() or execve() called, or referenced as dangerous
+    if "system(" in code_lower or "execve(" in code_lower or "/bin/sh" in code_lower:
+        return {
+            "category": "ret2libc",
+            "confidence": "Medium",
+            "explanation": "system() or shell execution is present. Combined with a buffer overflow, this enables ret2libc or direct command execution."
+        }
+    
+    # heap_exploitation - malloc/free patterns suggesting UAF or double-free
+    if ("malloc(" in code_lower or "free(" in code_lower) and (code_lower.count("free(") >= 2 or "malloc(" in code_lower and "free(" in code_lower):
+        return {
+            "category": "heap_exploitation",
+            "confidence": "Medium",
+            "explanation": "Multiple malloc/free calls detected. Check for use-after-free or double-free vulnerabilities."
+        }
+    
+    # shellcode - check for raw buffer writes without execution protection mentioned
+    if "mprotect" in code_lower or "shellcode" in code_lower or "execve" in code_lower:
+        return {
+            "category": "shellcode",
+            "confidence": "Low",
+            "explanation": "Code suggests direct memory execution may be possible. Verify NX/DEP status."
+        }
+    
+    # rop_chain - default for buffer overflow vulnerabilities without other category
+    has_overflow = any(v.get("type") == "buffer_overflow" for v in vulnerabilities)
+    if has_overflow:
+        return {
+            "category": "rop_chain",
+            "confidence": "Medium",
+            "explanation": "A buffer overflow exists but no obvious win function or system() call. Likely requires building a ROP chain."
+        }
+    
+    return {
+        "category": "unknown",
+        "confidence": "Low",
+        "explanation": "Could not determine a specific CTF category from the source code alone."
     }
 
 

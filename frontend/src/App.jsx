@@ -1674,6 +1674,19 @@ export default function App() {
                             </div>
                         </div>
 
+                        {sourceResult.ctf_category && sourceResult.ctf_category.category !== 'unknown' && (
+                            <div className="hero-row">
+                                <div className={`hero-card hero-card--${sourceResult.ctf_category.confidence.toLowerCase()}`}>
+                                    <div className="hero-card-label"> CTF Category</div>
+                                    <div className="hero-card-main">
+                                        <span className={`ctf-category-badge ctf-category-badge--${sourceResult.ctf_category.confidence.toLowerCase()}`}>{sourceResult.ctf_category.category.replace(/_/g, ' ').toUpperCase()}</span>
+                                        <span className={`ctf-confidence-badge ctf-confidence-badge--${sourceResult.ctf_category.confidence.toLowerCase()}`}>{sourceResult.ctf_category.confidence}</span>
+                                    </div>
+                                    <p className="hero-card-desc">{sourceResult.ctf_category.explanation}</p>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="accordion-stack">
                             {/* 1. Language */}
                             <AccordionCard

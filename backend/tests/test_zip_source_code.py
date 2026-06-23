@@ -346,3 +346,50 @@ class TestZipEdgeCases:
         assert "test.c" in src_names
         assert "test.py" in src_names
         assert "test.js" in src_names
+
+
+def test_detect_ctf_category_from_source_logic():
+    from main import detect_ctf_category_from_source
+    
+    # Test ret2win
+    res = detect_ctf_category_from_source("void win() { }", "c", [])
+    assert res["category"] == "ret2win"
+    
+    # Test format_string
+    res = detect_ctf_category_from_source("printf(userInput);", "c", [])
+    assert res["category"] == "format_string"
+    
+    # Test ret2libc
+    res = detect_ctf_category_from_source("system(\"/bin/sh\");", "c", [])
+    assert res["category"] == "ret2libc"
+    
+    # Test heap_exploitation
+    res = detect_ctf_category_from_source("malloc(8); free(p); free(p);", "c", [])
+    assert res["category"] == "heap_exploitation"
+    
+    # Test shellcode
+    res = detect_ctf_category_from_source("mprotect(ptr, 0x1000, PROT_READ|PROT_WRITE|PROT_EXEC);", "c", [])
+    assert res["category"] == "shellcode"
+    
+    # Test rop_chain
+    res = detect_ctf_category_from_source("void vuln() { gets(buf); }", "c", [{"type": "buffer_overflow"}])
+    assert res["category"] == "rop_chain"
+    
+    # Test unknown
+    res = detect_ctf_category_from_source("int main() { return 0; }", "c", [])
+    assert res["category"] == "unknown"
+
+
+def test_source_result_has_ctf_category():
+    """Source code analysis should include ctf_category in response."""
+    zip_data = _make_zip({"win.c": VULN_C_CODE})
+    response = client.post("/analyze", files={"file": ("src.zip", zip_data)})
+    assert response.status_code == 200
+    data = response.json()
+
+    assert len(data["source_code_results"]) == 1
+    src = data["source_code_results"][0]
+    assert "ctf_category" in src
+    assert src["ctf_category"]["category"] == "ret2win"
+    assert src["ctf_category"]["confidence"] == "High"
+
