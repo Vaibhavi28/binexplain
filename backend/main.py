@@ -5496,27 +5496,43 @@ async def chat(request: Request, body: ChatRequest):
     # ── Build message list for the AI ─────────────────────────────────
     ai_messages: list[dict] = []
 
-    # Inject analysis context as structured binary details so the
-    # AI always knows what binary was analysed and can give specific answers.
+    # Inject analysis context as a structured prefix so the AI knows exactly
+    # what was analysed and can give specific, line-level answers.
     if body.context:
-        context_header = (
-            "IMPORTANT BINARY CONTEXT (reference this in EVERY response):\n"
-            "---\n"
-            + body.context[:MAX_CHAT_CHARS * 2]
-            + "\n---\n"
-            "Use the binary name, CTF category, checksec results, and findings above "
-            "to give SPECIFIC answers. Never use generic placeholders."
-        )
-        ai_messages.append({
-            "role": "user",
-            "content": context_header,
-        })
-        ai_messages.append({
-            "role": "assistant",
-            "content": "Got it -- I have reviewed the full analysis of your binary. "
-                        "I will reference these specific details in every answer. "
-                        "Ask me anything about exploiting this binary!",
-        })
+        # Detect whether this is a source code or binary context
+        is_source = body.context.lstrip().startswith("Source code language:")
+        if is_source:
+            context_header = (
+                "IMPORTANT SOURCE CODE CONTEXT (reference this in EVERY response):\n"
+                "---\n"
+                + body.context[:MAX_CHAT_CHARS * 2]
+                + "\n---\n"
+                "You are an expert CTF mentor. Use the language, CTF category, vulnerability "
+                "line numbers, and code excerpt above to give SPECIFIC answers. "
+                "When asked about a line number, reference the actual code. "
+                "Never use generic placeholders."
+            )
+            ack = (
+                "Got it — I have reviewed your source code analysis including the code excerpt, "
+                "detected vulnerabilities, CTF category, and overflow offset. "
+                "Ask me anything specific about exploiting this code!"
+            )
+        else:
+            context_header = (
+                "IMPORTANT BINARY CONTEXT (reference this in EVERY response):\n"
+                "---\n"
+                + body.context[:MAX_CHAT_CHARS * 2]
+                + "\n---\n"
+                "Use the binary name, CTF category, checksec results, and findings above "
+                "to give SPECIFIC answers. Never use generic placeholders."
+            )
+            ack = (
+                "Got it -- I have reviewed the full analysis of your binary. "
+                "I will reference these specific details in every answer. "
+                "Ask me anything about exploiting this binary!"
+            )
+        ai_messages.append({"role": "user", "content": context_header})
+        ai_messages.append({"role": "assistant", "content": ack})
 
     # Append the actual conversation history
     for msg in body.messages:

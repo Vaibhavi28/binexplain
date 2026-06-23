@@ -309,6 +309,7 @@ export default function App() {
     const [srcChatLoading, setSrcChatLoading] = useState(false);
     const srcChatEndRef = useRef(null);
     const srcChatContextRef = useRef('');
+    const srcChatCtfCategoryRef = useRef('');
 
     /* -- Command Explainer state -- */
     const [explainInput, setExplainInput] = useState('');
@@ -402,10 +403,15 @@ export default function App() {
         return badges.map(b => `${b.label}${result.checksec[b.key] ? '[v]' : ''}`).join(' ');
     }, [result?.checksec]);
 
-    /* Auto-scroll chat to bottom on new messages */
+    /* Auto-scroll binary chat to bottom on new messages */
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [chatMessages]);
+
+    /* Auto-scroll source chat to bottom on new messages */
+    useEffect(() => {
+        srcChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [srcChatMessages]);
 
     /* Cycle through loading messages while uploading */
     useEffect(() => {
@@ -981,19 +987,32 @@ export default function App() {
             const data = await resp.json();
             setSourceResult(data);
 
-            /* Build source code chat context */
+            /* Build source code chat context — rich enough for line-specific answers */
             const srcCtx = [];
-            srcCtx.push(`Source Code Analysis: ${data.filename || sourceFile?.name || 'unknown'}`);
-            if (data.language) srcCtx.push(`Language: ${data.language}`);
-            if (data.risk_score) srcCtx.push(`Risk Score: ${data.risk_score}`);
-            if (data.dangerous_functions && data.dangerous_functions.length > 0) {
-                srcCtx.push(`Dangerous functions: ${data.dangerous_functions.map(f => f.name).join(', ')}`);
+            srcCtx.push(`Source code language: ${data.language || 'unknown'}`);
+            if (data.ctf_category && data.ctf_category.category) {
+                srcCtx.push(`CTF Category: ${data.ctf_category.category} (confidence: ${data.ctf_category.confidence || 'Low'})`);
+                if (data.ctf_category.explanation) srcCtx.push(`Category explanation: ${data.ctf_category.explanation}`);
             }
             if (data.vulnerabilities && data.vulnerabilities.length > 0) {
-                srcCtx.push(`Vulnerabilities: ${data.vulnerabilities.map(v => v.name || v.type || 'unknown').join(', ')}`);
+                const vulnSummary = data.vulnerabilities
+                    .map(v => `Line ${v.line || '?'}: ${v.type ? v.type.replace(/_/g, ' ') : 'unknown'} — ${v.description || ''}`)
+                    .join('; ');
+                srcCtx.push(`Vulnerabilities found: ${vulnSummary}`);
             }
-            if (data.hints) srcCtx.push(`AI Hints: ${data.hints}`);
+            if (data.dangerous_functions && data.dangerous_functions.length > 0) {
+                srcCtx.push(`Dangerous functions: ${data.dangerous_functions.map(f => `${f.name}() at line ${f.line}`).join(', ')}`);
+            }
+            if (data.overflow_hint && data.overflow_hint.likely_offset) {
+                srcCtx.push(`Predicted overflow offset: ${data.overflow_hint.likely_offset} bytes (${data.overflow_hint.confidence} confidence) — ${data.overflow_hint.evidence || ''}`);
+            }
+            if (data.risk_score) srcCtx.push(`Risk Score: ${data.risk_score}`);
+            if (data.difficulty && data.difficulty.difficulty) srcCtx.push(`Difficulty: ${data.difficulty.difficulty} — ${data.difficulty.reason || ''}`);
+            if (sourceCode) {
+                srcCtx.push(`Top relevant code excerpt:\n\`\`\`\n${sourceCode.slice(0, 500)}\n\`\`\``);
+            }
             srcChatContextRef.current = srcCtx.join('\n');
+            srcChatCtfCategoryRef.current = (data.ctf_category && data.ctf_category.category) ? data.ctf_category.category : '';
         } catch (err) {
             setSourceError(err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message);
         } finally {
@@ -1014,7 +1033,7 @@ export default function App() {
             const res = await fetch(`${BACKEND_URL}/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: updated, context: srcChatContextRef.current }),
+                body: JSON.stringify({ messages: updated, context: srcChatContextRef.current, ctf_category: srcChatCtfCategoryRef.current }),
             });
             const data = await res.json();
             if (!res.ok) {
