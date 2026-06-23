@@ -279,6 +279,11 @@ class TestZipSourceCodeResultsStructure:
         assert "dangerous_functions" in src
         assert "vulnerabilities" in src
         assert "risk_score" in src
+        assert "similar_writeups" in src
+        assert "quick_commands" in src
+        assert "ai_hints" in src
+        assert "ai_hints_quick" in src
+        assert "ai_hints_enhanced" in src
 
     def test_c_source_detects_gets(self):
         """C source with gets() should detect buffer overflow vulnerability."""

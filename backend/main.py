@@ -2089,6 +2089,36 @@ p.interactive()
     return ""
 
 
+def _generate_source_quick_commands(filename: str, lang: str) -> list[str]:
+    """Generate diagnostic and debugging commands suitable for the source code's language."""
+    fn = filename or "vuln.c"
+    base = Path(fn).stem or "vuln"
+    if lang == "c":
+        return [
+            f"gcc -fno-stack-protector -z execstack -no-pie -o {base} {fn}",
+            f"checksec ./{base}",
+            f"gdb -q ./{base}",
+            f"python3 -c \"from pwn import *; cyclic(200)\" | ./{base}",
+            f"ltrace ./{base}",
+            f"strace ./{base}",
+        ]
+    elif lang == "python":
+        return [
+            f"python3 {fn}",
+            f"python3 -m py_compile {fn}",
+            f"bandit -r {fn}",
+        ]
+    elif lang == "javascript":
+        return [
+            f"node {fn}",
+            f"npm audit",
+        ]
+    else:
+        return [
+            f"cat {fn}",
+        ]
+
+
 def analyze_source_code(code: str, filename: str = "") -> dict:
     """
     Analyze source code for vulnerabilities and dangerous patterns.
@@ -2111,6 +2141,40 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
 
     # Static pattern matching
     dangerous = _find_dangerous_functions(code, lang)
+    dangerous_structured = [
+        {"name": d["function"], "line": d["line"], "risk": d["description"]}
+        for d in dangerous
+    ]
+
+    # Generate quick commands panel
+    quick_commands = _generate_source_quick_commands(filename, lang)
+
+    # ── 1. RAG similar writeups search ─────────────────────────────────
+    similar_writeups = []
+    writeup_context = ""
+    
+    # Build a preliminary vulnerabilities list from static check to help RAG categorizer
+    preliminary_vulns = []
+    for d in dangerous_structured:
+        vuln_type = "buffer_overflow" if d["name"] in ("gets", "strcpy", "sprintf", "scanf") else "format_string" if d["name"] == "printf" else "vulnerability"
+        preliminary_vulns.append({"line": d["line"], "type": vuln_type, "severity": "High", "description": f"Dangerous function {d['name']} call"})
+    
+    preliminary_category = detect_ctf_category_from_source(code, lang, preliminary_vulns)
+
+    if ctf_knowledge:
+        try:
+            analysis_so_far = {
+                "ctf_category": preliminary_category,
+                "patterns": {
+                    "dangerous_functions": [d["name"] for d in dangerous_structured]
+                },
+                "checksec": {"nx": True, "pie": False, "canary": False},
+                "filename": filename or "",
+            }
+            similar_writeups = ctf_knowledge.find_similar_writeups(analysis_so_far)
+            writeup_context = ctf_knowledge.format_for_ai_context(similar_writeups)
+        except Exception as exc:
+            logger.warning("Failed to search knowledge base for source code: %s", exc)
 
     # Build AI prompt
     line_count = len(code.split("\n"))
@@ -2118,9 +2182,16 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         f"Analyze this source code ({lang_display}, {line_count} lines, filename: {filename or 'unknown'}):\n\n"
         f"```\n{code[:MAX_SOURCE_CODE_CHARS]}\n```"
     )
+    if writeup_context:
+        user_message += f"\n\n{writeup_context}"
 
-    # Try AI providers (Groq -> Gemini -> OpenAI -> Ollama -> Claude)
+    ai_messages = [{"role": "user", "content": user_message}]
+
+    # Parallel and sequential AI execution
     ai_response = ""
+    ai_hints_quick = None
+    ai_hints_enhanced = None
+
     if _is_testing():
         ai_response = (
             f"LANGUAGE: {lang_display}\n\n"
@@ -2133,43 +2204,59 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
             "NEXT STEPS:\n"
             "• Compile and test."
         )
-    ai_messages = [{"role": "user", "content": user_message}]
+        ai_hints_quick = "Mocked quick response"
+        ai_hints_enhanced = "Mocked enhanced response"
+    else:
+        # Run Groq and Nemotron in PARALLEL
+        logger.info("[BinExplain] Launching parallel AI inference for source: Groq + Nemotron")
+        import concurrent.futures
+        
+        groq_result = None
+        nemotron_result = None
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            groq_future = executor.submit(_try_groq, ai_messages, SOURCE_CODE_SYSTEM_PROMPT)
+            nemotron_future = executor.submit(_try_nemotron, ai_messages, SOURCE_CODE_SYSTEM_PROMPT)
+            
+            try:
+                groq_result = groq_future.result(timeout=15)
+            except Exception as exc:
+                logger.warning("Groq parallel inference for source code failed or timed out: %s", exc)
+                
+            try:
+                nemotron_result = nemotron_future.result(timeout=15)
+            except Exception as exc:
+                logger.warning("Nemotron parallel inference for source code failed or timed out: %s", exc)
 
-    # Try AI providers (Groq -> Nemotron -> Gemini -> OpenAI -> Ollama -> Claude)
-    result = _try_groq(messages=ai_messages, system_prompt=SOURCE_CODE_SYSTEM_PROMPT)
-    if result:
-        logger.info("[BinExplain] analyze_source_code: Groq succeeded")
-        ai_response = result
+        ai_hints_quick = groq_result
+        ai_hints_enhanced = nemotron_result
 
-    if not ai_response:
-        result = _try_nemotron(prompt=ai_messages, system=SOURCE_CODE_SYSTEM_PROMPT)
-        if result:
-            logger.info("[BinExplain] analyze_source_code: Nemotron succeeded")
-            ai_response = result
-
-    if not ai_response:
-        result = _try_gemini(messages=ai_messages, system_prompt=SOURCE_CODE_SYSTEM_PROMPT)
-        if result:
-            logger.info("[BinExplain] analyze_source_code: Gemini succeeded")
-            ai_response = result
-
-    if not ai_response:
-        result = _try_openai(messages=ai_messages, system_prompt=SOURCE_CODE_SYSTEM_PROMPT)
-        if result:
-            logger.info("[BinExplain] analyze_source_code: OpenAI succeeded")
-            ai_response = result
-
-    if not ai_response:
-        result = _try_ollama(user_message, system_prompt=SOURCE_CODE_SYSTEM_PROMPT)
-        if result:
-            logger.info("[BinExplain] analyze_source_code: Ollama succeeded")
-            ai_response = result
-
-    if not ai_response:
-        result = _try_claude(messages=ai_messages, system_prompt=SOURCE_CODE_SYSTEM_PROMPT, max_tokens=1500)
-        if result:
-            logger.info("[BinExplain] analyze_source_code: Claude succeeded")
-            ai_response = result
+        if groq_result and nemotron_result:
+            logger.info("[BinExplain] Parallel source code analysis: Groq + Nemotron succeeded")
+            ai_response = merge_ai_responses(groq_result, nemotron_result)
+        elif groq_result:
+            logger.info("[BinExplain] Parallel source code analysis: Groq succeeded")
+            ai_response = groq_result
+        elif nemotron_result:
+            logger.info("[BinExplain] Parallel source code analysis: Nemotron succeeded")
+            ai_response = nemotron_result
+        else:
+            # Fall back sequentially (Gemini -> OpenAI -> Ollama -> Claude)
+            logger.info("[BinExplain] Parallel source code analysis: both failed, falling back to sequential")
+            for provider_func, provider_name in [
+                (lambda msgs: _try_gemini(msgs, SOURCE_CODE_SYSTEM_PROMPT), "Gemini"),
+                (lambda msgs: _try_openai(msgs, SOURCE_CODE_SYSTEM_PROMPT), "OpenAI"),
+                (lambda msgs: _try_ollama(msgs[0]["content"], SOURCE_CODE_SYSTEM_PROMPT), "Ollama"),
+                (lambda msgs: _try_claude(msgs, SOURCE_CODE_SYSTEM_PROMPT, max_tokens=1500), "Claude"),
+            ]:
+                try:
+                    result = provider_func(ai_messages)
+                    if result:
+                        logger.info("[BinExplain] analyze_source_code: %s succeeded", provider_name)
+                        ai_response = result
+                        break
+                except Exception as exc:
+                    logger.warning("Source code fallback %s failed: %s", provider_name, exc)
 
     if not ai_response:
         ai_response = (
@@ -2215,12 +2302,6 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
     # Build structured vulnerabilities list
     vulnerabilities = _build_structured_vulnerabilities(code, dangerous, sections.get("vulnerabilities", ""))
 
-    # Build structured dangerous_functions list
-    dangerous_structured = [
-        {"name": d["function"], "line": d["line"], "risk": d["description"]}
-        for d in dangerous
-    ]
-
     # Generate exploit hints
     exploit_hints = _generate_exploit_hints(code, dangerous, lang)
 
@@ -2257,6 +2338,9 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         "vulnerabilities": vulnerabilities,
         "dangerous_functions_ai": sections["dangerous_functions_ai"].strip(),
         "hints": sections["hints"].strip(),
+        "ai_hints": sections["hints"].strip(),
+        "ai_hints_quick": ai_hints_quick,
+        "ai_hints_enhanced": ai_hints_enhanced,
         "next_steps": sections["next_steps"].strip(),
         "exploit_hints": exploit_hints,
         "exploit_template": exploit_template,
@@ -2268,6 +2352,8 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         "cvss_severity": cvss["cvss_severity"],
         "data_flows": data_flows,
         "overflow_hint": overflow_hint,
+        "similar_writeups": similar_writeups,
+        "quick_commands": quick_commands,
     }
 
 
