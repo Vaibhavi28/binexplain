@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
 /* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -1945,20 +1945,35 @@ export default function App() {
                                 </AccordionCard>
                             )}
 
-                            {/* 5. AI Hints */}
+                            {/* 5. AI Hints (parallel Groq + Nemotron) */}
                             <AccordionCard
                                 title="CTF Hints"
                                 icon="lightbulb"
                                 sectionKey="srcHints"
-                                summary="Strategic guidance"
+                                summary={
+                                    sourceResult.ai_hints_enhanced ? "✅ Enhanced with deep reasoning" :
+                                    sourceResult.ai_hints_quick ? "⚡ Quick analysis" :
+                                    "Strategic guidance"
+                                }
                                 variant="source-hints"
                                 openSections={openSections}
                                 toggleSection={toggleSection}
                             >
                                 <div className="ai-hints-body">
+                                    {/* Enhanced / Quick badge — mirrors binary flow */}
+                                    {sourceResult.ai_hints_enhanced && (
+                                        <div className="ai-system-badge ai-system-badge--enhanced">
+                                            ✅ Enhanced with deep reasoning
+                                        </div>
+                                    )}
+                                    {!sourceResult.ai_hints_enhanced && sourceResult.ai_hints_quick && (
+                                        <div className="ai-system-badge ai-system-badge--quick">
+                                            ⚡ Quick analysis
+                                        </div>
+                                    )}
                                     <div className="ai-bullets">
-                                        {sourceResult.hints ? (
-                                            sourceResult.hints.split('\n').filter(val => val.trim()).map((line, i) => (
+                                        {(sourceResult.ai_hints || sourceResult.hints) ? (
+                                            (sourceResult.ai_hints || sourceResult.hints).split('\n').filter(val => val.trim()).map((line, i) => (
                                                 <div key={i} className="ai-bullet">
                                                     <span className="bullet-point"></span>
                                                     <span dangerouslySetInnerHTML={{ __html: line.replace(/^\s*/, '').replace(/`(.*?)`/g, '<code class="inline-code">$1</code>') }} />
@@ -1986,6 +2001,7 @@ export default function App() {
                                     )}
                                 </div>
                             </AccordionCard>
+
 
                             {/* 6. Exploit Template */}
                             {sourceResult.exploit_template && (

@@ -1315,6 +1315,98 @@ async def get_ai_hints_parallel(
     return result
 
 
+# ---------------------------------------------------------------------------
+# Parallel AI hints — Source Code Edition
+# ---------------------------------------------------------------------------
+async def get_source_hints_parallel(
+    code: str,
+    language: str,
+    vulnerabilities: list,
+    ctf_category: dict,
+    writeup_context: str = "",
+) -> dict:
+    """
+    Run Groq and Nemotron in PARALLEL for source-code CTF hint generation.
+
+    Uses a source-code–specific system prompt and user message that includes
+    exact line numbers, variable names, and detected CTF category so the AI
+    gives actionable, code-specific advice (not generic binary advice).
+
+    Returns:
+        {"quick": str|None, "enhanced": str|None, "merged": str}
+    """
+    if _is_testing():
+        test_hint = (
+            "• Buffer at line 10 overflows with input > 64 bytes.\n"
+            "• Overflow the return address to jump to win().\n\n"
+            "🔗 Kill Chain:\n"
+            "• Step 1: cyclic 100 | ./vuln to crash.\n"
+            "• Step 2: find offset with cyclic -l <value>.\n\n"
+            "🔥 Try this first: python3 -c \"print('A'*72)\" | ./vuln"
+        )
+        return {"quick": test_hint, "enhanced": None, "merged": test_hint}
+
+    if not GROQ_API_KEY and not os.getenv("OPENROUTER_API_KEY"):
+        no_key_msg = (
+            "Parallel AI hints unavailable — set GROQ_API_KEY or OPENROUTER_API_KEY "
+            "to enable source code analysis."
+        )
+        return {"quick": None, "enhanced": None, "merged": no_key_msg}
+
+    system = (
+        "You are an expert CTF mentor analyzing source code. "
+        "Give specific actionable advice referencing exact line numbers and variable "
+        "names from the code provided. Reference the detected CTF category. "
+        "Format as bullet points, max 5 bullets. End with one specific next step."
+    )
+
+    vuln_lines = "\n".join(
+        f"- Line {v.get('line', '?')}: {v.get('description', v.get('type', ''))}"
+        for v in vulnerabilities
+    ) or "- No vulnerabilities auto-detected"
+
+    user_message = (
+        f"Language: {language}\n"
+        f"CTF Category: {ctf_category.get('category', 'unknown')} "
+        f"(confidence: {ctf_category.get('confidence', 'Low')})\n"
+        f"Category explanation: {ctf_category.get('explanation', '')}\n\n"
+        f"Vulnerabilities found:\n{vuln_lines}\n\n"
+        f"Source code:\n```\n{code[:3000]}\n```\n"
+    )
+    if writeup_context:
+        user_message += f"\nSimilar CTF writeups for context:\n{writeup_context}\n"
+    user_message += "\nGive specific exploitation guidance for this exact code."
+
+    ai_messages = [{"role": "user", "content": user_message}]
+
+    print("[BinExplain] Launching parallel source AI inference: Groq + Nemotron")
+    groq_task = asyncio.create_task(_try_groq_async(ai_messages, system))
+    nemotron_task = asyncio.create_task(_try_nemotron_async(ai_messages, system))
+
+    groq_result = await groq_task
+    if groq_result:
+        logger.info("[BinExplain] Source parallel hints: Groq succeeded")
+
+    nemotron_result = await nemotron_task
+    if nemotron_result:
+        logger.info("[BinExplain] Source parallel hints: Nemotron succeeded")
+
+    if groq_result and nemotron_result:
+        merged = merge_ai_responses(groq_result, nemotron_result)
+        return {"quick": groq_result, "enhanced": nemotron_result, "merged": merged}
+    elif groq_result:
+        return {"quick": groq_result, "enhanced": None, "merged": groq_result}
+    elif nemotron_result:
+        return {"quick": None, "enhanced": nemotron_result, "merged": nemotron_result}
+    else:
+        return {
+            "quick": None,
+            "enhanced": None,
+            "merged": "AI is taking a short break — please try again in 30 seconds",
+        }
+
+
+
 def _try_groq(messages: list[dict], system_prompt: str) -> str | None:
     """
     Try to generate a response using Groq (llama-3.3-70b-versatile).
@@ -2152,14 +2244,18 @@ def generate_quick_commands_from_source(code: str, language: str, vulnerabilitie
     return cmds
 
 
-def analyze_source_code(code: str, filename: str = "") -> dict:
+def _analyze_source_code_static(code: str, filename: str, ai_response: str) -> dict:
     """
-    Analyze source code for vulnerabilities and dangerous patterns.
+    Pure static + AI-response-parsing phase of source code analysis.
+    Does NOT make any AI calls — those are handled by the async endpoint
+    via get_source_hints_parallel().
 
-    Security:
-    • Code is NEVER stored to disk or executed.
-    • Code is only sent to AI APIs in memory.
-    • No temp files are created.
+    Parameters
+    ----------
+    code        : raw source code string
+    filename    : original filename (may be empty for pasted code)
+    ai_response : structured AI response from SOURCE_CODE_SYSTEM_PROMPT
+                  (LANGUAGE / VULNERABILITIES / DANGEROUS FUNCTIONS / CTF HINTS / NEXT STEPS)
     """
     # Detect language
     ext = Path(filename).suffix.lower() if filename else ""
@@ -2172,73 +2268,10 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         "rust": "Rust", "go": "Go", "unknown": "Unknown",
     }.get(lang, lang.title())
 
+    line_count = len(code.split("\n"))
+
     # Static pattern matching
     dangerous = _find_dangerous_functions(code, lang)
-
-    # Build AI prompt
-    line_count = len(code.split("\n"))
-    user_message = (
-        f"Analyze this source code ({lang_display}, {line_count} lines, filename: {filename or 'unknown'}):\n\n"
-        f"```\n{code[:MAX_SOURCE_CODE_CHARS]}\n```"
-    )
-
-    # Try AI providers (Groq -> Gemini -> OpenAI -> Ollama -> Claude)
-    ai_response = ""
-    if _is_testing():
-        ai_response = (
-            f"LANGUAGE: {lang_display}\n\n"
-            "VULNERABILITIES:\n"
-            "• Line 10: gets(buf) — buffer_overflow.\n\n"
-            "DANGEROUS FUNCTIONS:\n"
-            "• gets() — dangerous.\n\n"
-            "CTF HINTS:\n"
-            "• Overflow stack.\n\n"
-            "NEXT STEPS:\n"
-            "• Compile and test."
-        )
-    ai_messages = [{"role": "user", "content": user_message}]
-
-    # Try AI providers (Groq -> Nemotron -> Gemini -> OpenAI -> Ollama -> Claude)
-    result = _try_groq(messages=ai_messages, system_prompt=SOURCE_CODE_SYSTEM_PROMPT)
-    if result:
-        logger.info("[BinExplain] analyze_source_code: Groq succeeded")
-        ai_response = result
-
-    if not ai_response:
-        result = _try_nemotron(prompt=ai_messages, system=SOURCE_CODE_SYSTEM_PROMPT)
-        if result:
-            logger.info("[BinExplain] analyze_source_code: Nemotron succeeded")
-            ai_response = result
-
-    if not ai_response:
-        result = _try_gemini(messages=ai_messages, system_prompt=SOURCE_CODE_SYSTEM_PROMPT)
-        if result:
-            logger.info("[BinExplain] analyze_source_code: Gemini succeeded")
-            ai_response = result
-
-    if not ai_response:
-        result = _try_openai(messages=ai_messages, system_prompt=SOURCE_CODE_SYSTEM_PROMPT)
-        if result:
-            logger.info("[BinExplain] analyze_source_code: OpenAI succeeded")
-            ai_response = result
-
-    if not ai_response:
-        result = _try_ollama(user_message, system_prompt=SOURCE_CODE_SYSTEM_PROMPT)
-        if result:
-            logger.info("[BinExplain] analyze_source_code: Ollama succeeded")
-            ai_response = result
-
-    if not ai_response:
-        result = _try_claude(messages=ai_messages, system_prompt=SOURCE_CODE_SYSTEM_PROMPT, max_tokens=1500)
-        if result:
-            logger.info("[BinExplain] analyze_source_code: Claude succeeded")
-            ai_response = result
-
-    if not ai_response:
-        ai_response = (
-            "AI analysis unavailable -- set GROQ_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY "
-            "to enable AI-powered code review."
-        )
 
     # Parse AI response into sections
     sections = {
@@ -2328,6 +2361,7 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
 
     return {
         "language": sections["language"],
+        "_lang_internal": lang,          # used by get_source_hints_parallel
         "line_count": line_count,
         "char_count": len(code),
         "filename": filename or "(pasted)",
@@ -2349,6 +2383,65 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
         "similar_writeups": similar_writeups,
         "quick_commands": quick_commands,
     }
+
+
+# keep backward-compat for zip source analysis path (sync)
+def analyze_source_code(code: str, filename: str = "") -> dict:
+    """
+    Synchronous source code analysis used by the ZIP file path.
+    The /analyze-code HTTP endpoint uses the async version instead.
+    """
+    # Detect language for the user_message prompt
+    ext = Path(filename).suffix.lower() if filename else ""
+    lang = _EXT_TO_LANG.get(ext, "")
+    if not lang:
+        lang = _detect_language_from_code(code)
+    lang_display = {
+        "c": "C/C++", "python": "Python", "javascript": "JavaScript",
+        "rust": "Rust", "go": "Go", "unknown": "Unknown",
+    }.get(lang, lang.title())
+    line_count = len(code.split("\n"))
+    user_message = (
+        f"Analyze this source code ({lang_display}, {line_count} lines, filename: {filename or 'unknown'}):\n\n"
+        f"```\n{code[:MAX_SOURCE_CODE_CHARS]}\n```"
+    )
+    ai_messages = [{"role": "user", "content": user_message}]
+
+    if _is_testing():
+        ai_response = (
+            f"LANGUAGE: {lang_display}\n\n"
+            "VULNERABILITIES:\n"
+            "• Line 10: gets(buf) — buffer_overflow.\n\n"
+            "DANGEROUS FUNCTIONS:\n"
+            "• gets() — dangerous.\n\n"
+            "CTF HINTS:\n"
+            "• Overflow stack.\n\n"
+            "NEXT STEPS:\n"
+            "• Compile and test."
+        )
+    else:
+        ai_response = ""
+        for try_fn, kwargs in [
+            (_try_groq,     {"messages": ai_messages, "system_prompt": SOURCE_CODE_SYSTEM_PROMPT}),
+            (_try_nemotron, {"prompt": ai_messages,   "system": SOURCE_CODE_SYSTEM_PROMPT}),
+            (_try_gemini,   {"messages": ai_messages, "system_prompt": SOURCE_CODE_SYSTEM_PROMPT}),
+            (_try_openai,   {"messages": ai_messages, "system_prompt": SOURCE_CODE_SYSTEM_PROMPT}),
+            (_try_claude,   {"messages": ai_messages, "system_prompt": SOURCE_CODE_SYSTEM_PROMPT, "max_tokens": 1500}),
+        ]:
+            result = try_fn(**kwargs)
+            if result:
+                ai_response = result
+                break
+        if not ai_response:
+            ai_response = (
+                "AI analysis unavailable -- set GROQ_API_KEY, GEMINI_API_KEY, "
+                "OPENAI_API_KEY, or ANTHROPIC_API_KEY to enable AI-powered code review."
+            )
+
+    result_dict = _analyze_source_code_static(code, filename, ai_response)
+    # strip internal key
+    result_dict.pop("_lang_internal", None)
+    return result_dict
 
 
 
@@ -5220,9 +5313,8 @@ async def analyze_code_endpoint(request: Request, body: CodeAnalysisRequest):
     """
     Analyze source code for vulnerabilities and dangerous patterns.
 
-    Accepts source code as text (max 10,000 characters), sends to AI
-    (Claude → Groq → OpenAI → Ollama fallback), and returns structured
-    analysis results.
+    Uses PARALLEL AI inference (Groq + Nemotron simultaneously) for CTF hints,
+    matching the binary analysis flow.
 
     Security:
     • Code is NEVER stored to disk or executed.
@@ -5230,7 +5322,89 @@ async def analyze_code_endpoint(request: Request, body: CodeAnalysisRequest):
     • No temp files are created.
     • Rate limited to 10 requests per hour per IP.
     """
-    return analyze_source_code(body.code, body.filename)
+    code = body.code
+    filename = body.filename or ""
+
+    # ── Step 1: detect language up-front (needed for both prompts) ────────
+    ext = Path(filename).suffix.lower() if filename else ""
+    lang = _EXT_TO_LANG.get(ext, "") or _detect_language_from_code(code)
+    lang_display = {
+        "c": "C/C++", "python": "Python", "javascript": "JavaScript",
+        "rust": "Rust", "go": "Go", "unknown": "Unknown",
+    }.get(lang, lang.title())
+    line_count = len(code.split("\n"))
+
+    # ── Step 2: build the structured-parse prompt (LANGUAGE/VULNS/HINTS) ──
+    user_message = (
+        f"Analyze this source code ({lang_display}, {line_count} lines, "
+        f"filename: {filename or 'unknown'}):\n\n"
+        f"```\n{code[:MAX_SOURCE_CODE_CHARS]}\n```"
+    )
+    ai_messages = [{"role": "user", "content": user_message}]
+
+    # ── Step 3: get the structured AI response (sequential, fast providers) ─
+    if _is_testing():
+        structured_ai_response = (
+            f"LANGUAGE: {lang_display}\n\n"
+            "VULNERABILITIES:\n"
+            "• Line 10: gets(buf) — buffer_overflow.\n\n"
+            "DANGEROUS FUNCTIONS:\n"
+            "• gets() — dangerous.\n\n"
+            "CTF HINTS:\n"
+            "• Overflow stack.\n\n"
+            "NEXT STEPS:\n"
+            "• Compile and test."
+        )
+    else:
+        structured_ai_response = ""
+        for try_fn, kwargs in [
+            (_try_groq,     {"messages": ai_messages, "system_prompt": SOURCE_CODE_SYSTEM_PROMPT}),
+            (_try_nemotron, {"prompt": ai_messages,   "system": SOURCE_CODE_SYSTEM_PROMPT}),
+            (_try_gemini,   {"messages": ai_messages, "system_prompt": SOURCE_CODE_SYSTEM_PROMPT}),
+            (_try_openai,   {"messages": ai_messages, "system_prompt": SOURCE_CODE_SYSTEM_PROMPT}),
+            (_try_claude,   {"messages": ai_messages, "system_prompt": SOURCE_CODE_SYSTEM_PROMPT, "max_tokens": 1500}),
+        ]:
+            r = try_fn(**kwargs)
+            if r:
+                structured_ai_response = r
+                logger.info("[BinExplain] /analyze-code structured prompt: provider succeeded")
+                break
+        if not structured_ai_response:
+            structured_ai_response = (
+                "AI analysis unavailable — set GROQ_API_KEY, GEMINI_API_KEY, "
+                "OPENAI_API_KEY, or ANTHROPIC_API_KEY to enable AI-powered code review."
+            )
+
+    # ── Step 4: static analysis + response parsing ────────────────────────
+    analysis = _analyze_source_code_static(code, filename, structured_ai_response)
+    lang_internal = analysis.pop("_lang_internal", lang)
+    vulnerabilities = analysis.get("vulnerabilities", [])
+    ctf_category = analysis.get("ctf_category", {})
+
+    # ── Step 5: parallel CTF hints (Groq + Nemotron simultaneously) ────────
+    similar_writeups = analysis.get("similar_writeups", [])
+    writeup_context = ""
+    if ctf_knowledge and similar_writeups:
+        try:
+            writeup_context = ctf_knowledge.format_for_ai_context(similar_writeups)
+        except Exception:
+            pass
+
+    hints_result = await get_source_hints_parallel(
+        code=code,
+        language=lang_internal,
+        vulnerabilities=vulnerabilities,
+        ctf_category=ctf_category,
+        writeup_context=writeup_context,
+    )
+
+    # ── Step 6: merge parallel hints into response ─────────────────────────
+    analysis["ai_hints"] = hints_result.get("merged", "")
+    analysis["ai_hints_quick"] = hints_result.get("quick")
+    analysis["ai_hints_enhanced"] = hints_result.get("enhanced")
+
+    return analysis
+
 
 
 @app.get("/virustotal/{scan_id}")
