@@ -1,0 +1,20 @@
+---
+SOURCE: livesearch
+URL: https://pwn.college/
+CHALLENGE: pwn.college
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: free, read
+KEY_TECHNIQUE: Writeup for pwn.college — other exploitation technique.
+---
+ld appreciate your help in keeping pwn.college a viable educational platform. Please agree to these rules to continue to the material! I Agree to the Rules YOUR Journey — Next Steps 🫵 Whether you have just started, or have come far, there is always a next step to your journey.
+  The dojo or dojos listed below is that step, presented to you in the order that you should learn them .
+  Take a step, and the next will reveal itself. Start Here 54 Hacking 2 Modules 10 Challenges Side Quests Want to work ahead? Know your path better than we do? Forge your path through our whole material ! Need a break? Want to learn something new? Check out dojos created by the pwn.college community! Sharing is Caring Want to use pwn.college in your course? No problem!
+  You can use the videos and slides of pwn.college lectures freely for non-commercial purposes, but please provide attribution!
+  Additionally, if you use pwn.college in your own education program, we would appreciate it if you email us to let us know.
+  Evidence of wide-spread use of pwn.college for education will be a huge help for our various academic careers! EDUCATORS: If you are an educational institution and are using pwn.college as part of a class, you can import our challenges (or add your own) into your own private dojo for your students! Create your dojo here . CONFERENCES: If you are running a conference and would like pwn.college presence there (as a form of intense weekend-long training), please email us! After pwn.college Eventually, hackers continue their journey beyond pwn.college, becoming certain in their skills, achieving brown belt status (and able to, for example, usefully contribute to the cybersecurity industry and academia), before finally graduating to hacking masters: black belts .
+  But this, unfortunately, must happen outside of the dojo (for now!).
+  Some suggestions: Capture The Flags (CTFs) are a great way to practice your hacking skills in a fun and ethical way. The most popular way to find u

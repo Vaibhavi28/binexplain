@@ -1,0 +1,16 @@
+---
+SOURCE: livesearch
+URL: https://kshackzone.com/ctfs/writeups/NomanProdhan/73/scriptctf-2025/pwn/index
+CHALLENGE: Index – Pwn Challenge Writeup | scriptCTF 2025 by ...
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: PIE
+KEY_FUNCTIONS: gets, printf, read, fgets
+KEY_TECHNIQUE: Writeup for Index – Pwn Challenge Writeup | scriptCTF 2025 by ... — other exploitation technique.
+---
+der” that primes flag The interesting bit in main appears outside the standard switch (which only handles 0..4). After parsing the menu input with atoi, there’s a guard that checks for values ≥ 5 and then a special compare: fgets(& str , 100 , _stdin );
+iVar1 = atoi(& str ); if (iVar1 < 5 ) { // fall through to switch(iVar1) { 0..4 } } else { if (iVar1 == 0 x539) { _f = fopen( "flag.txt" , data. 000020 c6);
+        fgets( flag , 0 x40, _f );
+    } // loop continues; no switch dispatch when iVar1 >= 5 } What this does : When input converts to 0x539 (decimal 1337), it executes a hidden path: _f = fopen( "flag.txt" , data. 000020 c6) ; fgets( flag , 0 x40, _f) ; data.000020c6 is the mode string (the decompiler lifted it as a data reference); effectively this is fopen("flag.txt", "r") . fgets(flag, 0x40, _f); copies up to 0x3F bytes and appends a NUL, guaranteeing that flag is a valid C-string in .bss. Why we need this before reading: Our print sink is the exact call: printf( "Data: %s" , nums + ( int64_t )( int32_t )var_ch * 8); For (int32_t)var_ch == 8 we derived earlier, that pointer equals flag. Calling the 0x539 branch first ensures flag holds a NUL-terminated string so %s prints cleanly. If you skip it, flag may be uninitialized/empty and the output will be useless. Flow nuance: inputs ≥ 5 don’t enter the switch; the loop just continues after the hidden branch. So the full interaction is: Send 1337 → primes flag. Send 2 → enters read_data. Send 8 → nums + (int64_t)(int32_t)var_ch * 8 lands exactly on flag, and %s prints it. Note: If flag.txt is not in the same directory and you input 1337, fopen returns NULL and the subsequent fgets(flag, 0x40, _f) will crash. Ensure flag.txt exists (remote services already have it). 5. Remote exploitation Fire the hidden loader, then leak via the %s read with the exact index: printf '1337\n2\n8\n' | nc <HOST> <PORT> That’s it — 1337 primes flag, 2 invokes read_data, and 8 makes print the flag. 0 people love this Love Copied! Noma

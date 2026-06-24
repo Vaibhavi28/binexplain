@@ -1,0 +1,15 @@
+---
+SOURCE: livesearch
+URL: https://babyphd.net/category/pwn/
+CHALLENGE: pwn | BabyPhD CTF Team
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: read
+KEY_TECHNIQUE: Writeup for pwn | BabyPhD CTF Team — other exploitation technique.
+---
+hackyou.ctf.su 2016 November 24, 2016 pwn , re justcallmedude This is my write-up for recent hack you spb CTF - a CTF for newbies. I guess I'm a bit older here ahaha. Continue reading hackyou.ctf.su 2016 →
+
+[Additional Context: This page covers pwn | BabyPhD CTF Team in the context of binary exploitation and CTF challenges. Category: other.] Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques.

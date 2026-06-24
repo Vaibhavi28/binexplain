@@ -1,0 +1,15 @@
+---
+SOURCE: livesearch
+URL: https://ctfcookbook.com/docs/pwn/
+CHALLENGE: pwn | CTF Cookbook
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: ret2win
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: printf, system, read
+KEY_TECHNIQUE: Writeup for pwn | CTF Cookbook — ret2win exploitation technique.
+---
+CTF Cookbook pwn Basic Buffer Overflow Return To Win (ret2win) Return To Shellcode Integer Overflow printf Leak Tool: pwndbg/gdb pwn Recommended Tools Recommended Resources Introduction # pwn also sometimes called binary exploitation involves finding bugs and exploiting executables. Normally these are Linux executables (ELF files), but can also be for a variety of systems (windows, arm, macos, etc). Recommended Tools # At some point in your CTF journey you should install and read some tutorials/docs for the following tools: python3 pwntools pwndbg or gef checksec pwninit docker Recommended Resources # Nightmare Recommended Tools Recommended Resources
+
+[Additional Context: This page covers pwn | CTF Cookbook in the context of binary exploitation and CTF challenges. Category: ret2win.] Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques.

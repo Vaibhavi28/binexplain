@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://dft.wiki/?p=2587
+CHALLENGE: Reverse Engineering / Binary Exploitation Cheat Sheet - dft.wiki
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: rop_chain
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: gets, printf, free, system, execve, read
+KEY_TECHNIQUE: ropper --file=fileName --search "pop rdi" Finds all gadgets in the binary for use in ROP exploits [ Link ].
+---
+th sudo apt install -y ghidra . ropper --file=fileName --search "pop rdi" Finds all gadgets in the binary for use in ROP exploits [ Link ]. sudo -H python3 -m pip install ROPgadget ROPgadget --binary fileName Locates gadgets using ROPgadget. Use Radare2 [ Link ] to find register memory addresses. r2 fileName DEBUGGING TOOLS ltrace ./fileName Intercepts and displays library calls as the program runs. E.g. gets , puts , or printf from libc . strace ./fileName Intercepts and displays system calls as the program runs. E.g. open , read , write , close , fork , execve , exit , or mmap from the kernel. gdb ./fileName A powerful debugger that deserves a cheat sheet of its own. A much better experience is available through the Python module gdb-pwndbg [ Link ]. gdb-pwndbg fileName file fileName Loads the binary to be debugged. info functions Lists the functions in the binary. info registers Shows the contents of all registers. info proc mappings Displays memory mappings including start/end addresses and permissions (rwx). disassemble main Disassembles a function. info stack Shows the stack of a running or crashed execution. backtrace Similar to info stack . break main Adds a breakpoint to a function. break * 0xffffffff Adds a breakpoint at a memory address. delete break Removes all breakpoints. x/s 0xffffffff Shows the contents of memory at the given address. cyclic 100 Generates a 100-character cyclic pattern for overflow testing. Similar online tool [ Link ]. cyclic -l XXXX Calculates the offset to the given pattern segment. run Executes the binary. n steps to the next instruction. c continues to the next breakpoint or runs freely. run < payload Feeds a payload file into standard input. See this tutorial for installing Pwndbg + GEF + Peda together [ Link ]. CRAFTING PAYLOADS MANUALLY python2 -c 'print "A"*4 + "BBBB" + "\xef\xbe\xad\xde"' > payload For 32-bit: creates AAAABBBB followed by the binary representation of address 0x deadbeef . python2 -c 'print "A"*10 + "\xef\xb

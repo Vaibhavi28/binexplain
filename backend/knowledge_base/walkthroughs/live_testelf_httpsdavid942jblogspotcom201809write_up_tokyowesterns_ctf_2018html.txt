@@ -1,0 +1,16 @@
+---
+SOURCE: livesearch
+URL: https://david942j.blogspot.com/2018/09/write-up-tokyowesterns-ctf-2018.html
+CHALLENGE: Play With Capture The Flag: [Write-up] TokyoWesterns CTF 2018 - pwn240+300+300 EscapeMe
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: heap_exploitation
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: malloc, free, read
+KEY_TECHNIQUE: Writeup for Play With Capture The Flag: [Write-up] TokyoWesterns CTF 2018 - pwn240+300+300 EscapeMe — heap_exploitation exploitation technique.
+---
+|     0x30     | <- overflow, clear prev_in_use bit
+                   |   CCCCCCCC   |   CCCCCCCC   |
+                   |   CCCCCCCC   |   CCCCCCCC   |
+                   |-----------------------------| Heap overflow occurs when editing the B chunk, sets the size of next chunk from 0x31 to 0x30 , also prepares a properly prev_size ( 0x50 ). Then we Delete (free) the C chunk, it wants to merge with previous (fake) chunk so unlink will be invoked. As a result, *ptr which originally points to heap now points to ptr - 0x18 . After this, we almost have arbitrary write, but it's very limited because we can only write data with the same length on it (recall the implementation of Edit ). So we can't directly modify the data on stack (with address 0x7fffffffxx , "longer" than heap address 0x606000 ). I got stuck for a while and came with this solution: modify the pointer of top_chunk (at 0x604098 ), let it points to 0x604038 0x604038 is chosen because there's value on 0x604040 , so we can bypass the size check during malloc Alloc memo three times and the third memo will malloc on top_chunk itself, then we forge top_chunk again and let it points to stack address Alloc memo again then we can malloc on stack, then forge the return address. Remain is just control rip to heap with prepared shellcode, which can read more shellcode and execute it. Then I was stuck here 😂 Yes I have arbitrary shellcode execution, but where's the flag? Well, because I'm sure we must need code execution to pwn further interfaces (kernel and emulator), so I started to exploit the binary before knowing how to get flag1. After some reverse engineering, I find there's a special syscall with number 0x10c8 implemented in kernel.bin . The syscall will copy the flag onto a write-only page: uint64_t sys_getflag(void){ uint64_t addr; char flag[] = "Here is first flag : "FLAG1; addr = mmap_user(0, 0x1000, PROT_WRITE); copy_to_user(addr, flag, sizeof(flag)); mprotect_user(addr, 0x1000, PROT_NONE); return addr;

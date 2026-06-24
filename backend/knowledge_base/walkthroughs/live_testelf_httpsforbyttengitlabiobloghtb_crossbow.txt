@@ -1,0 +1,27 @@
+---
+SOURCE: livesearch
+URL: https://forbytten.gitlab.io/blog/htb-crossbow/
+CHALLENGE: Crossbow Writeup - Cyber Apocalypse 2025 - forbytten blogs
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: heap_exploitation
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: gets, read
+KEY_TECHNIQUE: Writeup for Crossbow Writeup - Cyber Apocalypse 2025 - forbytten blogs — heap_exploitation exploitation technique.
+---
+ctf) groups=101(ctf) Listing the contents of the directory revealed flag.txt $ ls
+crossbow
+crossbow_disassembly.txt
+flag.txt The contents of the flag were listed: $ cat flag.txt
+HTB{st4 ... REDACTED ... 905}[*] Got EOF while reading in interactive → 6 Conclusion Crossbow contains a stack-based buffer overflow vulnerability which I
+exploited by replacing the stack with a fake stack backed by the heap
+and re-directing execution flow via a ROP (Return-Oriented Programming)
+gadget chain. Along the way, I also learned a bit more about how ELF binaries are
+loaded in Linux x86-64, specifically concerning how some sections may be
+partially mapped into multiple segments. The flag was submitted and the challenge was marked as pwned. Submission of the flag marked the
+challenge as pwned → 7 Appendix - basic pwntools
+skeleton Below is the pwntools skeleton used to deliver the
+payload to both the local and remote targets. The full skeleton also has
+support for launching radare2 but for brevity I’ve omitted
+it from the current writeup. The payload is to be filled out in the pwn_target function. import argparse import os from pwn import * def parse_command_line_args(): parser = argparse.ArgumentParser(formatter_class = argparse.RawDescriptionHelpFormatter, epilog = r""" Examples: Pwn local binary with default debug logging python3 .. / .. /pwntools . py  local . /crossbow Pwn remote binary with default debug logging python3 .. / .. /pwntools . py  remote . /crossbow host:port Pwn remote binary with info logging python3 .. / .. /pwntools . py --log info remote . /crossbow host:port """ ) subparsers = parser.add_subparsers( help = 'Subcommand help' , required = True ) parser_local = subparsers.add_parser( 'local' , help = 'Pwn the local binary' ) add_common_subcmd_args(parser_local) parser_local.set_defaults(func = pwn_local) parser_remote = subparsers.add_parser( 'remote' , help = 'Pwn the host:port' ) add_common_subcmd_args(parser_remote) parser_remote.add_argument( 'host_port' , h

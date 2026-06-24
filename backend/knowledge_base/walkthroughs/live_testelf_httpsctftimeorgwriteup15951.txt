@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://ctftime.org/writeup/15951
+CHALLENGE: CTFtime.org / WCTF 2019 ONLINE / BabyPwn / Writeup
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: heap_exploitation
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: read
+KEY_TECHNIQUE: This is a clear stack buffer overflow.
+---
+."); print((int)"Student ID: ", v2); getchar(); j_readline(&Dst, 40); puts(&null_str); result = print((int)"[+]Done!", v1); } return result; } ``` The Dst buffer on the stack is only 10 bytes and readline is called with 40 bytes as size argument. This is a clear stack buffer overflow. But how we can trigger it? There is a check based on the values computed by the Diffie Hellman part that we didn’t have analyzed yet. So we patch the check in the debugger and in our mind and we will return on it later. ### Exploitation The offset from Dest to the return address if 16 bytes and so can insert a ropchain of 28 bytes. We divide the exploit in two different steps done in two execution of the program. Luckily, ASLR in Windows is done at boot and we can use the first connection to leak the kernel32.dll base address and it will be the same also for the next connection. The first ropchain simply print the contents of an .idata entry associated to a routine in kernel32. We choose GetProcessHeap. Note that we will not leak the address of GetProcessHeap but of the stub (always in kernel32) that jumps to GetProcessHeap. In the second stage, we have only to exploit again the BOF in submit() and execute WinExec(“some command”, 0). This requires only 16 bytes because we can insert the command as username (we know the address of the .data section of the binary) and use it as the first parameter for WinExec. Returning to the missed part, the check based on Diffie Hellman was the real struggle of this cryptopwn. ## Cryptography part ### Objective To exploit the BOF in function submit we have to pass a validation check ```c if ((SharedKey != 0) && (0x1f < _authed)) { i = 0; while (i < 0x20) { if ((uint)*(byte *)(SharedKey + i) != i + 1U) { return; } i = i + 1; } puts("Validation complete."); ``` SharedKey is a global variable that is set if we conclude correctly the "Diffie-hellman Key exchange" (option 1 of the Main menu) This check requires SharedKey to be equal to 01020304050607080910

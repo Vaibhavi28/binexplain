@@ -43,17 +43,13 @@ coverage.xml
 *.obj
 *.dat
 
-# ChromaDB databases
+# Block the ChromaDB binary database (large, machine-specific)
+backend/knowledge_base/chroma_db/
 **/chroma_db/
 chroma_db/
-knowledge_base/chroma_db/
 
-# Live search results
-backend/knowledge_base/walkthroughs/live_*
-knowledge_base/walkthroughs/live_*
+# Block log files
+backend/logs/*.log
 
 # CAG hint cache database
 cache/hints.db
-
-# Analytics and feedback logs
-logs/*.log

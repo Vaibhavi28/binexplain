@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://affine.group/writeups
+CHALLENGE: Writeups / Challenge Solutions
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Easy
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: Writeup for Writeups / Challenge Solutions — other exploitation technique.
+---
+My Writeups / Challenge Solutions Here I have collected links to my writeups/solutions for challenges from various competitions (mainly Capture The Flag ). The main topic is cryptography, but some others are covered too: reverse-engineering, exploitation of memory corruption bugs, sandbox escapes, steganography, etc. The most interesting from my point of view are marked as . 2024 hxp 38C3 CTF alcoholic_variety (writeup) :: crypto/elliptic , crypto/algebra idekCTF 2024 summertime (writeup) :: crypto/codes CodegateCTF 2024 Preliminary Babylogin (writeup) :: crypto/elliptic DatingGame (writeup) :: crypto/AES-GCM FactorGame (code) :: crypto/RSA LACUCARA_VM (code) :: crypto/linear 2023 corCTF 2023 Superbox (writeup) :: crypto/block-cipher , crypto/DDT , crypto/S-box Oil-Spill (writeup) :: crypto/multivariate , crypto/LLL , crypto/linear 2022 CodegateCTF 2022 Happy S-box (writeup) :: crypto/linear , crypto/LFSR , crypto/cube , crypto/integral Prime Generator (writeup) :: crypto/RSA , crypto/primes , crypto/small-roots TetCTF 2022 shares (writeup) :: crypto/linear , crypto/secret-sharing shares2 (writeup) :: crypto/linear , crypto/secret-sharing , crypto/LLL algebra (writeup) :: crypto/elliptic fault (writeup) :: crypto/RSA , crypto/fault , crypto/LLL 2021 Dragon CTF 2021 CRC recursive warmup+hard (writeup) :: crypto/linear , crypto/nonlinear , crypto/CRC Zer0pts CTF 2021 wa(rsa)mup (writeup) :: crypto/RSA OT or NOT OT (writeup) :: crypto/discrete-log , crypto/oblivious-transfer easy pseudo random (writeup) :: crypto/PRNG , crypto/small-roots , crypto/multivariate 3-AES (writeup) :: crypto/AES pure division (writeup) :: crypto/elliptic signme (writeup) :: crypto/PRNG , crypto/RSA , pwn , lang/C NOT Mordell primes (writeup) :: crypto/elliptic , crypto/RSA , crypto/multivariate Tokyo Network (writeup) :: quantum Aero CTF 2021 Horcrux (writeup) +code :: crypto/elliptic , crypto/LLL , crypto/small-roots , crypto/multivariate 2020 CONFidence CTF 2020 Finals FibHash (writeup) +c

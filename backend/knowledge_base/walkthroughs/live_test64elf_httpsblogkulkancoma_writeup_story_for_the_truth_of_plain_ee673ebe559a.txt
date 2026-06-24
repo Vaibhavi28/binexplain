@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://blog.kulkan.com/a-writeup-story-for-the-truth-of-plain-ee673ebe559a
+CHALLENGE: A writeup story for “The truth of Plain” | by Kulkan Security | Medium
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: Writeup for A writeup story for “The truth of Plain” | by Kulkan Security | Medium — other exploitation technique.
+---
+n Cipher. Nope. The length of the string led me to believe that it was an MD5 hash of another string. I looked in MD5 databases for a reversal. No results. Before I was about to cry, I decided to stop by Discord and see if any Hints had been released. None. I decided I would reach out to one of the organizers and plead for mercy: Press enter or click to view image in full size I got “good luck”; but at the same time I got something .If you extract all first letters in swing’s response and apply a ROT-13 along with.. Just kidding; however, the good luck did empower me to go on. Thank you swing! ❤ Needless to say, in between hours of playing I would stand up, walk around, take my dog for a walk and/or try to explain to my wife that no one was forcing me to do this. I began googling for CTF writeups and zip files. I knew zip passwords could be brute forced, but it would be silly to think the challenge would involve brute-forcing my way into Secure.zip. Fast forward a bit and I run into “bkcrack” ( https://github.com/kimci86/bkcrack ) which can be used to exploit a Known Plaintext attack and recover internal Zip keys which enable you to re-create the zip, only that this time protected using a password of your choosing. According to their documentation, I first listed the contents of Secret.zip using bkcrack and identified that both files contained had been encrypted using ZipCrypto, the algorithm that bkcrack had been developed to crack: Press enter or click to view image in full size I was happy to validate that the “Uncompressed” size of “key” (2008 bytes) matched perfectly the story of Alex, which was the payload returned in the HTTP Response issued after the client requested GET /key: Press enter or click to view image in full size Please refer to how bkcrack works for detailed information; but in summary this meant I had everything I needed to exploit the Known Plain text attack on Secret.zip . That is, because the first file contained in Secret.zip was the same ex

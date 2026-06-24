@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://github.com/topics/ctf-writeups?l=c
+CHALLENGE: ctf-writeups · GitHub Topics
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: heap_exploitation
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: Writeup for ctf-writeups · GitHub Topics — heap_exploitation exploitation technique.
+---
+riteups pwn writeup Updated Dec 14, 2021 C RPISEC / HackTheVote Star 240 Code Issues Pull requests Handouts, setup scripts, sources, and solutions for challenges from Hack The Vote CTFs reverse-engineering ctf-writeups ctf pwnable writeups Updated Mar 6, 2025 C mito753 / Kernel-Exploit-Dojo Star 198 Code Issues Pull requests CTF kernel exploitation notes, PoCs, exploits, and writeups. linux-kernel ctf-writeups qemu pwn ctf ebpf kernel-exploitation uaf smap userfaultfd kpti smep-bypass dirty-pipe linux-kernel-exploitation kernel-pwn pipe-buffer msg-msg modprobe-path kernel-rop Updated Jun 12, 2026 C project-sekai-ctf / sekaictf-2022 Star 196 Code Issues Pull requests 🎵 Official source code and writeups for SekaiCTF 2022! ctf-writeups ctf ctf-events ctf-solutions ctf-challenges Updated Jun 17, 2024 C LCTF / LCTF2017 Star 166 Code Issues Pull requests Source code, writeups and exps in LCTF2017. ctf-writeups ctf writeup ctf-challenges Updated Nov 22, 2017 C NeSE-Team / OurChallenges Star 147 Code Issues Pull requests writeups for our challenges ctf-writeups Updated Dec 11, 2022 C LCTF / LCTF2018 Star 135 Code Issues Pull requests Source code, writeups and exps in LCTF2018. ctf-writeups ctf writeup ctf-challenges Updated Dec 16, 2022 C 0e85dc6eaf / CTF-Writeups Star 104 Code Issues Pull requests Writeups/solutions ctf-writeups ctf ctf-solutions Updated Feb 25, 2020 C ByteBandits / writeups Star 104 Code Issues Pull requests Wiki-like CTF write-ups repository by ByteBandits cryptography reverse-engineering ctf-writeups pwn ctf writeup bytebandits Updated Sep 21, 2025 C project-sekai-ctf / sekaictf-2024 Star 83 Code Issues Pull requests 🎵 Official source code and writeups for SekaiCTF 2024! cryptography blockchain reverse-engineering competitive-programming ctf-writeups pwn ctf binary-exploitation ctf-events 0day web-exploitation ctf-solutions ctf-challenges Updated Aug 20, 2025 C HHousen / PicoCTF-2021 Star 55 Code Issues Pull requests Hayden Housen's solutions to the 202

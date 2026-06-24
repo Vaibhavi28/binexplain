@@ -1,0 +1,18 @@
+---
+SOURCE: livesearch
+URL: https://docs.pwntools.com/en/stable/elf.html
+CHALLENGE: pwnlib.elf — ELF Executables and Libraries — pwntools 4.15 ... - GitHub
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: rop_chain
+DIFFICULTY: Unknown
+PROTECTIONS: NX
+KEY_FUNCTIONS: gets, read
+KEY_TECHNIQUE: Writeup for pwnlib.elf — ELF Executables and Libraries — pwntools 4.15 ... - GitHub — rop_chain exploitation technique.
+---
+pwntools pwnlib.elf — ELF Executables and Libraries View page source pwnlib.elf — ELF Executables and Libraries  Most exploitable CTF challenges are provided in the Executable and Linkable
+Format ( ELF ).  Generally, it is very useful to be able to interact with
+these files to extract data such as function addresses, ROP gadgets, and
+writable page addresses. ELF Modules  pwnlib.elf.elf — ELF Files Example Usage Module Members ELF ELF.load_from_path() ELF._decompress_dwarf_section() ELF.from_assembly() ELF.from_bytes() ELF.make_relative_loader() ELF.patch_custom_libraries() ELF.set_interpreter() ELF.set_runpath() ELF.__getitem__() ELF.__init__() ELF.__repr__() ELF._get_linked_strtab_section() ELF._get_linked_symtab_section() ELF._get_section_header() ELF._get_section_header_stringtable() ELF._get_section_name() ELF._get_segment_header() ELF._identify_file() ELF._make_gnu_verdef_section() ELF._make_gnu_verneed_section() ELF._make_gnu_versym_section() ELF._make_section() ELF._make_segment() ELF._make_sunwsyminfo_table_section() ELF._make_symbol_table_index_section() ELF._make_symbol_table_section() ELF._parse_elf_header() ELF._patch_elf_and_read_maps() ELF._populate_functions() ELF._populate_got() ELF._populate_libraries() ELF._populate_plt() ELF._populate_symbols() ELF._populate_synthetic_symbols() ELF._read_dwarf_section() ELF._section_offset() ELF._segment_offset() ELF.asm() ELF.bss() ELF.checksec() ELF.close() ELF.debug() ELF.disable_nx() ELF.disasm() ELF.dynamic_by_tag() ELF.dynamic_string() ELF.dynamic_value_by_tag() ELF.fit() ELF.flat() ELF.get_dwarf_link() ELF.get_ehabi_infos() ELF.get_machine_arch() ELF.get_section_by_name() ELF.get_section_index() ELF.get_segment_for_address() ELF.get_shstrndx() ELF.get_supplementary_dwarfinfo() ELF.has_dwarf_link() ELF.has_ehabi_info() ELF.has_phantom_bytes() ELF.has_section() ELF.iter_notes() ELF.iter_properties() ELF.iter_segments_by_type() ELF.num_sections() ELF.num_segments() ELF.offset_to_vaddr() ELF.p16() ELF.p32() E
+
+[Additional Context: This page covers pwnlib.elf — ELF Executables and Libraries — pwntools 4.15 ... - GitHub in the context of binary exploitation and CTF challenges. Category: rop_chain.] Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques. Additional reference material on binary security mechanisms, vulnerabilities, and bypass techniques.

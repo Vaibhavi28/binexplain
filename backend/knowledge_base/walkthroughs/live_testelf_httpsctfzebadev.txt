@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://ctf.zeba.dev/
+CHALLENGE: CTF Writeups & Solutions - Web Exploitation, Pwn, Crypto, Misc - CTF ...
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: rop_chain
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: This site contains detailed writeups, exploit scripts, and technical notes documenting how each problem was approached, analyzed, and solved.
+---
+CTF Writeups ZebaLive/ctf-writeups Home Home Mārtiņa-CTF 2025 ECSC 2025 openECSC 2025 Mārtiņa-CTF 2025 Mārtiņa-CTF 2025 Web Web Possibly secure 2003 webapp Misc Misc Rewritten History ECSC 2025 ECSC 2025 Web Web Flag Szop Misc Misc Blue Mouse openECSC 2025 openECSC 2025 Web Web kittychat eventhub kv-messenger polish-bar Crypto Crypto polite-email Pwn Pwn cfp Stego Stego calamansi Misc Misc oci ruby-matcher organization Table of contents Competitions 2025 Categories Web Exploitation Binary Exploitation (Pwn) Cryptography Steganography Miscellaneous Disclaimer License CTF Writeups & Solutions ¶ Welcome to my personal archive of Capture The Flag (CTF) challenges that I've solved across different competitions. This site contains detailed writeups, exploit scripts, and technical notes documenting how each problem was approached, analyzed, and solved. Learn cybersecurity techniques including web exploitation (XSS, SSRF, SQL injection, CRLF injection, CSP bypass), binary exploitation (buffer overflow, ROP chains), cryptography (CRC algorithms, hash collisions), steganography (APNG analysis, PCAP analysis), and various miscellaneous challenges. Competitions ¶ Use the sidebar navigation to browse writeups by competition: 2025 ¶ Mārtiņa-CTF 2025 - 12 challenges solved, 1st place (Remote) ECSC 2025 - 4 challenges solved, 30th place openECSC 2025 - 21 challenges solved, 14th place Categories ¶ Web Exploitation ¶ SQL injection, XSS, SSRF, CSP bypass, CRLF injection, authentication bypass, prototype pollution Binary Exploitation (Pwn) ¶ Buffer overflow, ROP chains, function pointer hijacking, libc leaks Cryptography ¶ CRC algorithms, hash collisions, linear algebra over GF(2) Steganography ¶ APNG analysis, PCAP forensics, hidden data extraction Miscellaneous ¶ Docker registry enumeration, Git history analysis, Linux privilege escalation, Ruby regex exploitation Disclaimer ¶ All materials are provided for educational and research purposes only . Use responsibly and respect CTF com

@@ -1,0 +1,15 @@
+---
+SOURCE: livesearch
+URL: https://ctftime.org/writeup/36881
+CHALLENGE: CTFtime.org / Space Heroes 2023 / Galactic Federation / Writeup
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: Writeup for CTFtime.org / Space Heroes 2023 / Galactic Federation / Writeup — other exploitation technique.
+---
+ 00402ace */ slow_print(SUB81(local_a8,0)); std::__cxx11::basic_string<char,std::char_traits<char>,std::allocator<char>>::~basic_string (local_a8); std::allocator<char>::~allocator((allocator<char> *)&local_79); std::allocator<char>::allocator(); /* try { // try from 00402961 to 00402965 has its CatchHandler @ 00402b0d */ std::__cxx11::basic_string<char,std::char_traits<char>,std::allocator<char>>:: basic_string<std::allocator<char>>(local_78,"*click*\n...to a zero.\n",&local_49); /* try { // try from 0040296d to 00402971 has its CatchHandler @ 00402afc */ slow_print(SUB81(local_78,0)); std::__cxx11::basic_string<char,std::char_traits<char>,std::allocator<char>>::~basic_string (local_78); std::allocator<char>::~allocator((allocator<char> *)&local_49); std::allocator<char>::allocator(); /* try { // try from 004029a6 to 004029aa has its CatchHandler @ 00402b38 */ std::__cxx11::basic_string<char,std::char_traits<char>,std::allocator<char>>:: basic_string<std::allocator<char>>(local_48,"flag.txt",local_19); /* try { // try from 004029b2 to 004029b6 has its CatchHandler @ 00402b27 */ print_file((basic_string *)local_48); std::__cxx11::basic_string<char,std::char_traits<char>,std::allocator<char>>::~basic_string (local_48); std::allocator<char>::~allocator((allocator<char> *)local_19); /* WARNING: Subroutine does not return */ exit(0); } ``` - Gotcha! it prints a conversation on the screen and finally the content of `flag.txt` file! so we need to trigger this function in order to get the flag. - But wait, where is this function ever called ? well, ghidra tells us that the entry point for this function is in the `adjust_economy()` function : ![image]( https://user-images.githubusercontent.com/101048320/234398966-8003fda6-24db-4969-9179-78cddda6de12.png ) - I checked the function again and saw this portion of code : ```c++ else { bVar1 = std::operator==(local_88,"inflate_currency"); if (bVar1) { pbVar2 = std::operator<<((basic_ostream *)std::cout, "How much would you wish t
+
+[Additional Context: This page covers CTFtime.org / Space Heroes 2023 / Galactic Federation / Writeup in the context of binary exploitation and CTF challenges. Category: other.]

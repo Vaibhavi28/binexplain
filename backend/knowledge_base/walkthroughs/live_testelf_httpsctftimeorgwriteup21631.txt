@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://ctftime.org/writeup/21631
+CHALLENGE: CTFtime.org / NahamCon CTF / Dead Swap / Writeup
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: Writeup for CTFtime.org / NahamCon CTF / Dead Swap / Writeup — other exploitation technique.
+---
+'): answer[j] = chr((ord(answer[j]) - ord('a') + 1) % ( ord('z') - ord('a') + 1) + ord('a')) plain = ''.join(answer) if 'send back' in plain: break position = re.findall("[0-9]+",plain) if len(position) > 0: flag[int(position[0])] = plain[-2] empty = [i for i in range(len(flag)) if flag[i] == ''] print(''.join(flag), end='\r\n') s.send(plain) s.close() ``` ## Really powerful Gnomes Only YOU can save the village! Connect with: `nc jh2i.com 50031` **flag{it_was_in_fact_you_that_was_really_powerful}** **Solution:** Automate going on adventure and buying weapons: ```python 3 from pwn import * import re prices = [1000,2000,10000,100000,10000] gold = 0 def beautify_data(msg): return str(msg)[2:-1].replace("\\n","\n") host, port = ' jh2i.com ', 50031 s = remote(host,port) for i in range(5): response = beautify_data(s.recv()) if "flag" in response: print(re.findall("flag{.*?}",response)[0]) exit(0) s.send("6\n{}\n".format(i + 1)) while int(gold) < prices[i]: response = beautify_data(s.recv()) if "flag" in response: print(re.findall("flag{.*?}",response)[0]) exit(0) gold = re.findall("[0-9]+",response)[1] print("gold: " + gold) s.send("{}\n".format(5 - i)) s.send("1\n") if "flag" in response: print(re.findall("flag{.*?}",response)[0]) s.interactive() s.close() ``` *** # Web ## Agent 95 They've given you a number, and taken away your name~ Connect here:\ http://jh2i.com:50000 **flag{user_agents_undercover}** **Solution:** Change User agent to Windows 95 ## Localghost BooOooOooOOoo! This spooOoOooky client-side cooOoOode sure is scary! What spoOoOoOoky secrets does he have in stooOoOoOore?? Connect here:\ http://jh2i.com:50003 **JCTF{spoooooky_ghosts_in_storage}** **Solution:** In JavaScript code for jquerty.jscroll2 after beautifying, flag variable contains flag in bytes ## Phphonebook Ring ring! Need to look up a number? This phonebook has got you covered! But you will only get a flag if it is an emergency! Connect here:\ http://jh2i.com:50002 **flag{phon3_numb3r_3xtr4ct3d}*

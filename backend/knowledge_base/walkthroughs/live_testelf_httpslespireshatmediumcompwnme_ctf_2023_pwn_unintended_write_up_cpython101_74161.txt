@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://lespireshat.medium.com/pwnme-ctf-2023-pwn-unintended-write-up-cpython101-74161e3eaae9
+CHALLENGE: PwnMe CTF 2023 — Pwn Unintended Write-Up : CPython101 | by Les Pires Hat | Medium
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Easy
+PROTECTIONS: None
+KEY_FUNCTIONS: read
+KEY_TECHNIQUE: For this write-up, I will explain how I was able to bypass the intended way to flag the Pwn CPython101 challenge.
+---
+PwnMe CTF 2023 — Pwn Unintended Write-Up : CPython101 Les Pires Hat 6 min read · May 10, 2023 -- Listen Share From May 5th to 7th the second edition of the PWNME CTF was held . Our team participated in the student category. For this write-up, I will explain how I was able to bypass the intended way to flag the Pwn CPython101 challenge. CPython101 What if you could do memory corruption in Python ? Well this is an opportunity for you to discover that ! Find a way to read the flag on the remote service. **Note**: - *This challenge is not a pyjail, mesures have been taken to block unintented way. If you find a bypass to the challenge please report to the challenge maker :)* - *You must spawn an instance for this challenge. You can connect to it with netcat: nc 51.254.39.184 1338* Author: Express#8049 Analysis The challenge gave us an archive that contains a Dockerfile and the vulnerable pwnme.so library, which is a Python module written in C. There is also a wrapper that takes our Python code and places it into a file that will be executed later. The LD_PRELOAD environment variable is set to hook.so library. In short, all functions present in this library are used instead of the ones in the dynamically linked library. This also affects child processes. After the first analysis, we can see that the challenge seems not too easy. The number of solves tells us that it will be an advanced exploitation. But! We see that maybe some teams have already bypassed the environment to flag this challenge. So, if the environment seems permissive, why can’t I bypass it too? With my experience, I know that it’s really difficult to set up a safe environment for a Python challenge. So, let’s go find an unintended solution. Read the flag First, we need to find where the flag is stored. Great! We are in the directory where the flag is. Let’s try to directly read it. Hmm, subprocess is not present. The ctypes library is removed when the Dockerfile is processed, which is certainly the root ca

