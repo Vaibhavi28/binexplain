@@ -1,0 +1,84 @@
+Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International
+(CC BY-NC-ND 4.0)
+
+Copyright (c) 2026 Vaibhavi Sanjay Kathepuri
+All Rights Reserved Beyond the Terms Below.
+
+This work, BinExplain, is licensed under the Creative Commons
+Attribution-NonCommercial-NoDerivatives 4.0 International License.
+
+═══════════════════════════════════════════════════════════════
+
+YOU ARE FREE TO:
+
+  USE — Use the hosted tool at binexplain.com
+        for personal, educational, and CTF purposes, free of charge.
+
+  VIEW — Read, study, and learn from the publicly visible source code
+         in this repository.
+
+  REFERENCE — Cite this project in academic papers, articles, or
+              presentations with proper attribution.
+
+═══════════════════════════════════════════════════════════════
+
+UNDER THE FOLLOWING TERMS:
+
+  ATTRIBUTION — You must give appropriate credit to Vaibhavi Sanjay
+                Kathepuri, provide a link to this license, and link
+                to https://github.com/Vaibhavi28/binexplain
+                You must not suggest that the author endorses you
+                or your use of the work.
+
+  NON-COMMERCIAL — You may not use this software, in whole or in
+                    part, for commercial purposes. This includes but
+                    is not limited to: selling it, selling access to
+                    it, bundling it into a paid product, or using it
+                    to generate revenue without explicit written
+                    permission from the author.
+
+  NO DERIVATIVES — You may not remix, transform, modify, or build
+                    upon this material and distribute the modified
+                    material. You may not fork this repository and
+                    publish it under a different name or as your
+                    own work.
+
+  NO REDISTRIBUTION — You may not clone, copy, or redistribute the
+                       source code of this software, in source or
+                       compiled form, without explicit prior written
+                       permission from the author. This restriction
+                       applies regardless of attribution.
+
+═══════════════════════════════════════════════════════════════
+
+NOTICE ON ACADEMIC STATUS:
+
+This project is the subject of ongoing academic research and is
+being prepared for submission to a peer-reviewed venue (ACM SIGCSE).
+The author retains full rights to this work pending publication.
+The restrictions in this license are in place to protect academic
+priority and originality claims during this period.
+
+═══════════════════════════════════════════════════════════════
+
+FOR PERMISSIONS BEYOND THIS LICENSE:
+
+Contact: kathepurivaibhavi@gmail.com
+Subject line: "BinExplain License Inquiry"
+
+═══════════════════════════════════════════════════════════════
+
+NO WARRANTY:
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+NONINFRINGEMENT. BinExplain PERFORMS STATIC AND DYNAMIC ANALYSIS OF
+BINARY FILES PROVIDED BY THE USER. THE AUTHOR IS NOT RESPONSIBLE
+FOR HOW THIS TOOL IS USED. ONLY ANALYZE FILES YOU OWN OR HAVE
+EXPLICIT PERMISSION TO ANALYZE.
+
+═══════════════════════════════════════════════════════════════
+
+Full legal license text:
+https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode
