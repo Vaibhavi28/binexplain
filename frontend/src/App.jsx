@@ -2144,6 +2144,7 @@ export default function App() {
                             {'\u26A1'} CAG: {cagStats.hit_rate}% hit rate
                         </span>
                     )}
+                    <span>Copyright © 2026 Vaibhavi Sanjay Kathepuri. All rights reserved.</span>
                 </footer>
             </div>
 
