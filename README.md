@@ -1,4 +1,7 @@
 <div align="center">
+
+![BinExplain Banner](docs/banner.png)
+
 # 🔍 BinExplain
  
 ### Free AI-Powered Binary Analysis for CTF Beginners
