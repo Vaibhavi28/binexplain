@@ -3,6 +3,7 @@ import About from './pages/About.jsx';
 import Docs from './pages/Docs.jsx';
 import Blog from './pages/Blog.jsx';
 import Contact from './pages/Contact.jsx';
+import Privacy from './pages/Privacy.jsx';
 
 /* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -297,6 +298,9 @@ export default function App() {
         if (path.endsWith('/contact') || hash.startsWith('#contact') || hash.startsWith('#/contact')) {
             return 'contact';
         }
+        if (path.endsWith('/privacy') || hash.startsWith('#privacy') || hash.startsWith('#/privacy')) {
+            return 'privacy';
+        }
         return 'home';
     });
 
@@ -312,6 +316,8 @@ export default function App() {
                 setRoute('blog');
             } else if (path.endsWith('/contact') || hash.startsWith('#contact') || hash.startsWith('#/contact')) {
                 setRoute('contact');
+            } else if (path.endsWith('/privacy') || hash.startsWith('#privacy') || hash.startsWith('#/privacy')) {
+                setRoute('privacy');
             } else {
                 setRoute('home');
             }
@@ -1134,6 +1140,8 @@ export default function App() {
                     <Blog onNavigate={navigate} />
                 ) : route === 'contact' ? (
                     <Contact onNavigate={navigate} />
+                ) : route === 'privacy' ? (
+                    <Privacy onNavigate={navigate} />
                 ) : (
                     <>
                         {/* -- Title -- */}
@@ -2222,8 +2230,14 @@ export default function App() {
                         <a href="#/blog" onClick={(e) => { e.preventDefault(); navigate('#/blog'); }} className="footer-link">Blog</a>
                         <span className="footer-link-separator">|</span>
                         <a href="#/contact" onClick={(e) => { e.preventDefault(); navigate('#/contact'); }} className="footer-link">Contact</a>
+                        <span className="footer-link-separator">|</span>
+                        <a href="#/privacy" onClick={(e) => { e.preventDefault(); navigate('#/privacy'); }} className="footer-link">Privacy Policy</a>
                     </div>
-                    <span>Copyright © 2026 Vaibhavi Sanjay Kathepuri. All rights reserved.</span>
+                    <span>
+                        © 2026 Vaibhavi Sanjay Kathepuri · CC BY-NC-ND 4.0 ·{' '}
+                        <a href="#/privacy" onClick={(e) => { e.preventDefault(); navigate('#/privacy'); }} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: '700' }}>Privacy Policy</a> ·{' '}
+                        <a href="#/contact" onClick={(e) => { e.preventDefault(); navigate('#/contact'); }} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: '700' }}>Contact</a>
+                    </span>
                 </footer>
             </div>
 
