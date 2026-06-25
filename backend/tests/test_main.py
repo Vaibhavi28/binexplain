@@ -346,3 +346,27 @@ class TestExplainCommand:
         response = client.post("/explain-command", json={"command": "   "})
         assert response.status_code == 422
 
+
+class TestContactForm:
+    def test_contact_form_success(self):
+        payload = {
+            "name": "Alice",
+            "email": "alice@example.com",
+            "subject": "General",
+            "message": "This is a great tool!"
+        }
+        # Test /contact
+        response = client.post("/contact", json=payload)
+        assert response.status_code == 200
+        assert response.json() == {"status": "received"}
+
+        # Test /api/contact
+        response = client.post("/api/contact", json=payload)
+        assert response.status_code == 200
+        assert response.json() == {"status": "received"}
+
+    def test_contact_form_missing_fields(self):
+        response = client.post("/contact", json={"name": "Alice"})
+        assert response.status_code == 422
+
+

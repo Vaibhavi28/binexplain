@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import About from './pages/About.jsx';
 import Docs from './pages/Docs.jsx';
 import Blog from './pages/Blog.jsx';
+import Contact from './pages/Contact.jsx';
 
 /* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -293,6 +294,9 @@ export default function App() {
         if (path.endsWith('/blog') || hash.startsWith('#blog') || hash.startsWith('#/blog')) {
             return 'blog';
         }
+        if (path.endsWith('/contact') || hash.startsWith('#contact') || hash.startsWith('#/contact')) {
+            return 'contact';
+        }
         return 'home';
     });
 
@@ -306,6 +310,8 @@ export default function App() {
                 setRoute('docs');
             } else if (path.endsWith('/blog') || hash.startsWith('#blog') || hash.startsWith('#/blog')) {
                 setRoute('blog');
+            } else if (path.endsWith('/contact') || hash.startsWith('#contact') || hash.startsWith('#/contact')) {
+                setRoute('contact');
             } else {
                 setRoute('home');
             }
@@ -1126,6 +1132,8 @@ export default function App() {
                     <Docs onNavigate={navigate} />
                 ) : route === 'blog' ? (
                     <Blog onNavigate={navigate} />
+                ) : route === 'contact' ? (
+                    <Contact onNavigate={navigate} />
                 ) : (
                     <>
                         {/* -- Title -- */}
@@ -2212,6 +2220,8 @@ export default function App() {
                         <a href="#/docs" onClick={(e) => { e.preventDefault(); navigate('#/docs'); }} className="footer-link">Docs</a>
                         <span className="footer-link-separator">|</span>
                         <a href="#/blog" onClick={(e) => { e.preventDefault(); navigate('#/blog'); }} className="footer-link">Blog</a>
+                        <span className="footer-link-separator">|</span>
+                        <a href="#/contact" onClick={(e) => { e.preventDefault(); navigate('#/contact'); }} className="footer-link">Contact</a>
                     </div>
                     <span>Copyright © 2026 Vaibhavi Sanjay Kathepuri. All rights reserved.</span>
                 </footer>

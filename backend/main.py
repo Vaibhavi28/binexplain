@@ -41,7 +41,7 @@ from google.genai import types
 gemini_client = None
 from typing import Literal
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
@@ -5811,6 +5811,20 @@ async def cache_stats():
     total cache hits, hit rate %, and most common categories.
     """
     return _hint_cache.get_stats()
+
+
+# ---------------------------------------------------------------------------
+# Contact form endpoint
+# ---------------------------------------------------------------------------
+@app.post("/contact")
+@app.post("/api/contact")
+async def contact_form(name: str = Body(...), email: str = Body(...), subject: str = Body(...), message: str = Body(...)):
+    # Log to backend/logs/contact.log
+    import datetime
+    os.makedirs("logs", exist_ok=True)
+    with open("logs/contact.log", "a", encoding="utf-8") as f:
+        f.write(f"{datetime.datetime.now().isoformat()} | {name} | {email} | {subject} | {message[:200]}\n")
+    return {"status": "received"}
 
 
 # ---------------------------------------------------------------------------
