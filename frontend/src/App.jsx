@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import About from './pages/About.jsx';
 import Docs from './pages/Docs.jsx';
+import Blog from './pages/Blog.jsx';
 
 /* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -289,6 +290,9 @@ export default function App() {
         if (path.endsWith('/docs') || hash.startsWith('#docs') || hash.startsWith('#/docs')) {
             return 'docs';
         }
+        if (path.endsWith('/blog') || hash.startsWith('#blog') || hash.startsWith('#/blog')) {
+            return 'blog';
+        }
         return 'home';
     });
 
@@ -300,6 +304,8 @@ export default function App() {
                 setRoute('about');
             } else if (path.endsWith('/docs') || hash.startsWith('#docs') || hash.startsWith('#/docs')) {
                 setRoute('docs');
+            } else if (path.endsWith('/blog') || hash.startsWith('#blog') || hash.startsWith('#/blog')) {
+                setRoute('blog');
             } else {
                 setRoute('home');
             }
@@ -1118,6 +1124,8 @@ export default function App() {
                     <About onNavigate={navigate} />
                 ) : route === 'docs' ? (
                     <Docs onNavigate={navigate} />
+                ) : route === 'blog' ? (
+                    <Blog onNavigate={navigate} />
                 ) : (
                     <>
                         {/* -- Title -- */}
@@ -2202,6 +2210,8 @@ export default function App() {
                         <a href="#/about" onClick={(e) => { e.preventDefault(); navigate('#/about'); }} className="footer-link">About</a>
                         <span className="footer-link-separator">|</span>
                         <a href="#/docs" onClick={(e) => { e.preventDefault(); navigate('#/docs'); }} className="footer-link">Docs</a>
+                        <span className="footer-link-separator">|</span>
+                        <a href="#/blog" onClick={(e) => { e.preventDefault(); navigate('#/blog'); }} className="footer-link">Blog</a>
                     </div>
                     <span>Copyright © 2026 Vaibhavi Sanjay Kathepuri. All rights reserved.</span>
                 </footer>

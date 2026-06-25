@@ -1,0 +1,129 @@
+import React, { useState } from 'react';
+
+export default function Blog({ onNavigate }) {
+    const articles = [
+        {
+            title: "I Built a Free AI Tool for CTF Binary Analysis — Here's What I Learned",
+            date: "Coming Soon",
+            category: "Tool Reveal",
+            excerpt: "After 40 hours struggling with my first binary exploitation challenge, I built the tool I wished existed. Here's the full story of building BinExplain and what I discovered along the way.",
+            tag: "Featured",
+            tagClass: "blog-tag--featured"
+        },
+        {
+            title: "What Is a Binary File? A Beginner's Guide for CTF Players",
+            date: "Coming Soon",
+            category: "Beginner Guide",
+            excerpt: "Every CTF binary challenge starts with a file. This guide explains what that file actually is, how to read it, and what the first five commands you should run are.",
+            tag: "Beginner",
+            tagClass: "blog-tag--beginner"
+        },
+        {
+            title: "Buffer Overflows Explained With a Real CTF Challenge",
+            date: "Coming Soon",
+            category: "Tutorial",
+            excerpt: "A buffer overflow is one of the most common CTF vulnerability classes. We walk through a real challenge using BinExplain to identify the vulnerability and generate a working exploit.",
+            tag: "Tutorial",
+            tagClass: "blog-tag--tutorial"
+        },
+        {
+            title: "Format String Vulnerabilities: From Zero to Exploit",
+            date: "Coming Soon",
+            category: "Tutorial",
+            excerpt: "printf(buf) is a one-line mistake that can give an attacker arbitrary read and write. Here's exactly how to identify and exploit it.",
+            tag: "Tutorial",
+            tagClass: "blog-tag--tutorial"
+        },
+        {
+            title: "Heap Exploitation Basics: Use-After-Free Explained",
+            date: "Coming Soon",
+            category: "Tutorial",
+            excerpt: "Heap challenges are the hardest CTF binary category. This guide breaks down use-after-free from first principles and shows how BinExplain identifies the pattern.",
+            tag: "Tutorial",
+            tagClass: "blog-tag--tutorial"
+        },
+        {
+            title: "How I Built a RAG System Over Real CTF Writeups",
+            date: "Coming Soon",
+            category: "Technical Deep Dive",
+            excerpt: "BinExplain uses a Retrieval Augmented Generation pipeline indexed over hundreds of real CTF writeups. Here's exactly how it works and why it makes AI hints dramatically better.",
+            tag: "Technical",
+            tagClass: "blog-tag--technical"
+        }
+    ];
+
+    const [email, setEmail] = useState('');
+    const [isSubscribed, setIsSubscribed] = useState(false);
+
+    const handleSubscribe = (e) => {
+        e.preventDefault();
+        if (email.trim()) {
+            setIsSubscribed(true);
+            setEmail('');
+        }
+    };
+
+    const handleBackClick = (e) => {
+        e.preventDefault();
+        if (onNavigate) {
+            onNavigate('/');
+        } else {
+            window.location.hash = '#/';
+        }
+    };
+
+    return (
+        <div className="blog-container">
+            {/* Back link */}
+            <a href="#/" onClick={handleBackClick} className="blog-back-link">
+                &larr; Back to Analyzer
+            </a>
+
+            <h1 className="blog-title">BinExplain Blog</h1>
+
+            {/* Newsletter Subscription */}
+            <div className="blog-subscribe">
+                <p className="blog-subscribe-note">
+                    Articles are published here first. Subscribe to get notified:
+                </p>
+                {isSubscribed ? (
+                    <div className="blog-subscribe-success">
+                        Thank you — you will be notified when new articles are published.
+                    </div>
+                ) : (
+                    <form onSubmit={handleSubscribe} className="blog-subscribe-form">
+                        <input
+                            type="email"
+                            className="blog-subscribe-input"
+                            placeholder="Enter your email address..."
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                        />
+                        <button type="submit" className="blog-subscribe-btn">
+                            Subscribe
+                        </button>
+                    </form>
+                )}
+            </div>
+
+            {/* Articles Grid */}
+            <div className="blog-grid">
+                {articles.map((art, index) => (
+                    <article className="blog-card" key={index}>
+                        <div className="blog-card-header">
+                            <span className="blog-card-category">{art.category}</span>
+                            <span className={`blog-card-tag ${art.tagClass}`}>{art.tag}</span>
+                        </div>
+                        <h2 className="blog-card-title">{art.title}</h2>
+                        <p className="blog-card-excerpt">{art.excerpt}</p>
+                        <div className="blog-card-footer">
+                            <span className="blog-card-date">{art.date}</span>
+                            <span className="blog-card-readmore">Read More &rarr;</span>
+                        </div>
+                    </article>
+                ))}
+            </div>
+        </div>
+    );
+}
