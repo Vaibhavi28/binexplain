@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import About from './pages/About.jsx';
 
 /* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -276,6 +277,43 @@ const SOURCE_CODE_EXTENSIONS = ['.c', '.cpp', '.h', '.hpp', '.py', '.js', '.rs',
 export default function App() {
     const [file, setFile] = useState(null);
     const [dragOver, setDragOver] = useState(false);
+
+    /* -- Routing state -- */
+    const [route, setRoute] = useState(() => {
+        const path = window.location.pathname;
+        const hash = window.location.hash;
+        if (path.endsWith('/about') || hash === '#/about') {
+            return 'about';
+        }
+        return 'home';
+    });
+
+    useEffect(() => {
+        const handleLocationChange = () => {
+            const path = window.location.pathname;
+            const hash = window.location.hash;
+            if (path.endsWith('/about') || hash === '#/about') {
+                setRoute('about');
+            } else {
+                setRoute('home');
+            }
+        };
+        window.addEventListener('popstate', handleLocationChange);
+        window.addEventListener('hashchange', handleLocationChange);
+        return () => {
+            window.removeEventListener('popstate', handleLocationChange);
+            window.removeEventListener('hashchange', handleLocationChange);
+        };
+    }, []);
+
+    const navigate = (newPath) => {
+        if (newPath.startsWith('#')) {
+            window.location.hash = newPath;
+        } else {
+            window.history.pushState({}, '', newPath);
+            window.dispatchEvent(new Event('popstate'));
+        }
+    };
     const [loading, setLoading] = useState(false);
     const [loadingMsg, setLoadingMsg] = useState('');
     const [result, setResult] = useState(null);
@@ -1070,8 +1108,12 @@ export default function App() {
         <div className="app-wrapper">
             <div className="content-wrapper">
 
-                {/* -- Title -- */}
-                <header className="hero-header">
+                {route === 'about' ? (
+                    <About onNavigate={navigate} />
+                ) : (
+                    <>
+                        {/* -- Title -- */}
+                        <header className="hero-header">
                     <h1 className="hero-title">BinExplain</h1>
                     <p className="hero-subtitle">
                         Secure, sandboxed static analysis for binary executables.
@@ -2134,6 +2176,8 @@ export default function App() {
                         </div>
                     </div>
                 )}
+                    </>
+                )}
 
                 {/* Footer */}
                 <footer className="footer">
@@ -2144,6 +2188,11 @@ export default function App() {
                             {'\u26A1'} CAG: {cagStats.hit_rate}% hit rate
                         </span>
                     )}
+                    <div className="footer-links">
+                        <a href="#/" onClick={(e) => { e.preventDefault(); navigate('#/'); }} className="footer-link">Home</a>
+                        <span className="footer-link-separator">|</span>
+                        <a href="#/about" onClick={(e) => { e.preventDefault(); navigate('#/about'); }} className="footer-link">About</a>
+                    </div>
                     <span>Copyright © 2026 Vaibhavi Sanjay Kathepuri. All rights reserved.</span>
                 </footer>
             </div>
