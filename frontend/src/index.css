@@ -4620,5 +4620,246 @@ body {
   font-size: 12px;
 }
 
+/* -- Docs Page Styling -- */
+.docs-container {
+  display: flex;
+  gap: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+
+@media (max-width: 1024px) {
+  .docs-container {
+    flex-direction: column;
+    gap: 24px;
+  }
+}
+
+.docs-sidebar {
+  width: 260px;
+  position: sticky;
+  top: 40px;
+  height: fit-content;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  padding-right: 16px;
+  border-right: 1px solid var(--outline-variant);
+}
+
+@media (max-width: 1024px) {
+  .docs-sidebar {
+    width: 100%;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid var(--outline-variant);
+    padding-bottom: 16px;
+    max-height: 200px;
+  }
+}
+
+.docs-nav-title {
+  font-family: var(--font-headline);
+  font-weight: 900;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--on-surface-variant);
+  margin-bottom: 16px;
+}
+
+.docs-nav-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 1024px) {
+  .docs-nav-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+
+.docs-nav-link {
+  color: var(--on-surface-variant);
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.2s, padding-left 0.2s;
+  cursor: pointer;
+}
+
+.docs-nav-link:hover {
+  color: var(--primary);
+  padding-left: 4px;
+}
+
+@media (max-width: 1024px) {
+  .docs-nav-link:hover {
+    padding-left: 0;
+  }
+}
+
+.docs-nav-link--active {
+  color: var(--primary);
+  font-weight: 700;
+  border-left: 2px solid var(--primary);
+  padding-left: 8px;
+}
+
+@media (max-width: 1024px) {
+  .docs-nav-link--active {
+    border-left: none;
+    padding-left: 0;
+    text-decoration: underline;
+  }
+}
+
+.docs-content {
+  flex: 1;
+  max-width: 800px;
+}
+
+.docs-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 13px;
+  text-decoration: none;
+  margin-bottom: 32px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.docs-back-link:hover {
+  opacity: 0.8;
+}
+
+.docs-title {
+  font-size: 2.75rem;
+  font-weight: 900;
+  font-family: var(--font-headline);
+  color: var(--primary);
+  margin-bottom: 24px;
+}
+
+.docs-section {
+  margin-bottom: 64px;
+  scroll-margin-top: 40px;
+}
+
+.docs-section h2 {
+  font-size: 1.75rem;
+  font-family: var(--font-headline);
+  color: var(--secondary);
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--outline-variant);
+  padding-bottom: 8px;
+}
+
+.docs-section h3 {
+  font-size: 1.25rem;
+  font-family: var(--font-headline);
+  color: var(--on-surface);
+  margin-top: 24px;
+  margin-bottom: 12px;
+}
+
+.docs-section p {
+  font-size: 1rem;
+  color: var(--on-surface-variant);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.docs-section ul, .docs-section ol {
+  margin-left: 20px;
+  margin-bottom: 16px;
+  color: var(--on-surface-variant);
+  line-height: 1.6;
+}
+
+.docs-section li {
+  margin-bottom: 8px;
+}
+
+.docs-section li strong {
+  color: var(--on-surface);
+}
+
+.docs-code {
+  background: var(--surface-container);
+  border: 1px solid var(--outline-variant);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: monospace;
+  color: var(--primary);
+  font-size: 0.9em;
+}
+
+.docs-table-wrapper {
+  overflow-x: auto;
+  margin-top: 16px;
+  margin-bottom: 24px;
+}
+
+.docs-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.docs-table th, .docs-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--outline-variant);
+}
+
+.docs-table th {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  color: var(--secondary);
+}
+
+.docs-table td {
+  color: var(--on-surface-variant);
+  font-size: 14px;
+}
+
+.docs-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.docs-link {
+  color: var(--primary);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.docs-link:hover {
+  opacity: 0.8;
+}
+
+.docs-badge {
+  background: rgba(74, 222, 128, 0.08);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.8em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: inline-block;
+  margin-left: 8px;
+}
+
+
 
 

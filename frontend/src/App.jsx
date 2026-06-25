@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import About from './pages/About.jsx';
+import Docs from './pages/Docs.jsx';
 
 /* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -285,6 +286,9 @@ export default function App() {
         if (path.endsWith('/about') || hash === '#/about') {
             return 'about';
         }
+        if (path.endsWith('/docs') || hash.startsWith('#docs') || hash.startsWith('#/docs')) {
+            return 'docs';
+        }
         return 'home';
     });
 
@@ -294,6 +298,8 @@ export default function App() {
             const hash = window.location.hash;
             if (path.endsWith('/about') || hash === '#/about') {
                 setRoute('about');
+            } else if (path.endsWith('/docs') || hash.startsWith('#docs') || hash.startsWith('#/docs')) {
+                setRoute('docs');
             } else {
                 setRoute('home');
             }
@@ -1110,6 +1116,8 @@ export default function App() {
 
                 {route === 'about' ? (
                     <About onNavigate={navigate} />
+                ) : route === 'docs' ? (
+                    <Docs onNavigate={navigate} />
                 ) : (
                     <>
                         {/* -- Title -- */}
@@ -2192,6 +2200,8 @@ export default function App() {
                         <a href="#/" onClick={(e) => { e.preventDefault(); navigate('#/'); }} className="footer-link">Home</a>
                         <span className="footer-link-separator">|</span>
                         <a href="#/about" onClick={(e) => { e.preventDefault(); navigate('#/about'); }} className="footer-link">About</a>
+                        <span className="footer-link-separator">|</span>
+                        <a href="#/docs" onClick={(e) => { e.preventDefault(); navigate('#/docs'); }} className="footer-link">Docs</a>
                     </div>
                     <span>Copyright © 2026 Vaibhavi Sanjay Kathepuri. All rights reserved.</span>
                 </footer>
