@@ -1,9 +1,11 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import About from './pages/About.jsx';
 import Docs from './pages/Docs.jsx';
 import Blog from './pages/Blog.jsx';
 import Contact from './pages/Contact.jsx';
 import Privacy from './pages/Privacy.jsx';
+import TopNav from './components/TopNav';
 
 /* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -282,41 +284,61 @@ export default function App() {
     const [file, setFile] = useState(null);
     const [dragOver, setDragOver] = useState(false);
 
+    const location = useLocation();
+
     /* -- Routing state -- */
     const [route, setRoute] = useState(() => {
         const path = window.location.pathname;
         const hash = window.location.hash;
-        if (path.endsWith('/about') || hash === '#/about') {
+        if (path.endsWith('/about') || hash === '#/about' || path === '/about') {
             return 'about';
         }
-        if (path.endsWith('/docs') || hash.startsWith('#docs') || hash.startsWith('#/docs')) {
+        if (path.endsWith('/docs') || hash.startsWith('#docs') || hash.startsWith('#/docs') || path === '/docs') {
             return 'docs';
         }
-        if (path.endsWith('/blog') || hash.startsWith('#blog') || hash.startsWith('#/blog')) {
+        if (path.endsWith('/blog') || hash.startsWith('#blog') || hash.startsWith('#/blog') || path === '/blog') {
             return 'blog';
         }
-        if (path.endsWith('/contact') || hash.startsWith('#contact') || hash.startsWith('#/contact')) {
+        if (path.endsWith('/contact') || hash.startsWith('#contact') || hash.startsWith('#/contact') || path === '/contact') {
             return 'contact';
         }
-        if (path.endsWith('/privacy') || hash.startsWith('#privacy') || hash.startsWith('#/privacy')) {
+        if (path.endsWith('/privacy') || hash.startsWith('#privacy') || hash.startsWith('#/privacy') || path === '/privacy') {
             return 'privacy';
         }
         return 'home';
     });
 
     useEffect(() => {
+        const path = location.pathname;
+        const hash = location.hash;
+        if (path.endsWith('/about') || hash === '#/about' || path === '/about') {
+            setRoute('about');
+        } else if (path.endsWith('/docs') || hash.startsWith('#docs') || hash.startsWith('#/docs') || path === '/docs') {
+            setRoute('docs');
+        } else if (path.endsWith('/blog') || hash.startsWith('#blog') || hash.startsWith('#/blog') || path === '/blog') {
+            setRoute('blog');
+        } else if (path.endsWith('/contact') || hash.startsWith('#contact') || hash.startsWith('#/contact') || path === '/contact') {
+            setRoute('contact');
+        } else if (path.endsWith('/privacy') || hash.startsWith('#privacy') || hash.startsWith('#/privacy') || path === '/privacy') {
+            setRoute('privacy');
+        } else {
+            setRoute('home');
+        }
+    }, [location]);
+
+    useEffect(() => {
         const handleLocationChange = () => {
             const path = window.location.pathname;
             const hash = window.location.hash;
-            if (path.endsWith('/about') || hash === '#/about') {
+            if (path.endsWith('/about') || hash === '#/about' || path === '/about') {
                 setRoute('about');
-            } else if (path.endsWith('/docs') || hash.startsWith('#docs') || hash.startsWith('#/docs')) {
+            } else if (path.endsWith('/docs') || hash.startsWith('#docs') || hash.startsWith('#/docs') || path === '/docs') {
                 setRoute('docs');
-            } else if (path.endsWith('/blog') || hash.startsWith('#blog') || hash.startsWith('#/blog')) {
+            } else if (path.endsWith('/blog') || hash.startsWith('#blog') || hash.startsWith('#/blog') || path === '/blog') {
                 setRoute('blog');
-            } else if (path.endsWith('/contact') || hash.startsWith('#contact') || hash.startsWith('#/contact')) {
+            } else if (path.endsWith('/contact') || hash.startsWith('#contact') || hash.startsWith('#/contact') || path === '/contact') {
                 setRoute('contact');
-            } else if (path.endsWith('/privacy') || hash.startsWith('#privacy') || hash.startsWith('#/privacy')) {
+            } else if (path.endsWith('/privacy') || hash.startsWith('#privacy') || hash.startsWith('#/privacy') || path === '/privacy') {
                 setRoute('privacy');
             } else {
                 setRoute('home');
@@ -1130,7 +1152,8 @@ export default function App() {
     /* -- Render -------------------------------------------------------- */
     return (
         <div className="app-wrapper">
-            <div className="content-wrapper">
+            <TopNav />
+            <div className="content-wrapper" style={{ paddingTop: '56px' }}>
 
                 {route === 'about' ? (
                     <About onNavigate={navigate} />

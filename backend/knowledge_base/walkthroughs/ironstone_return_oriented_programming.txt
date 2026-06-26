@@ -4,12 +4,12 @@ URL: https://ir0nstone.gitbook.io/notes/types/stack/return-oriented-programming
 CHALLENGE: Return Oriented Programming
 EVENT: ir0nstone's GitBook
 TEAM: N/A
-CATEGORY: other
+CATEGORY: rop_chain
 DIFFICULTY: Unknown
-PROTECTIONS: None
-KEY_FUNCTIONS: None
-KEY_TECHNIQUE: The writeup describes a other vulnerability to hijack the control flow.
+PROTECTIONS: NX
+KEY_FUNCTIONS: system, read
+KEY_TECHNIQUE: The writeup describes a rop_chain vulnerability leveraging system, read to hijack the control flow.
 ---
-Return-Oriented Programming | Cybersecurity Notes
+For the complete documentation index, see llms.txt. This page is also available as Markdown.CopyOn this pageBinary ExploitationStackReturn-Oriented ProgrammingBypassing NXThe basis of ROP is chaining together small chunks of code already present within the binary itself in such a way to do what you wish. This often involves passing parameters to functions already present within libc, such as system - if you can find the location of a command, such as cat flag.txt, and then pass it as a parameter to system, it will execute that command and return the output. A more dangerous command is /bin/sh, which when run by system gives the attacker a shell much like the shellcode we used did.Doing this, however, is not as simple as it may seem at first. To be able to properly call functions, we first have to understand how to pass parameters to them.Last updated 5 years agoWas this helpful?
 
-[Additional Context: This documentation page explains the details of Return Oriented Programming in the scope of binary exploitation and CTF pwn challenges. It covers core concepts related to other and includes references for learning other techniques.] This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals.
+[Additional Context: This documentation page explains the details of Return Oriented Programming in the scope of binary exploitation and CTF pwn challenges. It covers core concepts related to rop_chain and includes references for learning rop_chain techniques.] This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals.

