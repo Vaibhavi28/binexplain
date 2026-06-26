@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://0xdf.gitlab.io/
+CHALLENGE: 0xdf hacks stuff | CTF solutions, malware analysis, home lab ...
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: format_string
+DIFFICULTY: Unknown
+PROTECTIONS: PIE, Canary
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: avoiding Metasploit comes from being able to really understand the exploits and what’s going on.
+---
+avoiding Metasploit comes from being able to really understand the exploits and what’s going on. In this case, it’s more about the struggle of moving files, finding binarys, etc. May 23, 2020 HTB: Rope hackthebox ctf htb-rope directory-traversal format-string pwntools bruteforce pwn python ida aslr pie sudo library tunnel canary rop Rope was all about binary exploitation. For initial access, I’ll use a directory traversal bug in the custom webserver to get a copy of that webserver as well as it’s memory space. From there, I can use a format string vulnerability to get a shell. To get to the next user, I’ll take advantage of an unsafe library load in a program that the current user can run with sudo. Finally, for root, I’ll exploit a locally running piece of software that requires brute forcing the canary, RBP, and return addresses to allows for an overflow and defeat PIE, and then doing a ROP libc leak to get past ASLR, all to send another ROP which provides a shell. May 19, 2020 HTB: Arctic htb-arctic ctf hackthebox nmap coldfusion javascript searchsploit jsp upload metasploit directory-traversal crackstation windows-exploit-suggester ms10-095 oscp-like-v1 Arctic would have been much more interesting if not for the 30-second lag on each HTTP request. Still, there’s enough of an interface for me to find a ColdFusion webserver. There are two different paths to getting a shell, either an unauthenticated file upload, or leaking the login hash, cracking or using it to log in, and then uploading a shell jsp. From there, I’ll use MS10-059 to get a root shell. May 16, 2020 HTB: Patents ctf htb-patents hackthebox nmap upload libreoffice office xxe gobuster docx custom-folder sans-holiday-hack dtd log-poisoning directory-traversal lfi webshell docker pspy password-reuse git reverse-engineering bof exploit python pwntools ghidra pwn onegadget rop libc libc-database df mount cyberchef php payloadsallthethings Patents was a really tough box, that probably should have been rated

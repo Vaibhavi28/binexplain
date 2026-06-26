@@ -1,4 +1,5 @@
 import React from 'react';
+import { Helmet } from 'react-helmet-async';
 
 export default function About({ onNavigate }) {
     const handleBackClick = (e) => {
@@ -12,6 +13,11 @@ export default function About({ onNavigate }) {
 
     return (
         <div className="about-container">
+            <Helmet>
+                <title>About — BinExplain</title>
+                <meta name="description" content="BinExplain was built by a master's student who got tired of staring at binaries with no idea where to start. Learn the story behind the tool." />
+                <link rel="canonical" href="https://binexplain.com/about" />
+            </Helmet>
             {/* Back to main tool */}
             <a href="#/" onClick={handleBackClick} className="about-back-link">
                 &larr; Back to Analyzer

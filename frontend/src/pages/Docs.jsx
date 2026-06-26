@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 
 export default function Docs({ onNavigate }) {
     const sections = [
@@ -58,6 +59,11 @@ export default function Docs({ onNavigate }) {
 
     return (
         <div className="docs-container">
+            <Helmet>
+                <title>Documentation — BinExplain</title>
+                <meta name="description" content="Learn how to use BinExplain. Supported file formats, how to interpret CTF category results, AI features, and troubleshooting guide." />
+                <link rel="canonical" href="https://binexplain.com/docs" />
+            </Helmet>
             {/* Left Sidebar Navigation */}
             <aside className="docs-sidebar">
                 <div className="docs-nav-title">Documentation</div>

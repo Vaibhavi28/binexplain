@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import About from './pages/About.jsx';
 import Docs from './pages/Docs.jsx';
 import Blog from './pages/Blog.jsx';
@@ -1152,6 +1153,19 @@ export default function App() {
     /* -- Render -------------------------------------------------------- */
     return (
         <div className="app-wrapper">
+            <Helmet>
+                <title>BinExplain — Free AI Binary Analysis for CTF Beginners</title>
+                <meta name="description" content="Upload a binary or source code and get instant CTF category detection, ROP gadgets, pwntools template, and AI-powered hints. Free, no installation, no account required." />
+                <meta name="keywords" content="ctf binary analysis, pwntools template generator, checksec, rop gadgets, buffer overflow, format string, ret2libc, heap exploitation, binary exploitation tool, elf analysis online, ctf tool free" />
+                <meta property="og:title" content="BinExplain — Free AI Binary Analysis for CTF" />
+                <meta property="og:description" content="Upload a binary, get instant CTF category detection, ROP gadgets, and AI mentor hints. Free." />
+                <meta property="og:url" content="https://binexplain.com" />
+                <meta property="og:type" content="website" />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:title" content="BinExplain — Free CTF Binary Analysis" />
+                <meta name="twitter:description" content="AI-powered binary analysis for CTF beginners. Free, no install." />
+                <link rel="canonical" href="https://binexplain.com" />
+            </Helmet>
             <TopNav />
             <div className="content-wrapper" style={{ paddingTop: '72px' }}>
 

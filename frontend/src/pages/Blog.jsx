@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 
 export default function Blog({ onNavigate }) {
     const articles = [
@@ -74,6 +75,11 @@ export default function Blog({ onNavigate }) {
 
     return (
         <div className="blog-container">
+            <Helmet>
+                <title>Blog — BinExplain</title>
+                <meta name="description" content="Articles about binary exploitation, CTF challenges, and cybersecurity education. Written by the creator of BinExplain." />
+                <link rel="canonical" href="https://binexplain.com/blog" />
+            </Helmet>
             {/* Back link */}
             <a href="#/" onClick={handleBackClick} className="blog-back-link">
                 &larr; Back to Analyzer

