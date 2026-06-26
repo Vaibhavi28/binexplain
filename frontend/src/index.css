@@ -1322,7 +1322,7 @@ body {
   border-radius: 2px;
   font-family: var(--font-headline);
   font-weight: 900;
-  font-size: 13px;
+  font-size: 20px;
   letter-spacing: 0.12em;
 }
 
@@ -1612,7 +1612,7 @@ body {
   border-radius: 2px;
   font-family: var(--font-headline);
   font-weight: 900;
-  font-size: 14px;
+  font-size: 20px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   flex-shrink: 0;
@@ -2538,7 +2538,7 @@ body {
 .section-item--hint {
   color: var(--secondary);
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .section-empty {
@@ -2855,7 +2855,7 @@ body {
   border-radius: 12px;
   color: var(--on-surface);
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 15px;
   padding: 10px 14px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -3329,7 +3329,7 @@ body {
 
 .carousel-header-title {
   font-family: var(--font-headline);
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -3464,7 +3464,7 @@ body {
 
 .ccard-title {
   font-family: var(--font-headline);
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -3818,7 +3818,7 @@ body {
   flex: 1;
   min-width: 0;
   font-family: 'Courier New', monospace;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--primary);
   background: rgba(156, 255, 147, 0.06);
   padding: 6px 12px;
@@ -4108,7 +4108,7 @@ body {
   border: 1px solid var(--outline-variant);
   background: var(--surface-container-low);
   color: var(--on-surface);
-  font-size: 13px;
+  font-size: 15px;
   font-family: var(--font-body);
   outline: none;
   transition: border-color 0.2s;
@@ -5425,13 +5425,13 @@ body {
   z-index: 1000;
   background: var(--bg);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  height: 56px;
+  height: 72px;
 }
 
 .top-nav-inner {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 32px;
   height: 100%;
   display: flex;
   align-items: center;
@@ -5439,11 +5439,11 @@ body {
 }
 
 .top-nav-logo {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 800;
   color: var(--primary);
   text-decoration: none;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.8px;
 }
 
 .top-nav-links {
@@ -5455,8 +5455,8 @@ body {
 .top-nav-link {
   color: rgba(255, 255, 255, 0.75);
   text-decoration: none;
-  font-size: 14px;
-  padding: 6px 12px;
+  font-size: 15px;
+  padding: 8px 16px;
   border-radius: 6px;
   transition: color 0.15s, background 0.15s;
 }
@@ -5473,7 +5473,7 @@ body {
 
 .top-nav-github {
   color: rgba(255, 255, 255, 0.75);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .top-nav-hamburger {
@@ -5481,7 +5481,7 @@ body {
   background: none;
   border: none;
   color: white;
-  font-size: 20px;
+  font-size: 24px;
   cursor: pointer;
   padding: 8px;
 }

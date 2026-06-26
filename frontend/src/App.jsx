@@ -1153,7 +1153,7 @@ export default function App() {
     return (
         <div className="app-wrapper">
             <TopNav />
-            <div className="content-wrapper" style={{ paddingTop: '56px' }}>
+            <div className="content-wrapper" style={{ paddingTop: '72px' }}>
 
                 {route === 'about' ? (
                     <About onNavigate={navigate} />
