@@ -56,7 +56,7 @@ export default function Contact({ onNavigate }) {
             <header className="contact-header">
                 <h1 className="contact-title">Get in Touch</h1>
                 <p className="contact-subheading">
-                    Bug report, feature request, research collaboration,
+                    Bug report, feature request,
                     or just want to say the tool helped you solve a challenge?
                 </p>
             </header>
@@ -143,7 +143,6 @@ export default function Contact({ onNavigate }) {
                         >
                             <option value="Bug Report">Bug Report</option>
                             <option value="Feature Request">Feature Request</option>
-                            <option value="Research">Research</option>
                             <option value="General">General</option>
                         </select>
                     </div>

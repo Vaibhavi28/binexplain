@@ -1,8 +1,8 @@
 # Contributing to BinExplain
 
-BinExplain is source-available under CC BY-NC-ND 4.0. During the current
-academic review period, direct code contributions via pull request are not
-accepted. However, contributions in the following forms are very welcome:
+BinExplain is source-available under CC BY-NC-ND 4.0. Direct code contributions
+via pull request are not accepted at this time. However, contributions in the
+following forms are very welcome:
 
 ## How to Contribute
 
@@ -20,9 +20,8 @@ If you solved a challenge using BinExplain and want to add your writeup
 to the knowledge base, email hello@binexplain.com with the writeup text.
 Writeups that are added will be credited.
 
-### Academic Collaboration
-For research collaboration related to the ACM SIGCSE paper, email
-hello@binexplain.com with subject "Research Collaboration".
+### General Questions
+For any other questions or feedback, email hello@binexplain.com.
 
 ## Security Issues
 For security vulnerabilities, email hello@binexplain.com directly.

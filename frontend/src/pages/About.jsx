@@ -118,23 +118,7 @@ export default function About({ onNavigate }) {
                     student at Pennsylvania State University studying cybersecurity and AI.
                     After spending 40+ hours struggling to understand her first binary
                     exploitation challenges, she decided to build the tool she wished had
-                    existed. BinExplain is part of ongoing academic research being submitted
-                    to ACM SIGCSE 2026.
-                </p>
-            </section>
-
-            {/* SECTION 5 — Research */}
-            <section className="about-section">
-                <h2>Academic Research</h2>
-                <p style={{ marginBottom: '16px' }}>
-                    This project is the subject of ongoing research being prepared for submission as: <br />
-                    <strong><em>BinExplain: An AI-Powered, Browser-Based Binary Analysis Platform for Lowering the Barrier to Entry in Capture The Flag Binary Exploitation Challenges</em></strong>
-                </p>
-                <p style={{ marginBottom: '16px' }}>
-                    Our primary research question is: <em>Does AI-assisted, browser-based scaffolding improve novice success and persistence in introductory binary exploitation tasks?</em>
-                </p>
-                <p>
-                    If you are interested in collaborating or learning more about this research, please contact us for collaboration at <a href="mailto:kathepurivaibhavi@gmail.com" className="about-link">kathepurivaibhavi@gmail.com</a>.
+                    existed.
                 </p>
             </section>
 

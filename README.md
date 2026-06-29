@@ -8,7 +8,7 @@
  
 [![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-binexplain.com-brightgreen?style=for-the-badge)](https://binexplain.com)
 [![License: CC BY-NC-ND 4.0](https://img.shields.io/badge/License-CC_BY--NC--ND_4.0-lightgrey?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-228_passing-brightgreen?style=for-the-badge&logo=pytest&logoColor=white)](backend/tests)
+[![Tests](https://img.shields.io/badge/Tests-230_passing-brightgreen?style=for-the-badge&logo=pytest&logoColor=white)](backend/tests)
 [![GitHub Stars](https://img.shields.io/github/stars/Vaibhavi28/binexplain?style=for-the-badge&logo=github&logoColor=white&color=yellow)](https://github.com/Vaibhavi28/binexplain/stargazers)
 [![GitHub Issues](https://img.shields.io/github/issues/Vaibhavi28/binexplain?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Vaibhavi28/binexplain/issues)
 [![Last Commit](https://img.shields.io/github/last-commit/Vaibhavi28/binexplain?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Vaibhavi28/binexplain/commits/master)
@@ -246,7 +246,7 @@ v4  📋  Automated exploit generation via symbolic execution
 ```
 Backend:   Python 3.11, FastAPI, ~5000+ lines
 Frontend:  React 18, Vite, ~2000+ lines  
-Tests:     228 passing (unit + integration + CTF scenarios + chaos)
+Tests:     230 passing (unit + integration + CTF scenarios + chaos)
 Knowledge: 37+ real CTF writeups indexed in ChromaDB
 AI:        6 providers, parallel inference, RAG + CAG
 ```
@@ -255,7 +255,7 @@ AI:        6 providers, parallel inference, RAG + CAG
  
 ## 🤝 Contributing
  
-This project is source-available under CC BY-NC-ND 4.0 with an academic research restriction currently in place. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to report bugs and suggest features.
+This project is source-available under CC BY-NC-ND 4.0. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to report bugs and suggest features.
  
 ---
  
@@ -263,17 +263,7 @@ This project is source-available under CC BY-NC-ND 4.0 with an academic research
  
 **CC BY-NC-ND 4.0** — You may use the live tool and view the code. Redistribution, forking, and commercial use are not permitted without written permission. See [LICENSE](LICENSE).
  
-This restriction is in place to protect ongoing academic research. See [SECURITY.md](SECURITY.md) for responsible disclosure.
- 
----
- 
-## 📖 Research
- 
-This project is the subject of ongoing research being prepared for submission 
- 
-> *BinExplain: An AI-Powered, Browser-Based Binary Analysis Platform for Lowering the Barrier to Entry in Capture The Flag Binary Exploitation Challenges*
- 
-Research question: *Does AI-assisted, browser-based scaffolding improve novice success and persistence in introductory binary exploitation tasks?*
+See [SECURITY.md](SECURITY.md) for responsible disclosure.
  
 ---
  
