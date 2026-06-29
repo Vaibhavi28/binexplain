@@ -114,7 +114,7 @@ Upload a binary. Within seconds you know:
 | Feature | Details |
 |---------|---------|
 | 🧠 **Parallel AI Inference** | Groq + Nemotron called simultaneously, responses merged |
-| 🌐 **RAG Knowledge Base** | Real CTF writeups from CTFtime, Nightmare, ir0nstone, CTF-Wiki |
+| 🌐 **RAG Knowledge Base** | 160+ real CTF writeups from CTFtime, Nightmare, ir0nstone, CTF-Wiki + live search |
 | ⚡ **CAG Caching** | Common patterns served instantly without LLM calls |
 | 💬 **AI Mentor Chat** | Full context awareness, Shift+Enter multiline, code copy buttons |
 | 📷 **Screenshot Analysis** | Upload GDB/terminal screenshots for visual AI guidance |
@@ -247,7 +247,7 @@ v4  📋  Automated exploit generation via symbolic execution
 Backend:   Python 3.11, FastAPI, ~5000+ lines
 Frontend:  React 18, Vite, ~2000+ lines  
 Tests:     230 passing (unit + integration + CTF scenarios + chaos)
-Knowledge: 37+ real CTF writeups indexed in ChromaDB
+Knowledge: 160+ real CTF writeups indexed in ChromaDB
 AI:        6 providers, parallel inference, RAG + CAG
 ```
  
