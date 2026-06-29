@@ -16,7 +16,7 @@ export default function TopNav() {
     <nav className="top-nav">
       <div className="top-nav-inner">
         <NavLink to="/" className="top-nav-logo">
-          🔍 BinExplain
+          BinExplain
         </NavLink>
         
         <div className="top-nav-links">

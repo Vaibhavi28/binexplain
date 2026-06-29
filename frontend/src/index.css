@@ -5516,9 +5516,23 @@ body {
   }
 }
 
+.homepage-banner {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto 32px auto;
+  padding: 0 16px;
+}
 
+.homepage-banner-img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  display: block;
+}
 
-
-
-
-
+@media (max-width: 768px) {
+  .homepage-banner {
+    margin-bottom: 20px;
+    padding: 0 8px;
+  }
+}

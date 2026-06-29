@@ -1168,6 +1168,15 @@ export default function App() {
             </Helmet>
             <TopNav />
             <div className="content-wrapper" style={{ paddingTop: '72px' }}>
+                {/* Homepage Banner */}
+                <div className="homepage-banner">
+                  <img
+                    src="/banner.png"
+                    alt="BinExplain — Free AI-Powered Binary Analysis for CTF Beginners"
+                    className="homepage-banner-img"
+                    onError={(e) => { e.target.style.display = 'none' }}
+                  />
+                </div>
 
                 {route === 'about' ? (
                     <About onNavigate={navigate} />
