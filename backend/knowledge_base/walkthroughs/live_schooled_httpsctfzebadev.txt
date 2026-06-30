@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://ctf.zeba.dev/
+CHALLENGE: CTF Writeups & Solutions - Web Exploitation, Pwn, Crypto, Misc - CTF ...
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: rop_chain
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: free
+KEY_TECHNIQUE: This is where I document the CTF challenges I've solved — my approach, the exploit scripts, and notes on what worked.
+---
+CTF Writeups ZebaLive/ctf-writeups Home Home Tags BSides Vilnius 2026 Mārtiņa-CTF 2025 ECSC 2025 openECSC 2025 BSides Vilnius 2026 BSides Vilnius 2026 Web Web BSides Nail Salon Operation (DroneOps PTZ Camera) Pwn Pwn BOF2root Reverse Reverse Ticket4Free Crypto Crypto S3cur3 Mārtiņa-CTF 2025 Mārtiņa-CTF 2025 Web Web Possibly secure 2003 webapp Misc Misc Rewritten History ECSC 2025 ECSC 2025 Web Web Flag Szop Misc Misc Blue Mouse openECSC 2025 openECSC 2025 Web Web kittychat eventhub kv-messenger polish-bar Crypto Crypto polite-email Pwn Pwn cfp Stego Stego calamansi Misc Misc oci ruby-matcher organization Table of contents Competitions Categories Personal CTF archive · by zeba CTF Writeups ¶ I'm zeba . This is where I document the CTF challenges I've solved — my approach, the exploit scripts, and notes on what worked. All my own writeups, kept here for reference. Latest: BSides Vilnius 2026 Browse by tag GitHub 4 Competitions 19 Writeups 6 Categories 1st Best Finish Competitions ¶ BSides Vilnius 2026 Selected writeups across web, pwn, reverse, and crypto — CSS exfiltration into AWS IAM, container escapes, RSA/TLS, and PE reversing. Browse writeups Mārtiņa-CTF 2025 1st place (Remote) — 12 personal solves. Blind SQL injection, WAF bypass, and Git history exploitation. Browse writeups ECSC 2025 European Cybersecurity Challenge — PHP type juggling to webshell, and Bluetooth HID PCAP reconstruction. Browse writeups openECSC 2025 21 challenges solved, 14th place. CSP/Trusted-Types bypasses, prototype pollution, ROP, APNG stego, and more. Browse writeups Categories ¶ Web Exploitation SQLi, XSS, SSRF, CSP & Trusted-Types bypass, CRLF injection, prototype pollution, CSS exfiltration, cloud/IAM abuse. Binary Exploitation Buffer overflows, ROP chains, function-pointer hijacking, libc leaks, and container escapes. Cryptography RSA shared-prime attacks, TLS session decryption, CRC forgery, and linear algebra over GF(2). Stego & Forensics APNG frame analysis, PCAP reconstruction, 

@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://ctftime.org/event/7/tasks/
+CHALLENGE: CTFtime.org / Mozilla CTF 2012 tasks and writeups
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: Writeup for CTFtime.org / Mozilla CTF 2012 tasks and writeups — other exploitation technique.
+---
+CTFtime.org / Mozilla CTF 2012 tasks and writeups CTFs Upcoming Archive Past events Tasks Writeups Calendar Teams Rating Compare Create new team Get team members FAQ Contact us For organizers Feedback About Sign in Home / CTF events / Mozilla CTF 2012 / Tasks Tasks Name Points Tags Writeups Swimsuit Up! 50 0 Hidden Challenge 100 misc 1 Dory's Language School 300 xss web 0 Fishr - Fish your messages out of the sea 500 web 0 AwesomeCorp. Secured Ranges 300 reverse engineering 2 IP Panel 250 web 0 Sharkpedia 400 web 0 JS Shell Exploitation 500 pwn 0 Text Transformation Puzzle 50 0 We Love Fish 50 web 0 Joe's Fish Shop 75 web 0 Spark - Message in a Bottle 200 web 0 Spark - Bait & Switch 150 web 0 Spark - Hail Atlantean! 250 web 0 Spark - Who do you know? 150 web 0 Spark - Underwater Camouflage 250 web 1 Spark - Kill the Kraken 250 web 1 Spark - Piracy on the High Seas 200 web 0 Spark - Interesting Lineage 150 web 0 Spark - Things long forgotten 200 web 1 Buoy 250 reverse engineering 1 SecureFileLock 250 reverse engineering 1 Add event tasks x Sign in with I don't remember Follow @CTFtime © 2012 — 2025 CTFtime team. All tasks and writeups are copyrighted by their respective authors. Privacy Policy . Hosting provided by Transdata .

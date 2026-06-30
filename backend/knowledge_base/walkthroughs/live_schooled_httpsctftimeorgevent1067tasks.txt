@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://ctftime.org/event/1067/tasks/
+CHALLENGE: CTFtime.org / NahamCon CTF tasks and writeups
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: rop_chain
+DIFFICULTY: Easy
+PROTECTIONS: PIE, Canary
+KEY_FUNCTIONS: read
+KEY_TECHNIQUE: Writeup for CTFtime.org / NahamCon CTF tasks and writeups — rop_chain exploitation technique.
+---
+CTFtime.org / NahamCon CTF tasks and writeups CTFs Upcoming Archive Past events Tasks Writeups Calendar Teams Rating Compare Create new team Get team members FAQ Contact us For organizers Feedback About Sign in Home / CTF events / NahamCon CTF / Tasks Tasks Name Points Tags Writeups Old School 125 steganography 1 My Apologies 75 steganography 1 Syrup 100 pwn 1 Rejected Sequel 150 sqli web 2 Roomie 150 misc 1 Beep Boop 50 stenography 2 Doh 50 stenography 3 ksteg 50 stenography 3 Tron 75 osint 4 Trash The Cache 1000 web 1 Dina 75 crypto scripting 1 Snowflake 75 steganography 1 Trapped 100 miscellaneous 1 Criss Cross 400 web 1 Walkman 100 steganography 2 Lucky 150 forensics 1 Glimpse 125 misc 2 SSH Logger 175 ssh 1 Shifts Ahoy 100 rop pwn shellcode 2 Leet Haxor 200 format-string pwn 1 Elsa4 150 crypto 1 Glimpse 100 miscellaneous 0 Seriously 125 web 4 phphonebook 100 web 5 Awkward 125 misc 2 B'omarr Style 200 web 2 SaaS 100 pwn syscall 7 Merriam Webster 125 scripting 3 Dangerous 75 binary-exploitation 3 Ripe Reader 200 canary pwn rop 2 Official Business 125 web 3 Raspberry 125 crypto rsa 3 Docxor 75 magic crypto xor 2 Dead Swap 100 steganography 2 Homecooked 100 cryptography optimization 5 Unvreakable Vase 125 crytography 2 Ends Meet 150 mobile 1 Time Keeper 50 osint 5 New Years Resolution 50 osint 4 Finsta 50 osint 6 Big Bird 100 scripting 2 Rotten 100 scripting 4 Raspberry 125 125 3 Easy Keesy 30 warmup 5 Extraterrestrial 125 web 3 Really Powerful Gnomes 150 scripting 6 December 125 cryptography 4 Ooo-la-la 100 cryptography 5 Twinning 100 cryptography 7 Alkatraz 100 miscellaneous 8 Fake File 100 miscellaneous 9 Vortex 75 miscellaneous 7 Localghost 75 web 7 Agent 95 50 web 6 Secure Safe 100 mobile 1 Simple App 50 mobile 4 Candroid 50 mobile 6 Pang 40 warmup 4 Peter Rabbit 40 warmup 3 UGGC 30 warmup 4 Mr. Robot 25 warmup 3 Metameme 25 warmup 5 CLIsay 20 warmup 4 Read The Rules 5 warmup 2 Cow Pie 125 forensics 2 Volatile 125 forensics 3 Microsooft 100 forensics 8 Flag Jo

@@ -1,0 +1,22 @@
+---
+SOURCE: livesearch
+URL: https://github.com/Hemant617/ctf-writeups
+CHALLENGE: Hemant617/ctf-writeups: Capture The Flag writeups & solutions
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: format_string
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: read
+KEY_TECHNIQUE: Each writeup includes methodology, tools used, exploitation techniques, and lessons learned.
+---
+hebox tryhackme tryhackme .gitkeep .gitkeep LICENSE LICENSE README.md README.md View all files Repository files navigation README MIT license More items 🏆 CTF Writeups & Solutions Comprehensive collection of Capture The Flag writeups, solutions, and methodologies 📋 Overview This repository contains detailed writeups for various CTF challenges across multiple platforms. Each writeup includes methodology, tools used, exploitation techniques, and lessons learned. 🎯 Categories 🌐 Web Exploitation SQL Injection Cross-Site Scripting (XSS) Server-Side Request Forgery (SSRF) Authentication Bypass File Upload Vulnerabilities 💻 Binary Exploitation Buffer Overflow Return-Oriented Programming (ROP) Format String Vulnerabilities Heap Exploitation 🔐 Cryptography Classical Ciphers RSA Attacks Hash Collisions Encoding/Decoding Challenges 🔍 Forensics Memory Analysis Network Traffic Analysis Steganography File Carving 🔄 Reverse Engineering Static Analysis Dynamic Analysis Decompilation Anti-Debugging Techniques 📊 Statistics Platform Challenges Solved Rank Points HackTheBox Coming Soon - - TryHackMe Coming Soon - - CTFtime Coming Soon - - 🛠️ Tools & Frameworks # Web Exploitation - Burp Suite, OWASP ZAP, SQLMap, Nikto # Binary Exploitation - GDB, Pwntools, ROPgadget, Radare2 # Cryptography - CyberChef, John the Ripper, Hashcat # Forensics - Volatility, Wireshark, Autopsy, Binwalk # Reverse Engineering - IDA Pro, Ghidra, x64dbg, OllyDbg 📁 Repository Structure ctf-writeups/
+├── hackthebox/
+│   ├── machines/
+│   └── challenges/
+├── tryhackme/
+│   └── rooms/
+├── ctftime/
+│   └── competitions/
+└── tools/
+    └── custom-scripts/ 🚀 Getting Started Each writeup follows this structure: Challenge Description Initial Reconnaissance Vulnerability Discovery Exploitation Steps Flag Capture Lessons Learned Mitigation Recommendations 🎓 Learning Resources OWASP Top 10 PortSwigger Web Security Academy Exploit Database CTF Field Guide 📫 Connect Found these writeups helpful? Let's connect! ⚠️ Disclaimer Al

@@ -40,7 +40,7 @@ import requests
 from google import genai
 from google.genai import types
 gemini_client = None
-from typing import Literal
+from typing import Literal, Optional, Dict, Any, List
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -519,6 +519,8 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     context: str = ""
     ctf_category: str = ""
+    binary_context: Optional[Dict[str, Any]] = None
+    tried_commands: Optional[List[str]] = []
 
 class ExplainCommandRequest(BaseModel):
     command: str
@@ -5298,6 +5300,113 @@ async def submit_feedback(request: Request, body: FeedbackRequest):
     return {"status": "ok", "message": "Thanks for your feedback!"}
 
 
+def build_chat_system_prompt(binary_context: dict, tried_commands: list = None) -> str:
+    if not binary_context:
+        return "You are a CTF binary exploitation mentor. Give specific, actionable hints."
+
+    tried_section = ""
+    if tried_commands:
+        tried_section = "COMMANDS ALREADY TRIED (DO NOT SUGGEST THESE AGAIN):\n"
+        tried_section += "\n".join(f"  - {cmd}" for cmd in tried_commands)
+
+    prot = binary_context.get("protections", {})
+    prot_lines = "\n".join(
+        f"  {k.upper()}: {'ENABLED' if str(v).lower() not in ['disabled','no','none','false','0','unknown'] else 'DISABLED'}"
+        for k, v in prot.items()
+    )
+
+    gadgets = binary_context.get("rop_gadgets", [])
+    gadget_lines = "\n".join(
+        f"  {g.get('address','?')}: {g.get('gadget','?')}"
+        if isinstance(g, dict) else f"  {g}"
+        for g in gadgets[:5]
+    ) if gadgets else "  None found"
+
+    functions = binary_context.get("functions", [])
+    func_lines = "\n".join(f"  - {f}" for f in functions[:10]) if functions else "  None found"
+
+    imports = binary_context.get("imports", [])
+    import_lines = "\n".join(f"  - {i}" for i in imports[:10]) if imports else "  None found"
+
+    template = binary_context.get("pwntools_template", "")
+    template_section = f"\nPWNTOOLS TEMPLATE (ALREADY GENERATED — TELL USER TO USE THIS):\n```python\n{template[:600]}\n```" if template else ""
+
+    flag_formats = binary_context.get("flag_formats", ["flag{"])
+    similar = binary_context.get("similar_writeups", [])
+    similar_section = ""
+    if similar:
+        similar_section = "\nSIMILAR CTF CHALLENGES FROM KNOWLEDGE BASE:\n"
+        similar_section += "\n".join(f"  - {w}" for w in similar[:3])
+
+    filename = binary_context.get("filename", "binary")
+    filename_clean = filename.rsplit(".", 1)[0].replace("-", "_").replace(" ", "_")
+
+    return f"""You are an elite CTF binary exploitation mentor embedded in BinExplain.
+You are NOT a generic AI assistant. You are a CTF specialist.
+Your hints must reference the SPECIFIC DATA below. Generic advice is FAILURE.
+
+==============================================================
+BINEXPLAIN ANALYSIS RESULTS — REFERENCE EVERYTHING FROM HERE:
+==============================================================
+Filename:          {filename}
+Architecture:      {binary_context.get('architecture','?')} ({binary_context.get('bits','?')}-bit)
+CTF Category:      {binary_context.get('ctf_category','unknown')} (confidence: {binary_context.get('confidence','?')})
+Difficulty:        {binary_context.get('difficulty','unknown')}
+Predicted Offset:  {binary_context.get('predicted_offset','not detected')} bytes
+Format String:     {'YES — printf(buf) detected' if binary_context.get('format_string_found') else 'Not detected'}
+Libc Version:      {binary_context.get('libc_version','not identified')}
+CVSS Score:        {binary_context.get('cvss_score','N/A')}
+
+SECURITY PROTECTIONS:
+{prot_lines}
+
+ROP GADGETS FOUND BY BINEXPLAIN:
+{gadget_lines}
+
+KEY FUNCTIONS:
+{func_lines}
+
+KEY IMPORTS:
+{import_lines}
+
+DATA FLOW: {binary_context.get('data_flow','not available')}
+{template_section}
+{similar_section}
+{tried_section}
+==============================================================
+
+MANDATORY RULES — FOLLOW ALL OF THESE IN EVERY SINGLE RESPONSE:
+
+RULE 1: Every hint MUST reference specific data from above. Quote actual values.
+  WRONG: "Check the buffer overflow offset"
+  RIGHT: "Your predicted offset is {binary_context.get('predicted_offset','X')} bytes. Verify with:
+  python3 -c 'print(\"A\" * {binary_context.get('predicted_offset','X')} + \"BBBB\")' | ./{filename}"
+
+RULE 2: ONE STEP PER RESPONSE. Exactly one next action. Not two. Not five.
+
+RULE 3: INSTALL FIRST. If a tool is needed, always give install command first
+  in its own bash block labeled "# Install first:".
+  NEVER say "if you don't have X, try Y instead". Always install X.
+
+RULE 4: NO REPETITION. Never suggest any command in the TRIED list above.
+
+RULE 5: Every command in its own ```bash block. Never inline in sentences.
+
+RULE 6: Maximum 4 sentences outside code blocks. Be a sniper, not a shotgun.
+
+RULE 7: ALWAYS reference the pwntools template. Tell user to modify it.
+  Say: "Your template exploit_{filename_clean}.py is already generated. Modify line X."
+
+RULE 8: Flag formats for this binary: {', '.join(flag_formats)}. Help find them.
+
+RULE 9: Never say: "you could", "it depends", "maybe try", "one approach",
+  "let me know", "hope this helps", "feel free to ask", "as an AI".
+
+RULE 10: Be decisive. Give the command. Do not hedge.
+==============================================================
+"""
+
+
 @app.post("/chat")
 async def chat(request: Request, body: ChatRequest):
     """
@@ -5354,42 +5463,44 @@ async def chat(request: Request, body: ChatRequest):
     for msg in body.messages:
         ai_messages.append({"role": msg.role, "content": msg.content})
 
-    # ── Build category-aware system prompt dynamically ────────────────
-    chat_prompt = build_category_aware_prompt(CHAT_SYSTEM_PROMPT, body.ctf_category)
+    # ── Build system prompt dynamically ────────────────
+    binary_context = body.binary_context or {}
+    tried_commands = body.tried_commands or []
+    system_prompt = build_chat_system_prompt(binary_context, tried_commands)
 
     # ── Provider 1: Groq (free, fast) ───────────────────────────────────
-    groq_result = _try_groq(messages=ai_messages, system_prompt=chat_prompt)
+    groq_result = _try_groq(messages=ai_messages, system_prompt=system_prompt)
     if groq_result:
         logger.info("[BinExplain] /chat: Groq succeeded")
         return {"response": groq_result}
 
     # ── Provider 2: Nemotron ──────────────────────────────────────────
-    nemotron_result = _try_nemotron(prompt=ai_messages, system=chat_prompt)
+    nemotron_result = _try_nemotron(prompt=ai_messages, system=system_prompt)
     if nemotron_result:
         logger.info("[BinExplain] /chat: Nemotron succeeded")
         return {"response": nemotron_result}
 
     # ── Provider 3: Gemini ────────────────────────────────────────────
-    gemini_result = _try_gemini(messages=ai_messages, system_prompt=chat_prompt)
+    gemini_result = _try_gemini(messages=ai_messages, system_prompt=system_prompt)
     if gemini_result:
         logger.info("[BinExplain] /chat: Gemini succeeded")
         return {"response": gemini_result}
 
     # ── Provider 4: OpenAI GPT-4o-mini ────────────────────────────────
-    openai_result = _try_openai(messages=ai_messages, system_prompt=chat_prompt)
+    openai_result = _try_openai(messages=ai_messages, system_prompt=system_prompt)
     if openai_result:
         logger.info("[BinExplain] /chat: OpenAI succeeded")
         return {"response": openai_result}
 
     # ── Provider 5: Ollama multi-turn chat ────────────────────────────
-    ollama_messages = [{"role": "system", "content": chat_prompt}] + ai_messages
+    ollama_messages = [{"role": "system", "content": system_prompt}] + ai_messages
     ollama_result = _try_ollama_chat(ollama_messages)
     if ollama_result:
         logger.info("[BinExplain] /chat: Ollama succeeded")
         return {"response": ollama_result}
 
     # ── Provider 6: Claude (last resort) ──────────────────────────────
-    claude_result = _try_claude(messages=ai_messages, system_prompt=chat_prompt)
+    claude_result = _try_claude(messages=ai_messages, system_prompt=system_prompt)
     if claude_result:
         logger.info("[BinExplain] /chat: Claude succeeded")
         return {"response": claude_result}

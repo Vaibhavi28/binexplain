@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://archive.elmo.sg/posts/ctfs/2023/blahaj-ctf/
+CHALLENGE: Blahaj CTF Pwn Writeups | a rant of my adventures
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: ret2libc
+DIFFICULTY: Unknown
+PROTECTIONS: NX, PIE, Canary, RELRO
+KEY_FUNCTIONS: malloc, free, system, read
+KEY_TECHNIQUE: This writeup aims to be dummy-friendly, and a good guide for absolute beginners to learn binary exploitation.
+---
+Blahaj CTF Pwn Writeups 3 Dec 2023 Table of Contents CARS Analyzing the program Black-Box analysis Looking at the source code Understanding how and what to Exploit Overflow what? Overflow how? Exploit Find our padding Final Solution A small hiccup: MOVAPS issue warpdrive Analyzing the program Solving the challenge Notepad Analyzing the program Vulnerability Analysis Exploiting the Program: ret2libc The Global Offset Table Back to leaking Stage 1 Exploit Getting a shell FINALE: Christmas Analysis Brief Overview Adding a Wish (malloc) Removing a Wish (free) View a Wish Hidden in Plainsight Exploit Strategy Arbitrary Read Arbitrary Write: Heap Overflow What next? SOLUTION 1: Most Straightforward Solution, using everything mentioned so far Summary SOLUTION 2: Solve without using the heap overflow [intended solution] Summary SOLUTION 3: Solve without overwriting limit Summary Blahaj CTF was an entry-level CTF that was targeted at secondary school and JC students in Singapore. Having not touched pwn for awhile, the pwn challenges were fun, refreshing and even challenging. There were a total of 4 pwn challenges, 3 simpler ones and 1 challenging one. The writeups for the 4 challenges are below and in increasing difficulty. This writeup aims to be dummy-friendly, and a good guide for absolute beginners to learn binary exploitation. CARS I’ve been playing around with this reporting system for “cyber affairs”, generating ticket after ticket in hopes of breaking it. I have a feeling that there’s a way to access the admin panel&mldr; Attachments: cars , cars.c Analyzing the program In order to exploit the program, we need to be able to understand the program and identify the vulnerability. Black-Box analysis We can first run checksec and run the program to get a feel for the program’s functionality. ➜ checksec ./cars # we will worry about this later! [ * ] './cars' Arch:     amd64-64-little RELRO:    Partial RELRO Stack:    No canary found NX:       NX enabled PIE:      PIE enab

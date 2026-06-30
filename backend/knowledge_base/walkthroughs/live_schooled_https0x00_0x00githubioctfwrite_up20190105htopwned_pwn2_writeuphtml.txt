@@ -1,0 +1,13 @@
+---
+SOURCE: livesearch
+URL: https://0x00-0x00.github.io/ctf,/write-up/2019/01/05/HTOPwned-Pwn2-Writeup.html
+CHALLENGE: Solving Pwn-02 from e-Security 2018 CTF | zc00l blog
+EVENT: LiveSearch
+TEAM: N/A
+CATEGORY: format_string
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: read
+KEY_TECHNIQUE: This is not a buffer overflow challenge.
+---
+is implemented correctly. This is not a buffer overflow challenge. Let the black magic begin Format strings are exploitable. But hey, not all of them. Just the ones that gives us complete control over the format string. Still doesn’t ring a bell? Check this. This way we can READ any memory from the process! That’s awesome. But won’t help us… We have nothing useful to be read in this memory space. But format string vulnerabilities are not only meant to read memory. They can write to memory too! Exploitation Logic We have a program that start a process. But this process is always “htop” tool because the program have it FIXED in it’s memory. What if we corrupt the memory using format string and switch “htop” for “sh”? That would lead the program to open a shell instead of htop tool, right? But that’s not so simple. Writing arbitrary values to memory using format string is a very complex process that I will do my best to try to explain. What to write? Where? Let’s begin. To learn by myself I have used only a single PDF file, which is this one Please read the PDF. It is very extensive process, and this post would have a lot of pages if I start from the bottom. There is two inital tasks that must be completed with a single payload: We need to corrupt the user input buffer to write “y” as it is required to start the process. We need to corrupt the process name that is going to be started, which is always “htop”. For that, we will need to write a script that is able to retrieve that “choice” and “input” memory addresses so we can forge format strings to write into them. Retrieving data from pipes using PwnTools PwnTools is an excellent tool to aid in binary exploitation for CTF challenges. We need to write a script that is able to read the memory addresses value each time and store them into variables, because ever time we run the binary it will be different. This is mine: #!/usr/bin/env python from pwn import * from time import sleep def get_pointer_addr ( process ): retur
