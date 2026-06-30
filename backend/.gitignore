@@ -53,3 +53,7 @@ backend/logs/*.log
 
 # CAG hint cache database
 cache/hints.db
+
+# Scraped walkthrough files — runtime-generated, never commit
+knowledge_base/walkthroughs/
+**/walkthroughs/*.txt

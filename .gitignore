@@ -32,3 +32,6 @@ backend/logs/*.log
 backend/cache/*.db-shm
 backend/cache/*.db-wal
 backend/cache/*.db-journal
+
+# Scraped walkthrough files - runtime-generated, never commit
+backend/knowledge_base/walkthroughs/
