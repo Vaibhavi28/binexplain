@@ -1760,8 +1760,8 @@ export default function App() {
                         {/* -- Chat (always visible) -- */}
                         <div className="bottom-section">
                             <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Follow-up Chat</h3></div>
-                            <div className="chat-messages" id="chat-messages">
-                                {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div></div>))}
+                            <div className="chat-messages" id="chat-messages" style={{ padding: '16px', gap: '16px' }}>
+                                {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i} style={{ padding: '16px' }}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div></div>))}
                                 {chatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={chatEndRef}/>
                             </div>
@@ -2204,8 +2204,8 @@ export default function App() {
                         {/* -- Source Code Chat (always visible) -- */}
                         <div className="bottom-section">
                             <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Source Code Chat</h3></div>
-                            <div className="chat-messages" id="src-chat-messages">
-                                {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span><div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div></div>))}
+                            <div className="chat-messages" id="src-chat-messages" style={{ padding: '16px', gap: '16px' }}>
+                                {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i} style={{ padding: '16px' }}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span><div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div></div>))}
                                 {srcChatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={srcChatEndRef}/>
                             </div>
