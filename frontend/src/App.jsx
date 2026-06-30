@@ -5,10 +5,9 @@ import About from './pages/About.jsx';
 import Docs from './pages/Docs.jsx';
 import Blog from './pages/Blog.jsx';
 import Contact from './pages/Contact.jsx';
-import Privacy from './pages/Privacy.jsx';
-import TopNav from './components/TopNav';
 import { buildBinaryContext } from './utils/buildBinaryContext';
 import CommandBlock from './components/CommandBlock';
+import { extractCommandsFromHistory, extractFailedCommands } from './utils/commandTracker';
 
 /* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -362,6 +361,7 @@ export default function App() {
 
     /* -- Chat state (lives in React only  lost on refresh by design) -- */
     const [chatMessages, setChatMessages] = useState([]);
+    const [triedCommands, setTriedCommands] = useState([]);
     const [chatInput, setChatInput] = useState('');
     const [chatLoading, setChatLoading] = useState(false);
     const [chatImage, setChatImage] = useState(null);
@@ -898,7 +898,13 @@ export default function App() {
                     return;
                 }
 
-                setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+                setChatMessages(prev => {
+                    const updatedHistory = [...prev, { role: 'assistant', content: data.response }];
+                    const allTried = extractCommandsFromHistory(updatedHistory);
+                    const failed = extractFailedCommands(updatedHistory);
+                    setTriedCommands([...new Set([...allTried, ...failed])]);
+                    return updatedHistory;
+                });
             } catch (err) {
                 setChatMessages(prev => [...prev, { role: 'assistant', content: ` ${err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message}` }]);
             } finally {
@@ -922,7 +928,7 @@ export default function App() {
                     messages: updated,
                     context: analysisContextRef.current,
                     binary_context: binaryContext,
-                    tried_commands: typeof triedCommands !== 'undefined' ? triedCommands : [],
+                    tried_commands: triedCommands,
                 }),
             });
 
@@ -936,10 +942,13 @@ export default function App() {
                 return;
             }
 
-            setChatMessages(prev => [
-                ...prev,
-                { role: 'assistant', content: data.response },
-            ]);
+            setChatMessages(prev => {
+                const updatedHistory = [...prev, { role: 'assistant', content: data.response }];
+                const allTried = extractCommandsFromHistory(updatedHistory);
+                const failed = extractFailedCommands(updatedHistory);
+                setTriedCommands([...new Set([...allTried, ...failed])]);
+                return updatedHistory;
+            });
         } catch (err) {
             setChatMessages(prev => [
                 ...prev,
@@ -1062,14 +1071,20 @@ export default function App() {
             const res = await fetch(`${BACKEND_URL}/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: updated, context: srcChatContextRef.current, ctf_category: srcChatCtfCategoryRef.current }),
+                body: JSON.stringify({ messages: updated, context: srcChatContextRef.current, ctf_category: srcChatCtfCategoryRef.current, tried_commands: triedCommands }),
             });
             const data = await res.json();
             if (!res.ok) {
                 setSrcChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${data.detail || 'Something went wrong.'}` }]);
                 return;
             }
-            setSrcChatMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+            setSrcChatMessages(prev => {
+                const updatedHistory = [...prev, { role: 'assistant', content: data.response }];
+                const allTried = extractCommandsFromHistory(updatedHistory);
+                const failed = extractFailedCommands(updatedHistory);
+                setTriedCommands([...new Set([...allTried, ...failed])]);
+                return updatedHistory;
+            });
         } catch (err) {
             setSrcChatMessages(prev => [...prev, { role: 'assistant', content: err.message === 'Failed to fetch' ? 'Cannot reach backend.' : err.message }]);
         } finally {
@@ -1682,6 +1697,27 @@ export default function App() {
                                 <div ref={chatEndRef}/>
                             </div>
                             {chatImage&&<div className="chat-image-bar"><img src={chatImagePreview} alt="Preview" className="chat-image-thumb"/><span className="chat-image-name">{chatImage.name}</span><button className="chat-image-remove" onClick={clearChatImage} title="Remove image"><span className="material-symbols-outlined">close</span></button></div>}
+                            {triedCommands.length > 0 && (
+                              <div style={{
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                padding: '6px 12px', background: '#0d1117',
+                                borderTop: '1px solid #21262d', flexWrap: 'wrap'
+                              }}>
+                                <span style={{fontSize: '11px', color: '#6e7681', whiteSpace: 'nowrap'}}>
+                                  ✓ Already tried ({triedCommands.length} commands):
+                                </span>
+                                {triedCommands.slice(0, 4).map((cmd, i) => (
+                                  <span key={i} style={{
+                                    background: '#21262d', color: '#6e7681', fontSize: '10px',
+                                    padding: '2px 8px', borderRadius: '10px', fontFamily: 'monospace',
+                                    border: '1px solid #30363d', maxWidth: '150px',
+                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                                  }}>
+                                    {cmd.substring(0, 35)}{cmd.length > 35 ? '...' : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                             <div className="chat-input-row">
                                 <button className="chat-image-btn" onClick={()=>chatImageRef.current?.click()} disabled={chatLoading} title="Attach screenshot" type="button"></button>
                                 <input ref={chatImageRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={onChatImageSelect} style={{display:'none'}}/>
@@ -2050,6 +2086,27 @@ export default function App() {
                                 {srcChatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={srcChatEndRef}/>
                             </div>
+                            {triedCommands.length > 0 && (
+                              <div style={{
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                padding: '6px 12px', background: '#0d1117',
+                                borderTop: '1px solid #21262d', flexWrap: 'wrap'
+                              }}>
+                                <span style={{fontSize: '11px', color: '#6e7681', whiteSpace: 'nowrap'}}>
+                                  ✓ Already tried ({triedCommands.length} commands):
+                                </span>
+                                {triedCommands.slice(0, 4).map((cmd, i) => (
+                                  <span key={i} style={{
+                                    background: '#21262d', color: '#6e7681', fontSize: '10px',
+                                    padding: '2px 8px', borderRadius: '10px', fontFamily: 'monospace',
+                                    border: '1px solid #30363d', maxWidth: '150px',
+                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                                  }}>
+                                    {cmd.substring(0, 35)}{cmd.length > 35 ? '...' : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                             <div className="chat-input-row">
                                 <textarea className="chat-input chat-textarea" placeholder="Ask anything about this source code... (Shift+Enter for new line)" value={srcChatInput} onChange={e=>{setSrcChatInput(e.target.value.slice(0,MAX_CHAT_CHARS));e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,200)+'px';}} onKeyDown={onSrcChatKeyDown} disabled={srcChatLoading} maxLength={MAX_CHAT_CHARS} id="src-chat-input" rows={3}/>
                                 <button className="chat-send-btn" onClick={sendSrcChat} disabled={srcChatLoading||!srcChatInput.trim()} id="src-chat-send-btn">{srcChatLoading?'...':' Send'}</button>
