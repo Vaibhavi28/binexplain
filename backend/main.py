@@ -5538,65 +5538,38 @@ async def explain_command_endpoint(request: dict):
         raise HTTPException(status_code=422, detail="Command validation failed")
 
     if _is_testing():
-        return {
-            "explanation": {
-                "tokens": [{"text": command, "type": "program", "meaning": "Mocked explanation for testing"}],
-                "summary": "Mocked command summary",
-                "expected_output": "Mocked output",
-                "ctf_relevance": "Mocked ctf relevance"
-            }
-        }
+        return {"explanation": "Mocked command explanation for testing."}
 
     binary_context = request.get("binary_context", {}) or {}
     filename = binary_context.get("filename", "binary")
     category = binary_context.get("ctf_category", "binary exploitation")
 
-    system = """You are a CTF command explainer. Break down the given shell
-command into its individual tokens (program name, each flag, each argument)
-and explain what each one does. Return ONLY valid JSON, no markdown, no
-preamble, no code fences."""
+    system = """You are a CTF command explainer for beginners.
+Explain the command given in 3-5 sentences.
+Structure your explanation as:
+1. What the command does in plain English
+2. What each important flag or argument means
+3. What output to expect
+4. What to look for in the output that matters for CTF
+Be specific. Reference the actual binary filename and CTF category if provided.
+Never be vague. Maximum 100 words total."""
 
-    user_msg = f"""Break down this command token by token:
+    user_msg = f"""Explain this command in CTF context:
 Command: {command}
 Binary: {filename}
 CTF Category: {category}
+Architecture: {binary_context.get('architecture', 'unknown')}
 
-Return ONLY this JSON structure with no extra text:
-{{
-  "tokens": [
-    {{"text": "the_exact_substring", "type": "program|flag|argument|pipe|operator", "meaning": "short explanation of this specific part, max 12 words"}}
-  ],
-  "summary": "one sentence: what this command does overall",
-  "expected_output": "one sentence: what output looks like",
-  "ctf_relevance": "one sentence: why this matters for {category}"
-}}
+Give a focused 3-5 sentence explanation following the structure above."""
 
-Rules:
-- Split the command into EVERY meaningful token: program name, each flag
-  (like -d, --rop), each argument, pipe symbols (|), redirect symbols
-- The "text" field must be an exact substring of the original command so
-  the frontend can highlight it precisely
-- type must be one of: program, flag, argument, pipe, operator
-- meaning must be under 12 words, specific, no filler
-"""
+    # Call the fastest available AI — Groq preferred for speed
+    result = _try_groq(user_msg, system)
+    if not result:
+        result = _try_gemini(user_msg, system)
+    if not result:
+        result = "Could not generate explanation. Try again."
 
-    raw = _try_groq(user_msg, system)
-    if not raw:
-        raw = _try_gemini(user_msg, system)
-
-    import re, json
-    cleaned = re.sub(r'```(?:json)?\n?', '', raw or '').strip().rstrip('`')
-    try:
-        parsed = json.loads(cleaned)
-    except (json.JSONDecodeError, TypeError):
-        parsed = {
-            "tokens": [{"text": command, "type": "program", "meaning": "full command"}],
-            "summary": raw or "Could not generate breakdown",
-            "expected_output": "",
-            "ctf_relevance": ""
-        }
-
-    return {"explanation": parsed}
+    return {"explanation": result}
 
 
 # ---------------------------------------------------------------------------

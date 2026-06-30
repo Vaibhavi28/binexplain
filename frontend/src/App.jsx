@@ -8,6 +8,7 @@ import Contact from './pages/Contact.jsx';
 import { buildBinaryContext } from './utils/buildBinaryContext';
 import CommandBlock from './components/CommandBlock';
 import { extractCommandsFromHistory, extractFailedCommands } from './utils/commandTracker';
+import { parseAIResponse } from './utils/responseParser';
 
 /* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -194,66 +195,52 @@ function CardModal({ title, icon, accent, onClose, children }) {
     );
 }
 
-/* -- Chat Message Content (parses code blocks) ------------------------- */
-function ChatMessageContent({ content, binaryContext }) {
-    // Split content by triple-backtick code blocks
-    const parts = [];
-    const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g;
-    let lastIndex = 0;
-    let match;
-
-    while ((match = codeBlockRegex.exec(content)) !== null) {
-        // Text before the code block
-        if (match.index > lastIndex) {
-            const textBefore = content.slice(lastIndex, match.index);
-            parts.push({ type: 'text', content: textBefore });
-        }
-        // The code block itself
-        parts.push({ type: 'code', language: match[1] || '', content: match[2].trim() });
-        lastIndex = match.index + match[0].length;
+/* -- Render AI Message Content (parses segment arrays) ------------------ */
+const renderAIMessage = (content, binaryContext) => {
+  const segments = parseAIResponse(content);
+  return segments.map((seg, i) => {
+    if (seg.type === 'prose') {
+      return (
+        <p key={i} style={{
+          color: '#c9d1d9', fontSize: '14px', lineHeight: '1.7',
+          margin: '0 0 12px 0', padding: '0 4px'
+        }}>
+          {seg.content}
+        </p>
+      );
     }
-    // Remaining text after the last code block
-    if (lastIndex < content.length) {
-        parts.push({ type: 'text', content: content.slice(lastIndex) });
+    if (seg.type === 'command') {
+      return <CommandBlock key={i} command={seg.content} binaryContext={binaryContext} />;
     }
-
-    // If no code blocks found, just render as text lines
-    if (parts.length === 0) {
-        parts.push({ type: 'text', content });
+    if (seg.type === 'code') {
+      return (
+        <div key={i} style={{margin: '8px 0'}}>
+          <div style={{
+            display: 'flex', justifyContent: 'space-between',
+            background: '#161b22', padding: '4px 12px',
+            borderRadius: '6px 6px 0 0', borderBottom: '1px solid #30363d'
+          }}>
+            <span style={{color: '#8b949e', fontSize: '11px'}}>{seg.language}</span>
+            <button
+              style={{background: 'none', border: 'none', color: '#8b949e',
+                fontSize: '12px', cursor: 'pointer'}}
+              onClick={() => navigator.clipboard.writeText(seg.content)}>
+              ⎘ Copy
+            </button>
+          </div>
+          <pre style={{
+            background: '#0d1117', padding: '12px', margin: 0,
+            borderRadius: '0 0 6px 6px', border: '1px solid #30363d',
+            borderTop: 'none', overflow: 'auto'
+          }}>
+            <code style={{color: '#e6edf3', fontSize: '13px'}}>{seg.content}</code>
+          </pre>
+        </div>
+      );
     }
-
-    return (
-        <>
-            {parts.map((part, i) => {
-                if (part.type === 'code') {
-                    return <CommandBlock key={i} command={part.content} language={part.language} binaryContext={binaryContext} />;
-                }
-                // Render text lines, handling inline backtick code
-                return part.content.split(/\n/).filter(l => l.trim()).map((line, j) => {
-                    // Handle inline code: `command here`
-                    const inlineParts = line.split(/(`[^`]+`)/g);
-                    return (
-                        <div key={`${i}-${j}`}>
-                            {inlineParts.map((seg, k) => {
-                                if (seg.startsWith('`') && seg.endsWith('`')) {
-                                    return <code key={k} className="chat-inline-code">{seg.slice(1, -1)}</code>;
-                                }
-                                // Handle bold: **text**
-                                const boldParts = seg.split(/(\*\*[^*]+\*\*)/g);
-                                return boldParts.map((bp, l) => {
-                                    if (bp.startsWith('**') && bp.endsWith('**')) {
-                                        return <strong key={`${k}-${l}`}>{bp.slice(2, -2)}</strong>;
-                                    }
-                                    return <span key={`${k}-${l}`}>{bp}</span>;
-                                });
-                            })}
-                        </div>
-                    );
-                });
-            })}
-        </>
-    );
-}
+    return null;
+  });
+};
 
 /* -- App ------------------------------------------------------------- */
 const MAX_CHAT_CHARS = 2000;
@@ -1692,7 +1679,7 @@ export default function App() {
                         <div className="bottom-section">
                             <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Follow-up Chat</h3></div>
                             <div className="chat-messages" id="chat-messages">
-                                {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content"><ChatMessageContent content={msg.content} binaryContext={binaryContext} /></div></div>))}
+                                {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div></div>))}
                                 {chatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={chatEndRef}/>
                             </div>
@@ -2082,7 +2069,7 @@ export default function App() {
                         <div className="bottom-section">
                             <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Source Code Chat</h3></div>
                             <div className="chat-messages" id="src-chat-messages">
-                                {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span><div className="chat-bubble-content"><ChatMessageContent content={msg.content} binaryContext={binaryContext} /></div></div>))}
+                                {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span><div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div></div>))}
                                 {srcChatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={srcChatEndRef}/>
                             </div>
