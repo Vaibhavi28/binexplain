@@ -4760,6 +4760,8 @@ def _analyze_single_file(
             "checksec": checksec_result,
             "hex_view": hex_view,
             "pwn_template": pwn_template,
+            "pwntools_template": pwn_template,
+            "exploit_template": pwn_template,
             "disassembly": disassembly,
             "disassembly_function": disassembly_function,
             "decompilation_hints": decompilation_hints,
@@ -5329,7 +5331,7 @@ def build_chat_system_prompt(binary_context: dict, tried_commands: list = None) 
     import_lines = "\n".join(f"  - {i}" for i in imports[:10]) if imports else "  None found"
 
     template = binary_context.get("pwntools_template", "")
-    template_section = f"\nPWNTOOLS TEMPLATE (ALREADY GENERATED — TELL USER TO USE THIS):\n```python\n{template[:600]}\n```" if template else ""
+    template_section = f"\nPWNTOOLS TEMPLATE (ALREADY GENERATED — TELL USER TO USE THIS, NOT START FROM SCRATCH):\n```python\n{template[:600]}\n```" if template else ""
 
     flag_formats = binary_context.get("flag_formats", ["flag{"])
     similar = binary_context.get("similar_writeups", [])
@@ -5339,7 +5341,8 @@ def build_chat_system_prompt(binary_context: dict, tried_commands: list = None) 
         similar_section += "\n".join(f"  - {w}" for w in similar[:3])
 
     filename = binary_context.get("filename", "binary")
-    filename_clean = filename.rsplit(".", 1)[0].replace("-", "_").replace(" ", "_")
+    import re
+    filename_clean = re.sub(r'[^a-zA-Z0-9_]', '_', filename.rsplit('.', 1)[0])
 
     return f"""You are an elite CTF binary exploitation mentor embedded in BinExplain.
 You are NOT a generic AI assistant. You are a CTF specialist.
@@ -5394,8 +5397,12 @@ RULE 5: Every command in its own ```bash block. Never inline in sentences.
 
 RULE 6: Maximum 4 sentences outside code blocks. Be a sniper, not a shotgun.
 
-RULE 7: ALWAYS reference the pwntools template. Tell user to modify it.
-  Say: "Your template exploit_{filename_clean}.py is already generated. Modify line X."
+RULE 7: PWNTOOLS TEMPLATE. Your tool already generated exploit_{filename_clean}.py.
+  In your FIRST response to any question, ALWAYS say:
+  "Your exploit script exploit_{filename_clean}.py is already generated. Run it with:
+  python3 exploit_{filename_clean}.py"
+  If the user is stuck, tell them to MODIFY the template, never rewrite from scratch.
+  Show the exact line to change in the template.
 
 RULE 8: Flag formats for this binary: {', '.join(flag_formats)}. Help find them.
 

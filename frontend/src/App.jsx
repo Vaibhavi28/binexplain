@@ -1652,7 +1652,46 @@ export default function App() {
                         {/* -- Section 5: Tools -- */}
                         <Carousel title="Tools" icon="[Tools]">
                             {result.pwn_template && result.extension !== '.zip' && <CCard icon="[Code]" title="Pwntools Template" stat="Ready to download" statColor="#fbbf24" accent="#f59e0b" onClick={() => om('Pwntools Template','[Code]','#f59e0b',
-                                <><div className="pwn-template-actions"><button className="pwn-action-btn" onClick={()=>navigator.clipboard.writeText(result.pwn_template)} type="button">[Copy]</button><button className="pwn-action-btn" onClick={()=>{const b=new Blob([result.pwn_template],{type:'text/x-python'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='exploit.py';a.click();URL.revokeObjectURL(u)}} type="button">[Download]</button></div><div className="pwn-template-body"><pre className="pwn-code">{result.pwn_template.split('\n').map((line,i)=><div className="pwn-line" key={i}><span className="pwn-line-num">{String(i+1).padStart(3,' ')}</span><span className={`pwn-line-text${line.trimStart().startsWith('#')?' pwn-comment':line.includes('from pwn')||line.includes('#!/')?' pwn-import':''}`}>{line||' '}</span></div>)}</pre></div></>
+                                <>
+                                  <div className="pwn-template-actions">
+                                    <button className="pwn-action-btn" onClick={()=>navigator.clipboard.writeText(result.pwn_template)} type="button">[Copy]</button>
+                                    <button className="pwn-action-btn" onClick={()=>{const b=new Blob([result.pwn_template],{type:'text/x-python'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='exploit.py';a.click();URL.revokeObjectURL(u)}} type="button">[Download]</button>
+                                  </div>
+                                  <div className="pwn-template-body">
+                                    <pre className="pwn-code">{result.pwn_template.split('\n').map((line,i)=><div className="pwn-line" key={i}><span className="pwn-line-num">{String(i+1).padStart(3,' ')}</span><span className={`pwn-line-text${line.trimStart().startsWith('#')?' pwn-comment':line.includes('from pwn')||line.includes('#!/')?' pwn-import':''}`}>{line||' '}</span></div>)}</pre>
+                                  </div>
+                                  <div style={{marginTop: '16px', borderTop: '1px solid #30363d', paddingTop: '16px'}}>
+                                    <button
+                                      onClick={() => {
+                                        const filename = result.filename || 'binary';
+                                        const cleanName = filename.replace(/[^a-zA-Z0-9_]/g, '_').replace(/\.[^.]*$/, '');
+                                        const scriptName = `exploit_${cleanName}.py`;
+                                        const blob = new Blob([result.pwntools_template || result.exploit_template || ''], {type: 'text/plain'});
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = scriptName;
+                                        a.click();
+                                        URL.revokeObjectURL(url);
+                                      }}
+                                      style={{
+                                        background: '#238636', border: '1px solid #2ea043',
+                                        color: 'white', padding: '8px 16px', borderRadius: '6px',
+                                        cursor: 'pointer', fontSize: '13px', marginTop: '8px'
+                                      }}>
+                                      ⬇ Download Exploit Script
+                                    </button>
+                                    <div style={{marginTop: '8px'}}>
+                                      <span style={{color: '#8b949e', fontSize: '12px'}}>Run with: </span>
+                                      <code style={{
+                                        background: '#161b22', padding: '4px 8px', borderRadius: '4px',
+                                        color: '#7ee787', fontSize: '12px'
+                                      }}>
+                                        python3 exploit_{result.filename?.replace(/[^a-zA-Z0-9_]/g, '_').replace(/\.[^.]*$/, '')}.py
+                                      </code>
+                                    </div>
+                                  </div>
+                                </>
                             )} />}
                             <CCard icon="[Strings]" title="Strings" stat={`${result.strings_count} extracted`} statColor="var(--primary)" accent="var(--primary)" onClick={() => om('Strings','[Strings]','var(--primary)',
                                 <div className="result-card-body">{result.strings.length===0?<div className="no-strings">No printable strings found.</div>:result.strings.map((s,i)=><div className="string-line" key={i}><span className="string-index">{String(i+1).padStart(4,'0')}</span>{s}</div>)}</div>
