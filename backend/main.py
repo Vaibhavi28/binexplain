@@ -5515,58 +5515,71 @@ async def chat(request: Request, body: ChatRequest):
 # Command Explainer endpoint
 # ---------------------------------------------------------------------------
 @app.post("/explain-command")
-async def explain_command(request: Request, body: ExplainCommandRequest):
-    """
-    Explains a binary analysis command using AI.
-    """
+async def explain_command_endpoint(request: dict):
+    command = request.get("command", "")
+    if not command or not command.strip() or len(command) > 500:
+        raise HTTPException(status_code=422, detail="Command validation failed")
+
     if _is_testing():
-        return {"explanation": "• Mocked AI explanation for testing.\n• Bullet 2.\n• Bullet 3."}
+        return {
+            "explanation": {
+                "tokens": [{"text": command, "type": "program", "meaning": "Mocked explanation for testing"}],
+                "summary": "Mocked command summary",
+                "expected_output": "Mocked output",
+                "ctf_relevance": "Mocked ctf relevance"
+            }
+        }
 
-    ai_messages = [
-        {"role": "user", "content": f"Context: {body.context}\nCommand: {body.command}"}
-    ]
+    binary_context = request.get("binary_context", {}) or {}
+    filename = binary_context.get("filename", "binary")
+    category = binary_context.get("ctf_category", "binary exploitation")
 
-    # ── Provider 1: Groq ────────────────────────────────────────────────
-    groq_result = _try_groq(messages=ai_messages, system_prompt=EXPLAIN_COMMAND_SYSTEM_PROMPT)
-    if groq_result:
-        logger.info("[BinExplain] /explain-command: Groq succeeded")
-        return {"explanation": groq_result}
+    system = """You are a CTF command explainer. Break down the given shell
+command into its individual tokens (program name, each flag, each argument)
+and explain what each one does. Return ONLY valid JSON, no markdown, no
+preamble, no code fences."""
 
-    # ── Provider 2: Nemotron ──────────────────────────────────────────
-    nemotron_result = _try_nemotron(prompt=ai_messages, system=EXPLAIN_COMMAND_SYSTEM_PROMPT)
-    if nemotron_result:
-        logger.info("[BinExplain] /explain-command: Nemotron succeeded")
-        return {"explanation": nemotron_result}
+    user_msg = f"""Break down this command token by token:
+Command: {command}
+Binary: {filename}
+CTF Category: {category}
 
-    # ── Provider 3: Gemini ────────────────────────────────────────────
-    gemini_result = _try_gemini(messages=ai_messages, system_prompt=EXPLAIN_COMMAND_SYSTEM_PROMPT)
-    if gemini_result:
-        logger.info("[BinExplain] /explain-command: Gemini succeeded")
-        return {"explanation": gemini_result}
+Return ONLY this JSON structure with no extra text:
+{{
+  "tokens": [
+    {{"text": "the_exact_substring", "type": "program|flag|argument|pipe|operator", "meaning": "short explanation of this specific part, max 12 words"}}
+  ],
+  "summary": "one sentence: what this command does overall",
+  "expected_output": "one sentence: what output looks like",
+  "ctf_relevance": "one sentence: why this matters for {category}"
+}}
 
-    # ── Provider 4: OpenAI GPT-4o-mini ────────────────────────────────
-    openai_result = _try_openai(messages=ai_messages, system_prompt=EXPLAIN_COMMAND_SYSTEM_PROMPT)
-    if openai_result:
-        logger.info("[BinExplain] /explain-command: OpenAI succeeded")
-        return {"explanation": openai_result}
+Rules:
+- Split the command into EVERY meaningful token: program name, each flag
+  (like -d, --rop), each argument, pipe symbols (|), redirect symbols
+- The "text" field must be an exact substring of the original command so
+  the frontend can highlight it precisely
+- type must be one of: program, flag, argument, pipe, operator
+- meaning must be under 12 words, specific, no filler
+"""
 
-    # ── Provider 5: Ollama ────────────────────────────────────────────
-    ollama_messages = [{"role": "system", "content": EXPLAIN_COMMAND_SYSTEM_PROMPT}] + ai_messages
-    ollama_result = _try_ollama_chat(ollama_messages)
-    if ollama_result:
-        logger.info("[BinExplain] /explain-command: Ollama succeeded")
-        return {"explanation": ollama_result}
+    raw = _try_groq(user_msg, system)
+    if not raw:
+        raw = _try_gemini(user_msg, system)
 
-    # ── Provider 6: Claude (last resort) ──────────────────────────────
-    claude_result = _try_claude(messages=ai_messages, system_prompt=EXPLAIN_COMMAND_SYSTEM_PROMPT)
-    if claude_result:
-        logger.info("[BinExplain] /explain-command: Claude succeeded")
-        return {"explanation": claude_result}
+    import re, json
+    cleaned = re.sub(r'```(?:json)?\n?', '', raw or '').strip().rstrip('`')
+    try:
+        parsed = json.loads(cleaned)
+    except (json.JSONDecodeError, TypeError):
+        parsed = {
+            "tokens": [{"text": command, "type": "program", "meaning": "full command"}],
+            "summary": raw or "Could not generate breakdown",
+            "expected_output": "",
+            "ctf_relevance": ""
+        }
 
-    raise HTTPException(
-        status_code=503,
-        detail="Explanation unavailable -- all AI providers failed.",
-    )
+    return {"explanation": parsed}
 
 
 # ---------------------------------------------------------------------------

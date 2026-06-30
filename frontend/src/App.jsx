@@ -8,6 +8,7 @@ import Contact from './pages/Contact.jsx';
 import Privacy from './pages/Privacy.jsx';
 import TopNav from './components/TopNav';
 import { buildBinaryContext } from './utils/buildBinaryContext';
+import CommandBlock from './components/CommandBlock';
 
 /* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -194,36 +195,8 @@ function CardModal({ title, icon, accent, onClose, children }) {
     );
 }
 
-/* -- Code Block with Copy Button ---------------------------------------- */
-function CodeBlock({ code, language, onExplain }) {
-    const [copied, setCopied] = useState(false);
-    const handleCopy = () => {
-        navigator.clipboard.writeText(code);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-    return (
-        <div className="chat-code-block">
-            <div className="chat-code-header">
-                {language && <span className="chat-code-lang">{language}</span>}
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    {onExplain && (
-                        <button className="chat-code-copy-btn" onClick={() => onExplain(code)} type="button" title="Explain command">
-                            {'\u2753 Explain'}
-                        </button>
-                    )}
-                    <button className="chat-code-copy-btn" onClick={handleCopy} type="button" title="Copy code">
-                        {copied ? '\u2713 Copied!' : '\ud83d\udccb Copy'}
-                    </button>
-                </div>
-            </div>
-            <pre className="chat-code-pre"><code>{code}</code></pre>
-        </div>
-    );
-}
-
 /* -- Chat Message Content (parses code blocks) ------------------------- */
-function ChatMessageContent({ content, onExplain }) {
+function ChatMessageContent({ content, binaryContext }) {
     // Split content by triple-backtick code blocks
     const parts = [];
     const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g;
@@ -254,7 +227,7 @@ function ChatMessageContent({ content, onExplain }) {
         <>
             {parts.map((part, i) => {
                 if (part.type === 'code') {
-                    return <CodeBlock key={i} code={part.content} language={part.language} onExplain={onExplain} />;
+                    return <CommandBlock key={i} command={part.content} language={part.language} binaryContext={binaryContext} />;
                 }
                 // Render text lines, handling inline backtick code
                 return part.content.split(/\n/).filter(l => l.trim()).map((line, j) => {
@@ -405,10 +378,7 @@ export default function App() {
     const srcChatContextRef = useRef('');
     const srcChatCtfCategoryRef = useRef('');
 
-    /* -- Command Explainer state -- */
-    const [explainInput, setExplainInput] = useState('');
-    const [explainLog, setExplainLog] = useState([]);
-    const [explainLoading, setExplainLoading] = useState(false);
+
 
     /* -- Password modal state (for protected ZIPs) -- */
     const [passwordModal, setPasswordModal] = useState(false);
@@ -987,45 +957,7 @@ export default function App() {
         }
     };
 
-    /* -- Command Explainer handler -- */
-    const handleExplainCommand = async (overrideCmd) => {
-        const cmdToExplain = overrideCmd || explainInput;
-        if (!cmdToExplain.trim() || explainLoading) return;
-        
-        setExplainInput('');
-        setExplainLoading(true);
-        
-        try {
-            const res = await fetch(`${BACKEND_URL}/explain-command`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    command: cmdToExplain,
-                    context: analysisContextRef.current
-                })
-            });
-            
-            if (res.status === 429) {
-                setExplainLog(prev => [{ command: cmdToExplain, explanation: "Rate limit exceeded. Please try again later." }, ...prev].slice(0, 5));
-                return;
-            }
-            if (!res.ok) throw new Error('Failed to get explanation');
-            
-            const data = await res.json();
-            setExplainLog(prev => [{ command: cmdToExplain, explanation: data.explanation }, ...prev].slice(0, 5));
-        } catch (err) {
-            setExplainLog(prev => [{ command: cmdToExplain, explanation: "Error: Could not get explanation." }, ...prev].slice(0, 5));
-        } finally {
-            setExplainLoading(false);
-        }
-    };
 
-    const onExplainKeyDown = (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            handleExplainCommand();
-        }
-    };
 
     /* -- Source code handlers ------------------------------------------- */
     const stageSourceFile = (f) => {
@@ -1736,51 +1668,8 @@ export default function App() {
                             <div className="bottom-section-header"><span className="bottom-section-icon">[Commands]</span><h3 className="bottom-section-title">Quick Commands</h3></div>
                             <div className="quick-commands">
                                 {[`file ./${result.filename}`,`checksec ./${result.filename}`,`strings ./${result.filename} | grep -i flag`,`ltrace ./${result.filename}`,`strace ./${result.filename}`,`gdb -q ./${result.filename}`,`objdump -d ./${result.filename} | grep -A 20 '<main>'`,`ROPgadget --binary ./${result.filename} --rop | head -20`,`one_gadget libc.so.6`,`python3 -c "from pwn import *; cyclic(200)" | ./${result.filename}`].map((cmd,i)=>(
-                                    <div className="quick-cmd-row" key={i}>
-                                        <code className="quick-cmd-text">{cmd}</code>
-                                        <div className="quick-cmd-actions">
-                                            <button className="quick-cmd-copy" title="Copy" onClick={(e)=>{navigator.clipboard.writeText(cmd);const btn=e.currentTarget;btn.textContent='Copied!';setTimeout(()=>btn.textContent='\ud83d\udccb Copy',1200)}}>{"\ud83d\udccb Copy"}</button>
-                                            <button className="quick-cmd-explain" title="Explain command" onClick={() => { handleExplainCommand(cmd); }}>{"\u2753 Explain"}</button>
-                                        </div>
-                                    </div>
+                                    <CommandBlock key={i} command={cmd} language="bash" binaryContext={binaryContext} />
                                 ))}
-                            </div>
-
-                            {/* -- Command Explainer UI -- */}
-                            <div className="explain-container">
-                                {explainLog.length > 0 && (
-                                    <div className="explain-log">
-                                        {explainLog.map((log, i) => (
-                                            <div className="explain-entry" key={i}>
-                                                <div className="explain-entry-cmd">&gt; {log.command}</div>
-                                                <div className="explain-entry-text">
-                                                    {log.explanation.split(/\n/).filter(l => l.trim()).map((line, j) => (
-                                                        <div className={line.trim().startsWith('*') || line.trim().startsWith('-') || line.trim().startsWith('*') ? 'explain-bullet' : 'explain-text'} key={j}>{line.replace(/^[-**]\s*/, '* ')}</div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                <div className="explain-input-row">
-                                    <input 
-                                        id="explain-input"
-                                        className="explain-input" 
-                                        type="text" 
-                                        placeholder=" Explain a command..." 
-                                        value={explainInput} 
-                                        onChange={e => setExplainInput(e.target.value.slice(0, 500))} 
-                                        onKeyDown={onExplainKeyDown} 
-                                        disabled={explainLoading}
-                                    />
-                                    <button 
-                                        className="explain-btn" 
-                                        onClick={() => handleExplainCommand()} 
-                                        disabled={explainLoading || !explainInput.trim()}
-                                    >
-                                        {explainLoading ? '...' : 'Explain'}
-                                    </button>
-                                </div>
                             </div>
                         </div>
 
@@ -1788,7 +1677,7 @@ export default function App() {
                         <div className="bottom-section">
                             <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Follow-up Chat</h3></div>
                             <div className="chat-messages" id="chat-messages">
-                                {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content"><ChatMessageContent content={msg.content} onExplain={handleExplainCommand} /></div></div>))}
+                                {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content"><ChatMessageContent content={msg.content} binaryContext={binaryContext} /></div></div>))}
                                 {chatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={chatEndRef}/>
                             </div>
@@ -1953,50 +1842,8 @@ export default function App() {
                                 <div className="bottom-section-header"><span className="bottom-section-icon">[Commands]</span><h3 className="bottom-section-title">Quick Commands</h3></div>
                                 <div className="quick-commands">
                                     {sourceResult.quick_commands.map((cmd, i) => (
-                                        <div className="quick-cmd-row" key={i}>
-                                            <code className="quick-cmd-text">{cmd}</code>
-                                            <div className="quick-cmd-actions">
-                                                <button className="quick-cmd-copy" title="Copy" onClick={(e) => { navigator.clipboard.writeText(cmd); const btn = e.currentTarget; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = '\uD83D\uDCCB Copy', 1200); }}>{"\uD83D\uDCCB Copy"}</button>
-                                                <button className="quick-cmd-explain" title="Explain command" onClick={() => { handleExplainCommand(cmd); }}>{"\u2753 Explain"}</button>
-                                            </div>
-                                        </div>
+                                        <CommandBlock key={i} command={cmd} language="bash" binaryContext={binaryContext} />
                                     ))}
-                                </div>
-                                {/* -- Command Explainer UI (shared) -- */}
-                                <div className="explain-container">
-                                    {explainLog.length > 0 && (
-                                        <div className="explain-log">
-                                            {explainLog.map((log, i) => (
-                                                <div className="explain-entry" key={i}>
-                                                    <div className="explain-entry-cmd">&gt; {log.command}</div>
-                                                    <div className="explain-entry-text">
-                                                        {log.explanation.split(/\n/).filter(l => l.trim()).map((line, j) => (
-                                                            <div className={line.trim().startsWith('*') || line.trim().startsWith('-') ? 'explain-bullet' : 'explain-text'} key={j}>{line.replace(/^[-*]\s*/, '* ')}</div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                    <div className="explain-input-row">
-                                        <input
-                                            id="src-explain-input"
-                                            className="explain-input"
-                                            type="text"
-                                            placeholder=" Explain a command..."
-                                            value={explainInput}
-                                            onChange={e => setExplainInput(e.target.value.slice(0, 500))}
-                                            onKeyDown={onExplainKeyDown}
-                                            disabled={explainLoading}
-                                        />
-                                        <button
-                                            className="explain-btn"
-                                            onClick={() => handleExplainCommand()}
-                                            disabled={explainLoading || !explainInput.trim()}
-                                        >
-                                            {explainLoading ? '...' : 'Explain'}
-                                        </button>
-                                    </div>
                                 </div>
                             </div>
                         )}
@@ -2199,7 +2046,7 @@ export default function App() {
                         <div className="bottom-section">
                             <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Source Code Chat</h3></div>
                             <div className="chat-messages" id="src-chat-messages">
-                                {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span><div className="chat-bubble-content"><ChatMessageContent content={msg.content} onExplain={handleExplainCommand} /></div></div>))}
+                                {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span><div className="chat-bubble-content"><ChatMessageContent content={msg.content} binaryContext={binaryContext} /></div></div>))}
                                 {srcChatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={srcChatEndRef}/>
                             </div>
