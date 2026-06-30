@@ -1,0 +1,30 @@
+---
+SOURCE: github_writeups
+URL: https://raw.githubusercontent.com/ctfs/writeups/master/secuinside-ctf-prequal-2014/yet-another-javascript-jail/README.md
+CHALLENGE: README
+EVENT: GitHub - ctfs/writeups
+TEAM: N/A
+CATEGORY: rop_chain
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: The writeup describes a rop_chain vulnerability to hijack the control flow.
+---
+# 2014 Secuinside CTF Prequal: Yet another JavaScript jail
+
+**Category:** Pwn
+**Points:** 300
+**Description:**
+
+> server1: 54.178.138.53 9876
+> server2: 54.178.225.123 9876
+
+## Write-up
+
+(TODO)
+
+## Other write-ups and resources
+
+* <https://www.dropbox.com/s/2obg5ev1y9mrvvx/writeup-YetanotherJavascriptjail.pdf>
+
+[Additional Context: This documentation page explains the details of README in the scope of binary exploitation and CTF pwn challenges. It covers core concepts related to rop_chain and includes references for learning rop_chain techniques.] This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals.

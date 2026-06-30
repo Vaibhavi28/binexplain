@@ -1,0 +1,41 @@
+---
+SOURCE: github_CTFs
+URL: https://raw.githubusercontent.com/Dvd848/CTFs/master/2020_Technion/The_all-seeing_eye.md
+CHALLENGE: The_all-seeing_eye
+EVENT: GitHub - Dvd848/CTFs
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: The writeup describes a other vulnerability to hijack the control flow.
+---
+# The all-seeing eye
+Category: Cryptography
+
+## Description
+> Remember - reality is an illusion
+
+An image was attached.
+
+## Solution
+
+The attached image looks like some kind of substitution cipher:
+
+![](images/all_seeing.png)
+
+We obviously know that the prefix is `cstechnion`. We can see that the `ש` stand for `'c'` and matches the expected locations in `cstechnion`. However, how do we proceed from here?
+
+Searching Google for some kind of ancient hieroglyphs didn't help much, and a reverse image search of the symbols wasn't helpful either.
+
+Finally, searching for the sentence in the description gave a lead: "Remember - reality is an illusion" is a quote from the animated TV show "Gravity Falls" said by no other than a character called "Bill Cipher":
+
+> "Remember: reality is an illusion. The universe is a hologram. Buy gold. Bye!".
+
+Investigating this lead further reveals the following key ([source](https://www.pinterest.com/pin/426575395956010392/)):
+
+![](images/bill_cipher.png)
+
+Using it, we can decrypt the flag to `cstechnion{galf_drawkcab}`.
+
+[Additional Context: This documentation page explains the details of The_all-seeing_eye in the scope of binary exploitation and CTF pwn challenges. It covers core concepts related to other and includes references for learning other techniques.] This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals.

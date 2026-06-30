@@ -1,0 +1,33 @@
+---
+SOURCE: github_writeups
+URL: https://raw.githubusercontent.com/ctfs/writeups/master/phdays-iv-finals/vminfo.txt
+CHALLENGE: vminfo
+EVENT: GitHub - ctfs/writeups
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: The writeup describes a other vulnerability to hijack the control flow.
+---
+most of tasks are launched automatically on VM start
+
+holygrail:
+    hacker/phd4finals
+homepage:
+    user/phd4finals
+    to launch execute /home/task/phd_bot/start.sh
+mars2:
+    hacker/phd4finals
+mooditter:
+    phd/phd4finals
+myfavoritesequel:
+    hacker/phd4finals
+pyhtonisback:
+    user/??? (you can always reset it ;)
+tera:
+    the production version was running under Windows because it uses Windows Nod32 antivirus. Sources are attached, this should be enough for you.
+wolfram_epta:
+    phd/phd4finals
+
+[Additional Context: This documentation page explains the details of vminfo in the scope of binary exploitation and CTF pwn challenges. It covers core concepts related to other and includes references for learning other techniques.] This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals.

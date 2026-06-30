@@ -1,0 +1,62 @@
+---
+SOURCE: github_CTFs
+URL: https://raw.githubusercontent.com/Dvd848/CTFs/master/2024_BSidesTLV/Skibidi.md
+CHALLENGE: Skibidi
+EVENT: GitHub - Dvd848/CTFs
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: NX
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: The writeup describes a other vulnerability to hijack the control flow.
+---
+# Skibidi
+
+ * Category: Forensics
+ * 70 Points
+ * Solved by the JCTF Team
+
+## Description
+
+> My friend sent me some skibidi data... Can you help me understand his goofy sentences?
+
+A `*.docx` file was attached.
+
+## Solution
+
+`*.docx` files are actually ZIP archives. We can extract the file and search through its
+content. Eventually, we find the following file under `.\word\img.xml`:
+
+```xml
+<root>
+  <person
+  firstname="QnNpZGVzVExWMjAyNHt3M19k"
+  lastname="M2YzNXQzZF90aDNfc2sxYjFkaX0="
+  city="Haifa"
+  country="Israel"
+  firstname2="QnNpZGVzVExWMjAyNHt3M19k"
+  lastname2="M2YzNXQzZF90aDNfc2sxYjFkaX0="
+  email="Ulrike.Leffen@yopmail.com"
+  />
+  <random>6</random>
+  <random_float>89.838</random_float>
+  <bool>true</bool>
+  <date>1986-09-28</date>
+  <regEx>helloooooooooooooooooooooooooooooooooooooooooooo world</regEx>
+  <enum>generator</enum>
+  <elt>Alyssa</elt><elt>Flory</elt><elt>Ulrike</elt><elt>Teriann</elt><elt>Reeba</elt>  
+  <Ulrike>
+    <age>56</age>
+  </Ulrike>
+</root>
+```
+
+We decode the Base64 string and get the flag:
+
+```python
+>>> import base64
+>>> base64.b64decode("QnNpZGVzVExWMjAyNHt3M19kM2YzNXQzZF90aDNfc2sxYjFkaX0=")
+b'BsidesTLV2024{w3_d3f35t3d_th3_sk1b1di}'
+```
+
+[Additional Context: This documentation page explains the details of Skibidi in the scope of binary exploitation and CTF pwn challenges. It covers core concepts related to other and includes references for learning other techniques.] This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals.

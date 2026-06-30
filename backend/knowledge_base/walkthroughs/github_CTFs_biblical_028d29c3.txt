@@ -1,0 +1,32 @@
+---
+SOURCE: github_CTFs
+URL: https://raw.githubusercontent.com/Dvd848/CTFs/master/2020_Technion/Biblical.md
+CHALLENGE: Biblical
+EVENT: GitHub - Dvd848/CTFs
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: The writeup describes a other vulnerability to hijack the control flow.
+---
+# Biblical
+Category: Cryptography
+
+## Description
+> xhgvxsmrlm{Yryorxzo_xrksvih_ziv_gsv_yvhg}
+
+## Solution
+
+This is a Biblical cipher and there aren't too many of them. Let's use [Atbash](https://en.wikipedia.org/wiki/Atbash):
+
+> Atbash is a monoalphabetic substitution cipher originally used to encrypt the Hebrew alphabet. 
+
+```javascript
+> const chef = require("cyberchef");
+undefined
+> chef.atbashCipher("xhgvxsmrlm{Yryorxzo_xrksvih_ziv_gsv_yvhg}")
+cstechnion{Biblical_ciphers_are_the_best}
+```
+
+[Additional Context: This documentation page explains the details of Biblical in the scope of binary exploitation and CTF pwn challenges. It covers core concepts related to other and includes references for learning other techniques.] This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals.

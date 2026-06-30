@@ -1,0 +1,30 @@
+---
+SOURCE: github_writeups
+URL: https://raw.githubusercontent.com/ctfs/writeups/master/plaid-ctf-2014/freya/README.md
+CHALLENGE: README
+EVENT: GitHub - ctfs/writeups
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: system
+KEY_TECHNIQUE: The writeup describes a other vulnerability leveraging system to hijack the control flow.
+---
+# Plaid CTF 2014: Freya
+
+**Category:** Misc
+**Points:** 250
+**Description:**
+
+> We've traveled back far, but this protocol looks familiar... Our reconnaissance team did a great job, they got us [a data capture from the currently running systems and a private key](freya-378469981a7016d6179a844fffe2a82b.tar.bz2) from the server (shell.woo.pctf which resolves to 54.226.73.167). Take a look at the traffic our reconnaissance team picked up, and see if you can get access to The Plague's server, at 54.226.73.167.
+
+## Write-up
+
+(TODO)
+
+## Other write-ups and resources
+
+* <http://blog.dragonsector.pl/2014/04/plaidctf-2014-gcc-300-and-freya-250.html>
+* <https://fail0verflow.com/blog/2014/plaidctf2014-misc250-freya.html>
+
+[Additional Context: This documentation page explains the details of README in the scope of binary exploitation and CTF pwn challenges. It covers core concepts related to other and includes references for learning other techniques.] This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals.

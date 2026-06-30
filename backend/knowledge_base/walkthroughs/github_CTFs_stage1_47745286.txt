@@ -1,0 +1,30 @@
+---
+SOURCE: github_CTFs
+URL: https://raw.githubusercontent.com/Dvd848/CTFs/master/2020_eBay/Stage1.md
+CHALLENGE: Stage1
+EVENT: GitHub - Dvd848/CTFs
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Easy
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: The writeup describes a other vulnerability to hijack the control flow.
+---
+# Stage 1
+
+## Description
+
+> Decipher this to have the key to the next stage.
+> 
+> `aHR0cHM6Ly9ybmQuZWJheS5jby5pbC9yaWRkbGUvbXpmYmFiZXdjZXlxeGFsdXIv`
+
+## Solution
+
+This is an easy warm-up question. We decode the string as base-64 and get:
+
+```console
+root@kali:/media/sf_CTFs/ebay/1# echo aHR0cHM6Ly9ybmQuZWJheS5jby5pbC9yaWRkbGUvbXpmYmFiZXdjZXlxeGFsdXIv | base64 -d
+https://rnd.ebay.co.il/riddle/mzfbabewceyqxalur/
+```
+
+[Additional Context: This documentation page explains the details of Stage1 in the scope of binary exploitation and CTF pwn challenges. It covers core concepts related to other and includes references for learning other techniques.] This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals.

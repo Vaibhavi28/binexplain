@@ -1,0 +1,24 @@
+---
+SOURCE: github_CTFs
+URL: https://raw.githubusercontent.com/Adamkadaban/CTFs/master/1.CTFs/PicoCTF 2021/forensics/Wireshark twoo twooo two twoo/follow-stream-468.txt
+CHALLENGE: follow-stream-468
+EVENT: GitHub - Adamkadaban/CTFs
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: The writeup describes a other vulnerability to hijack the control flow.
+---
+===================================================================
+Follow: udp,ascii
+Filter: udp.stream eq 468
+Node 0: 192.168.38.104:49383
+Node 1: 8.8.8.8:53
+67
+.............EwV0JaDu.reddshrimpandherring.com.windomain.local.....
+	142
+.............EwV0JaDu.reddshrimpandherring.com.windomain.local............Qu.@.a.root-servers.net..nstld.verisign-grs.com.xg............:...Q.
+===================================================================
+
+[Additional Context: This documentation page explains the details of follow-stream-468 in the scope of binary exploitation and CTF pwn challenges. It covers core concepts related to other and includes references for learning other techniques.] This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals.

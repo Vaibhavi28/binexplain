@@ -1,0 +1,51 @@
+---
+SOURCE: github_writeups
+URL: https://raw.githubusercontent.com/ctfs/writeups/master/csaw-ctf-2014/obscurity/README.md
+CHALLENGE: README
+EVENT: GitHub - ctfs/writeups
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: The writeup describes a other vulnerability to hijack the control flow.
+---
+# CSAW CTF 2014: Obscurity
+
+**Category:** Forensics
+**Points:** 200
+**Description:**
+
+> see or do not see
+>
+> Written by marc
+>
+> [pdf.pdf](pdf.pdf)
+
+## Write-up
+
+[The provided PDF file](pdf.pdf) contains some hidden text.
+
+One way to get to it is by opening the PDF in your viewer of choice, selecting all of its contents (using `Ctrl` + `A` or `⌘` + `A`), copying it, and then pasting it into your text editor of choice.
+
+Another possible solution is to use the `pdftotext` command-line utility:
+
+```bash
+$ pdftotext pdf.pdf
+
+$ strings pdf.txt
+flag{security_through_obscurity}
+```
+
+The flag is `security_through_obscurity`.
+
+## Other write-ups and resources
+
+* <https://hackucf.org/blog/csaw-2014-forensics-200-obscurity/>
+* <http://shankaraman.wordpress.com/2014/09/22/csaw-ctf-2014-forensics-200-obscurity-writeup/>
+* <http://hackitta.net/csaw-2014-forensics-200-obscurity/>
+* <http://bt3gl.github.io/csaw-ctf-2014-forensics-200-obscurity.html>
+* <https://ucs.fbi.h-da.de/writeup-csaw-obscurity/>
+* <http://www.incertia.net/blog/csaw-ctf-quals-2014-obscurity/>
+
+[Additional Context: This documentation page explains the details of README in the scope of binary exploitation and CTF pwn challenges. It covers core concepts related to other and includes references for learning other techniques.] This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals.

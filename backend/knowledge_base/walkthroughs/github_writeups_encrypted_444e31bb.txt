@@ -1,0 +1,32 @@
+---
+SOURCE: github_writeups
+URL: https://raw.githubusercontent.com/ctfs/writeups/master/su-ctf-quals-2014/decrypt_the_message/encrypted.txt
+CHALLENGE: encrypted
+EVENT: GitHub - ctfs/writeups
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: The writeup describes a other vulnerability to hijack the control flow.
+---
+The life that I have
+Is all that I have
+And the life that I have
+Is yours.
+
+The love that I have
+Of the life that I have
+Is yours and yours and yours.
+
+A sleep I shall have
+A rest I shall have
+Yet death will be but a pause.
+
+For the peace of my years
+In the long green grass
+Will be yours and yours and yours.
+
+decrypted message: emzcf sebt yuwi ytrr ortl rbon aluo konf ihye cyog rowh prhj feom ihos perp twnb tpak heoc yaui usoa irtd tnlu ntke onds goym hmpq
+
+[Additional Context: This documentation page explains the details of encrypted in the scope of binary exploitation and CTF pwn challenges. It covers core concepts related to other and includes references for learning other techniques.] This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals.

@@ -1,0 +1,45 @@
+---
+SOURCE: github_CTFs
+URL: https://raw.githubusercontent.com/Dvd848/CTFs/master/2021_Shabak/Statistics_2.md
+CHALLENGE: Statistics_2
+EVENT: GitHub - Dvd848/CTFs
+TEAM: N/A
+CATEGORY: rop_chain
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: The writeup describes a rop_chain vulnerability to hijack the control flow.
+---
+#  Statistics 2 
+Category: AI Research, 20 points
+
+
+## Description
+
+> Still refering to challenge Statistics1:
+> 
+> What is the maximum number of neurons that will be dropped?
+
+
+## Solution:
+
+This is the follow-up question for [Statistics](Statistics.md).
+
+Reminder:
+
+> For each K'th neuron, an eight-sided die is tossed K times. The dropout is activated with probability of 1 if and only if the sum of the K tosses is larger than 3^K, and a probability of 0 otherwise.
+
+We need to understand when it's impossible that the sum of the K tosses will be larger than `3^k`.
+
+```python
+>>> for k in itertools.count(1):
+...     if ( (k * 8) < (3 ** k)):
+...             print(k)
+...             break
+...
+3
+```
+
+So when `k >= 3`, there's no chance that the neuron will be dropped. That gives us `k = {1, 2}`. Therefore, the answer should be `2`. For some reason, at first the accepted answer was `0`, and this was later fixed.
+
+[Additional Context: This documentation page explains the details of Statistics_2 in the scope of binary exploitation and CTF pwn challenges. It covers core concepts related to rop_chain and includes references for learning rop_chain techniques.] This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals.

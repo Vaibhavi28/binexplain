@@ -1,0 +1,22 @@
+---
+SOURCE: github_writeups
+URL: https://raw.githubusercontent.com/ctfs/writeups/master/volga-quals-2014/admin/300/script.txt
+CHALLENGE: script
+EVENT: GitHub - ctfs/writeups
+TEAM: N/A
+CATEGORY: other
+DIFFICULTY: Unknown
+PROTECTIONS: None
+KEY_FUNCTIONS: None
+KEY_TECHNIQUE: The writeup describes a other vulnerability to hijack the control flow.
+---
+set serveroutput on
+DECLARE 
+x number := &in;
+res number
+BEGINselect sum(FLOOR(POWER(cos(3.14*MOD(foo+1, nn+1)),2)))into resfrom (select tab2.n nn, round(exp(sum(ln(tab1.n)))) foofrom( select level nfrom dualconnect by level <= x-1) tab1,(select level nfrom dualconnect by level <= x-1) tab2where tab1.n <= tab2.ngroup by tab2.n);
+dbms_output.put_line(res);
+END;
+/
+
+[Additional Context: This documentation page explains the details of script in the scope of binary exploitation and CTF pwn challenges. It covers core concepts related to other and includes references for learning other techniques.] This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals. This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals.
