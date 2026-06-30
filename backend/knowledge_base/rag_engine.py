@@ -1,4 +1,5 @@
 import os
+import glob as _glob
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 def build_rag_query(binary_context: dict, user_question: str = "") -> str:
@@ -74,25 +75,43 @@ class CTFKnowledgeBase:
             return
 
         new_count = 0
-        txt_files = [f for f in os.listdir(walkthroughs_dir) if f.endswith(".txt")]
-        
-        for filename in txt_files:
-            filepath = os.path.join(walkthroughs_dir, filename)
-            doc_id = os.path.splitext(filename)[0]
-            
-            # Skip if document ID already exists in ChromaDB (no duplicates)
-            existing = self.collection.get(ids=[doc_id])
-            if existing and existing.get("ids") and len(existing["ids"]) > 0:
+        # Recursive glob — finds files in walkthroughs/ AND any subfolders (e.g. ctftime/, github/)
+        txt_files = _glob.glob(os.path.join(walkthroughs_dir, "**", "*.txt"), recursive=True)
+
+        # Get all already-indexed IDs in one shot to avoid per-file round trips
+        existing_ids = set()
+        try:
+            all_existing = self.collection.get(include=[])
+            existing_ids = set(all_existing.get("ids", []))
+        except Exception:
+            pass
+
+        # Batch accumulators
+        batch_docs, batch_metas, batch_ids = [], [], []
+
+        def flush_batch():
+            nonlocal new_count
+            if not batch_docs:
+                return
+            self.collection.add(documents=batch_docs, metadatas=batch_metas, ids=batch_ids)
+            new_count += len(batch_docs)
+            batch_docs.clear(); batch_metas.clear(); batch_ids.clear()
+
+        for filepath in txt_files:
+            filename = os.path.basename(filepath)
+            rel_path = os.path.relpath(filepath, walkthroughs_dir)
+            doc_id = os.path.splitext(rel_path)[0].replace(os.sep, "/")
+
+            if doc_id in existing_ids:
                 continue
-                
+
             try:
                 with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
                     content = f.read()
             except Exception as e:
                 print(f"[BinExplain KB] Error reading file {filepath}: {e}")
                 continue
-                
-            # Parse the header (lines between --- markers at top)
+
             parts = content.split("---", 2)
             if len(parts) < 3:
                 header_data = {}
@@ -105,39 +124,29 @@ class CTFKnowledgeBase:
                     if ":" in line:
                         k, v = line.split(":", 1)
                         header_data[k.strip().upper()] = v.strip()
-                        
-            # Extract: SOURCE, URL, CHALLENGE, CATEGORY, DIFFICULTY, PROTECTIONS, KEY_FUNCTIONS, KEY_TECHNIQUE
-            source = header_data.get("SOURCE", "")
-            url = header_data.get("URL", "")
-            challenge = header_data.get("CHALLENGE", "")
-            category = header_data.get("CATEGORY", "")
-            difficulty = header_data.get("DIFFICULTY", "")
-            key_technique = header_data.get("KEY_TECHNIQUE", "")
-            key_functions_str = header_data.get("KEY_FUNCTIONS", "")
-            
-            # Add to ChromaDB:
-            # - document = full file text
-            # - metadata = {source, url, challenge, category, difficulty, key_technique, key_functions_str}
-            # - id = filename without .txt extension
+
             metadata = {
-                "source": source,
-                "url": url,
-                "challenge": challenge,
-                "category": category,
-                "difficulty": difficulty,
-                "key_technique": key_technique,
-                "key_functions_str": key_functions_str
+                "source":          header_data.get("SOURCE", ""),
+                "url":             header_data.get("URL", ""),
+                "challenge":       header_data.get("CHALLENGE", ""),
+                "category":        header_data.get("CATEGORY", ""),
+                "difficulty":      header_data.get("DIFFICULTY", ""),
+                "key_technique":   header_data.get("KEY_TECHNIQUE", ""),
+                "key_functions_str": header_data.get("KEY_FUNCTIONS", "")
             }
-            
-            self.collection.add(
-                documents=[content],
-                metadatas=[metadata],
-                ids=[doc_id]
-            )
-            new_count += 1
-            
+
+            batch_docs.append(content)
+            batch_metas.append(metadata)
+            batch_ids.append(doc_id)
+
+            if len(batch_docs) >= 100:
+                flush_batch()
+
+        flush_batch()  # flush remaining
+
         total_count = self.collection.count()
         print(f"[BinExplain KB] Added {new_count} new writeups. Total: {total_count}")
+
         
     def find_similar_writeups(self, binary_analysis: dict, n_results: int = 3) -> list:
         try:
