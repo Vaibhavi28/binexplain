@@ -2,6 +2,14 @@ import os
 import glob as _glob
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+try:
+    from knowledge_base.technique_tags import TECHNIQUE_TAGS, extract_technique_tags
+except ImportError:
+    try:
+        from technique_tags import TECHNIQUE_TAGS, extract_technique_tags
+    except ImportError:
+        from backend.knowledge_base.technique_tags import TECHNIQUE_TAGS, extract_technique_tags
+
 def build_rag_query(binary_context: dict, user_question: str = "") -> str:
     parts = []
     category = binary_context.get("ctf_category", "")
@@ -80,14 +88,18 @@ class CTFKnowledgeBase:
 
         # Get all already-indexed IDs in one shot to avoid per-file round trips
         existing_ids = set()
+        existing_metas = {}
         try:
-            all_existing = self.collection.get(include=[])
+            all_existing = self.collection.get(include=["metadatas"])
             existing_ids = set(all_existing.get("ids", []))
+            for eid, emeta in zip(all_existing.get("ids", []), all_existing.get("metadatas", [])):
+                existing_metas[eid] = emeta or {}
         except Exception:
             pass
 
         # Batch accumulators
         batch_docs, batch_metas, batch_ids = [], [], []
+        update_metas, update_ids = [], []
 
         def flush_batch():
             nonlocal new_count
@@ -97,13 +109,16 @@ class CTFKnowledgeBase:
             new_count += len(batch_docs)
             batch_docs.clear(); batch_metas.clear(); batch_ids.clear()
 
+        def flush_updates():
+            if not update_ids:
+                return
+            self.collection.update(ids=update_ids, metadatas=update_metas)
+            update_ids.clear(); update_metas.clear()
+
         for filepath in txt_files:
             filename = os.path.basename(filepath)
             rel_path = os.path.relpath(filepath, walkthroughs_dir)
             doc_id = os.path.splitext(rel_path)[0].replace(os.sep, "/")
-
-            if doc_id in existing_ids:
-                continue
 
             try:
                 with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
@@ -125,6 +140,10 @@ class CTFKnowledgeBase:
                         k, v = line.split(":", 1)
                         header_data[k.strip().upper()] = v.strip()
 
+            tags_str = header_data.get("TECHNIQUE_TAGS", "")
+            if not tags_str:
+                tags_str = ",".join(extract_technique_tags(content))
+
             metadata = {
                 "source":          header_data.get("SOURCE", ""),
                 "url":             header_data.get("URL", ""),
@@ -132,8 +151,20 @@ class CTFKnowledgeBase:
                 "category":        header_data.get("CATEGORY", ""),
                 "difficulty":      header_data.get("DIFFICULTY", ""),
                 "key_technique":   header_data.get("KEY_TECHNIQUE", ""),
-                "key_functions_str": header_data.get("KEY_FUNCTIONS", "")
+                "key_functions_str": header_data.get("KEY_FUNCTIONS", ""),
+                "technique_tags":   tags_str
             }
+
+            if doc_id in existing_ids:
+                emeta = existing_metas.get(doc_id, {})
+                if "technique_tags" not in emeta:
+                    update_ids.append(doc_id)
+                    new_meta = dict(emeta)
+                    new_meta.update(metadata)
+                    update_metas.append(new_meta)
+                    if len(update_ids) >= 100:
+                        flush_updates()
+                continue
 
             batch_docs.append(content)
             batch_metas.append(metadata)
@@ -142,13 +173,14 @@ class CTFKnowledgeBase:
             if len(batch_docs) >= 100:
                 flush_batch()
 
-        flush_batch()  # flush remaining
+        flush_batch()  # flush remaining new documents
+        flush_updates() # flush remaining metadata updates
 
         total_count = self.collection.count()
         print(f"[BinExplain KB] Added {new_count} new writeups. Total: {total_count}")
 
         
-    def find_similar_writeups(self, binary_analysis: dict, n_results: int = 3) -> list:
+    def find_similar_writeups(self, binary_analysis: dict, n_results: int = 5) -> list:
         try:
             # 1. Build search query from binary_analysis dict:
             query_str = build_rag_query(binary_analysis)
@@ -159,17 +191,16 @@ class CTFKnowledgeBase:
                 self.model = SentenceTransformer("all-MiniLM-L6-v2")
             query_vector = self.model.encode(query_str).tolist()
             
-            # 3. Query ChromaDB for n_results most similar documents
+            # 3. Query ChromaDB for n_results * 3 most similar documents
             results = self.collection.query(
                 query_embeddings=[query_vector],
-                n_results=n_results
+                n_results=n_results * 3
             )
             
             # 4. Return list of dicts
             if not results or not results.get("ids") or len(results["ids"]) == 0:
                 return []
                 
-            out = []
             ids = results["ids"][0]
             metadatas = results.get("metadatas", [[]])[0]
             documents = results.get("documents", [[]])[0]
@@ -177,6 +208,15 @@ class CTFKnowledgeBase:
             
             threshold = 0.55
             
+            # Extract technique tags from the CURRENT binary's context
+            binary_text_for_tagging = " ".join([
+                binary_analysis.get("ctf_category", ""),
+                " ".join(binary_analysis.get("patterns", {}).get("dangerous_functions", []) if isinstance(binary_analysis.get("patterns"), dict) else []),
+                str(binary_analysis.get("data_flow", "")),
+            ])
+            current_binary_tags = set(extract_technique_tags(binary_text_for_tagging))
+            
+            scored_results = []
             for i in range(len(ids)):
                 doc_id = ids[i]
                 metadata = metadatas[i] if i < len(metadatas) and metadatas[i] else {}
@@ -184,11 +224,11 @@ class CTFKnowledgeBase:
                 distance = distances[i] if i < len(distances) else 1.0
                 
                 # Conversion for L2 distance (or cosine distance in [0, 2])
-                similarity_score = 1.0 - (distance / 2.0)
-                similarity_score = max(0.0, min(1.0, similarity_score))
+                vector_similarity = 1.0 - (distance / 2.0)
+                vector_similarity = max(0.0, min(1.0, vector_similarity))
                 
                 # Filter out results with low similarity
-                if similarity_score < threshold:
+                if vector_similarity < threshold:
                     continue
                     
                 # Excerpt: first 350 chars of body text
@@ -200,16 +240,32 @@ class CTFKnowledgeBase:
                 if not title:
                     title = doc_id
                     
-                out.append({
+                doc_tags_str = metadata.get("technique_tags", "")
+                if not doc_tags_str:
+                    doc_tags = set(extract_technique_tags(document))
+                else:
+                    doc_tags = set(doc_tags_str.split(",")) if doc_tags_str else set()
+                
+                tag_overlap = len(current_binary_tags & doc_tags)
+                tag_bonus = min(tag_overlap * 0.05, 0.15)  # max 15% boost from tag overlap
+                
+                final_score = min(vector_similarity + tag_bonus, 1.0)
+                
+                scored_results.append({
                     "title": title,
                     "url": metadata.get("url", ""),
                     "category": metadata.get("category", ""),
                     "key_technique": metadata.get("key_technique", ""),
                     "snippet": snippet,
-                    "similarity_score": float(similarity_score)
+                    "similarity_score": float(final_score),
+                    "vector_score": float(vector_similarity),
+                    "tag_overlap": tag_overlap,
+                    "matched_tags": list(current_binary_tags & doc_tags)
                 })
                 
-            return out
+            scored_results.sort(key=lambda x: x["similarity_score"], reverse=True)
+            return scored_results[:n_results]
+            
         except Exception as e:
             # If no results or error, return empty list (never crash)
             print(f"[BinExplain KB] Error finding similar writeups: {e}")
@@ -221,9 +277,14 @@ class CTFKnowledgeBase:
             
         output_parts = ["=== SIMILAR CTF CHALLENGES FOUND IN KNOWLEDGE BASE ==="]
         for r in results:
+            tech_line = f"Technique used: {r['key_technique']}\n"
+            matched_tags = r.get("matched_tags", [])
+            if r.get("tag_overlap", 0) > 0 and matched_tags:
+                tech_line += f"Matches technique: {', '.join(matched_tags)}\n"
+
             part = (
                 f"Challenge: {r['title']} | Category: {r['category']}\n"
-                f"Technique used: {r['key_technique']}\n"
+                f"{tech_line}"
                 f"Similarity Score: {r.get('similarity_score', 0.0):.2f}\n"
                 f"Source: {r['url']}\n"
                 f"Excerpt: {r['snippet']}\n"

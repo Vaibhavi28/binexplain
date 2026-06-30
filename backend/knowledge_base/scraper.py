@@ -7,8 +7,17 @@ import time
 import random
 from bs4 import BeautifulSoup
 
+try:
+    from knowledge_base.technique_tags import extract_technique_tags
+except ImportError:
+    try:
+        from technique_tags import extract_technique_tags
+    except ImportError:
+        from backend.knowledge_base.technique_tags import extract_technique_tags
+
 # Reconfigure stdout to use UTF-8 on Windows to prevent encoding errors when printing to console
 sys.stdout.reconfigure(encoding='utf-8')
+
 
 
 def contains_likely_credentials(text: str) -> bool:
@@ -172,6 +181,9 @@ class WriteupScraper:
                 padding += " This section provides additional reference material and educational explanations on binary security mechanisms, common vulnerabilities, and bypass techniques used by cybersecurity professionals."
             text = text + padding
 
+        tags = extract_technique_tags(text)
+        tags_str = ",".join(tags)
+
         content = f"""---
 SOURCE: {source}
 URL: {url}
@@ -183,6 +195,7 @@ DIFFICULTY: {difficulty}
 PROTECTIONS: {protections}
 KEY_FUNCTIONS: {key_functions}
 KEY_TECHNIQUE: {key_technique}
+TECHNIQUE_TAGS: {tags_str}
 ---
 {text}"""
 
@@ -369,6 +382,42 @@ KEY_TECHNIQUE: {key_technique}
     def run(self):
         print("STEP A: Creating walkthroughs directory...")
         os.makedirs(self.walkthroughs_dir, exist_ok=True)
+
+        print("STEP 0: Backfilling technique tags for existing walkthroughs...")
+        if os.path.exists(self.walkthroughs_dir):
+            backfilled_count = 0
+            for fname in os.listdir(self.walkthroughs_dir):
+                if not fname.endswith(".txt"):
+                    continue
+                fpath = os.path.join(self.walkthroughs_dir, fname)
+                try:
+                    with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
+                    
+                    parts = content.split("---", 2)
+                    if len(parts) >= 3:
+                        header_text = parts[1]
+                        body_text = parts[2]
+                        
+                        header_lines = header_text.strip().splitlines()
+                        has_tags = any(line.strip().upper().startswith("TECHNIQUE_TAGS:") for line in header_lines)
+                        
+                        if not has_tags:
+                            tags = extract_technique_tags(content)
+                            tags_str = ",".join(tags)
+                            
+                            new_header_lines = list(header_lines)
+                            new_header_lines.append(f"TECHNIQUE_TAGS: {tags_str}")
+                            new_header_text = "\n".join(new_header_lines)
+                            
+                            new_content = f"---\n{new_header_text}\n---\n{body_text}"
+                            
+                            with open(fpath, "w", encoding="utf-8") as f:
+                                f.write(new_content)
+                            backfilled_count += 1
+                except Exception as e:
+                    print(f"Error backfilling {fname}: {e}")
+            print(f"Backfilled {backfilled_count} files with technique tags.")
 
         # STEP B — Scrape CTFtime.org writeups
         total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
