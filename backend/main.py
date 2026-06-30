@@ -2177,7 +2177,10 @@ def analyze_source_code(code: str, filename: str = "") -> dict:
                 "filename": filename or "",
             }
             similar_writeups = ctf_knowledge.find_similar_writeups(analysis_so_far)
-            writeup_context = ctf_knowledge.format_for_ai_context(similar_writeups)
+            if not similar_writeups:
+                writeup_context = "No similar writeups found. Base hints on binary analysis data only."
+            else:
+                writeup_context = ctf_knowledge.format_for_ai_context(similar_writeups)
         except Exception as exc:
             logger.warning("Failed to search knowledge base for source code: %s", exc)
 
@@ -4715,7 +4718,10 @@ def _analyze_single_file(
                     "filename": filename
                 }
                 similar_writeups = ctf_knowledge.find_similar_writeups(analysis_so_far)
-                writeup_context = ctf_knowledge.format_for_ai_context(similar_writeups)
+                if not similar_writeups:
+                    writeup_context = "No similar writeups found. Base hints on binary analysis data only."
+                else:
+                    writeup_context = ctf_knowledge.format_for_ai_context(similar_writeups)
             except Exception as e:
                 print(f"[BinExplain] KB search failed: {e}")
 
@@ -5157,7 +5163,10 @@ async def analyze(
                     "filename": safe_filename,
                 }
                 _similar = ctf_knowledge.find_similar_writeups(_analysis_so_far)
-                _pre_writeup_context = ctf_knowledge.format_for_ai_context(_similar)
+                if not _similar:
+                    _pre_writeup_context = "No similar writeups found. Base hints on binary analysis data only."
+                else:
+                    _pre_writeup_context = ctf_knowledge.format_for_ai_context(_similar)
             except Exception:
                 pass
 

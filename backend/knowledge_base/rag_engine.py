@@ -1,6 +1,51 @@
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+def build_rag_query(binary_context: dict, user_question: str = "") -> str:
+    parts = []
+    category = binary_context.get("ctf_category", "")
+    if isinstance(category, dict):
+        category = category.get("category", "")
+    if category:
+        parts.append(f"CTF {category} challenge writeup exploit solution")
+
+    # Look for protections dict in either 'protections' or 'checksec'
+    protections = binary_context.get("protections") or binary_context.get("checksec") or {}
+    if protections:
+        active = [k for k, v in protections.items()
+                  if str(v).lower() not in ["disabled", "no", "none", "false", "0", "unknown"]]
+        if active:
+            parts.append(f"bypass {' '.join(active)} binary")
+
+    arch = binary_context.get("architecture", "")
+    if arch:
+        parts.append(f"{arch} binary exploit")
+
+    # In raw analysis_data, functions might be under 'function_list' or 'functions'
+    functions = binary_context.get("functions") or binary_context.get("function_list") or []
+    interesting = ["win", "system", "gets", "printf", "scanf", "vuln", "shell", "flag"]
+    found = [f for f in functions if any(kw in str(f).lower() for kw in interesting)]
+    if found:
+        parts.append(f"functions {' '.join(str(f) for f in found[:3])}")
+
+    fmt_found = False
+    if binary_context.get("format_string_found"):
+        fmt_found = True
+    else:
+        fmt = binary_context.get("format_string")
+        if isinstance(fmt, dict) and fmt.get("detected"):
+            fmt_found = True
+        elif isinstance(fmt, bool) and fmt:
+            fmt_found = True
+            
+    if fmt_found:
+        parts.append("format string printf vulnerability exploit")
+
+    if user_question:
+        parts.append(user_question)
+
+    return " ".join(parts)[:500]
+
 class CTFKnowledgeBase:
 
     def __init__(self):
@@ -97,29 +142,7 @@ class CTFKnowledgeBase:
     def find_similar_writeups(self, binary_analysis: dict, n_results: int = 3) -> list:
         try:
             # 1. Build search query from binary_analysis dict:
-            ctf_category_dict = binary_analysis.get("ctf_category") or {}
-            if isinstance(ctf_category_dict, dict):
-                ctf_category = ctf_category_dict.get("category", "")
-            else:
-                ctf_category = ""
-                
-            patterns = binary_analysis.get("patterns") or {}
-            if isinstance(patterns, dict):
-                dangerous_functions = patterns.get("dangerous_functions", [])
-            else:
-                dangerous_functions = []
-            if not isinstance(dangerous_functions, list):
-                dangerous_functions = []
-                
-            checksec = binary_analysis.get("checksec") or {}
-            if not isinstance(checksec, dict):
-                checksec = {}
-            nx = checksec.get("nx", False)
-            pie = checksec.get("pie", False)
-            canary = checksec.get("canary", False)
-            filename = binary_analysis.get("filename", "")
-            
-            query_str = f"{ctf_category} {' '.join(dangerous_functions[:5])} NX={nx} PIE={pie} canary={canary}"
+            query_str = build_rag_query(binary_analysis)
             
             # 2. Use sentence-transformers to encode the query
             if self.model is None:
@@ -143,24 +166,26 @@ class CTFKnowledgeBase:
             documents = results.get("documents", [[]])[0]
             distances = results.get("distances", [[]])[0]
             
+            threshold = 0.55
+            
             for i in range(len(ids)):
                 doc_id = ids[i]
                 metadata = metadatas[i] if i < len(metadatas) and metadatas[i] else {}
                 document = documents[i] if i < len(documents) and documents[i] else ""
                 distance = distances[i] if i < len(distances) else 1.0
                 
-                # Cosine similarity score = 1.0 - distance (clamped to [0, 1])
-                similarity_score = 1.0 - distance
+                # Conversion for L2 distance (or cosine distance in [0, 2])
+                similarity_score = 1.0 - (distance / 2.0)
                 similarity_score = max(0.0, min(1.0, similarity_score))
                 
-                # 5. Only include results where similarity_score > 0.3
-                if similarity_score <= 0.3:
+                # Filter out results with low similarity
+                if similarity_score < threshold:
                     continue
                     
-                # Excerpt: first 400 chars of body text
+                # Excerpt: first 350 chars of body text
                 parts = document.split("---", 2)
                 body_text = parts[2].strip() if len(parts) >= 3 else document.strip()
-                snippet = body_text[:400]
+                snippet = body_text[:350]
                 
                 title = metadata.get("challenge")
                 if not title:
@@ -177,21 +202,20 @@ class CTFKnowledgeBase:
                 
             return out
         except Exception as e:
-            # 6. If no results or error, return empty list (never crash)
+            # If no results or error, return empty list (never crash)
             print(f"[BinExplain KB] Error finding similar writeups: {e}")
             return []
             
     def format_for_ai_context(self, results: list) -> str:
-        # 1. If results is empty, return ""
         if not results:
             return ""
             
-        # 2. Build this exact string
         output_parts = ["=== SIMILAR CTF CHALLENGES FOUND IN KNOWLEDGE BASE ==="]
         for r in results:
             part = (
                 f"Challenge: {r['title']} | Category: {r['category']}\n"
                 f"Technique used: {r['key_technique']}\n"
+                f"Similarity Score: {r.get('similarity_score', 0.0):.2f}\n"
                 f"Source: {r['url']}\n"
                 f"Excerpt: {r['snippet']}\n"
                 "---"
