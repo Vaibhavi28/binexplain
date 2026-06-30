@@ -521,6 +521,8 @@ class ChatRequest(BaseModel):
     ctf_category: str = ""
     binary_context: Optional[Dict[str, Any]] = None
     tried_commands: Optional[List[str]] = []
+    image_base64: Optional[str] = None
+    image_media_type: Optional[str] = "image/png"
 
 class ExplainCommandRequest(BaseModel):
     command: str
@@ -5431,6 +5433,64 @@ Common CTF tool install commands:
 """
 
 
+def _try_gemini_vision(user_prompt: str, image_b64: str, system_prompt: str = None) -> str | None:
+    if not GEMINI_API_KEY:
+        return None
+    try:
+        import PIL.Image as _PILImage
+        import io as _io
+        import base64
+        img = _PILImage.open(_io.BytesIO(base64.b64decode(image_b64)))
+        global gemini_client
+        if not gemini_client:
+            gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[user_prompt, img],
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+            ),
+        )
+        return response.text
+    except Exception as exc:
+        logger.error("Gemini Vision call failed: %s", exc)
+        return None
+
+
+def _try_groq_vision(user_prompt: str, image_b64: str, image_media_type: str = "image/png", system_prompt: str = None) -> str | None:
+    if not GROQ_API_KEY:
+        return None
+    try:
+        global groq_client
+        if not groq_client:
+            from groq import Groq
+            groq_client = Groq(api_key=GROQ_API_KEY)
+        
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({
+            "role": "user",
+            "content": [
+                {"type": "text", "text": user_prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{image_media_type};base64,{image_b64}"
+                    }
+                }
+            ]
+        })
+        response = groq_client.chat.completions.create(
+            model="llama-3.2-11b-vision-preview",
+            messages=messages,
+        )
+        return response.choices[0].message.content
+    except Exception as exc:
+        logger.error("Groq Vision call failed: %s", exc)
+        return None
+
+
 @app.post("/chat")
 async def chat(request: Request, body: ChatRequest):
     """
@@ -5457,6 +5517,33 @@ async def chat(request: Request, body: ChatRequest):
 
     if _is_testing():
         return {"response": "Mocked AI response for chat.\n• Observation 1.\n• Observation 2.\n**Next:** Try checksec."}
+
+    # ── Build system prompt dynamically ────────────────
+    binary_context = body.binary_context or {}
+    tried_commands = body.tried_commands or []
+    system_prompt = build_chat_system_prompt(binary_context, tried_commands)
+
+    # ── Vision routing if image is provided ───────────────────────────
+    if body.image_base64:
+        user_prompt = body.messages[-1].content if body.messages else "Explain this screenshot"
+        if not user_prompt.strip():
+            user_prompt = "Explain this screenshot"
+        
+        full_prompt = user_prompt
+        if body.context:
+            full_prompt = f"Context:\n{body.context}\n\nQuestion: {user_prompt}"
+
+        res = _try_gemini_vision(full_prompt, body.image_base64, system_prompt=system_prompt)
+        if not res:
+            res = _try_groq_vision(full_prompt, body.image_base64, body.image_media_type, system_prompt=system_prompt)
+        
+        if res:
+            return {"response": res}
+        
+        raise HTTPException(
+            status_code=503,
+            detail="Image analysis is currently unavailable.",
+        )
 
     # ── Build message list for the AI ─────────────────────────────────
     ai_messages: list[dict] = []
@@ -5487,10 +5574,6 @@ async def chat(request: Request, body: ChatRequest):
     for msg in body.messages:
         ai_messages.append({"role": msg.role, "content": msg.content})
 
-    # ── Build system prompt dynamically ────────────────
-    binary_context = body.binary_context or {}
-    tried_commands = body.tried_commands or []
-    system_prompt = build_chat_system_prompt(binary_context, tried_commands)
 
     # ── Provider 1: Groq (free, fast) ───────────────────────────────────
     groq_result = _try_groq(messages=ai_messages, system_prompt=system_prompt)

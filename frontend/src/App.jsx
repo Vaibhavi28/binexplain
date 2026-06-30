@@ -349,6 +349,10 @@ export default function App() {
     /* -- Chat state (lives in React only  lost on refresh by design) -- */
     const [chatMessages, setChatMessages] = useState([]);
     const [triedCommands, setTriedCommands] = useState([]);
+    const [pastedImage, setPastedImage] = useState(null);
+    const chatTextareaRef = useRef(null);
+    const cameraInputRef = useRef(null);
+    const fileInputRef = useRef(null);
     const [chatInput, setChatInput] = useState('');
     const [chatLoading, setChatLoading] = useState(false);
     const [chatImage, setChatImage] = useState(null);
@@ -829,6 +833,30 @@ export default function App() {
     };
 
     /* Attach image to chat */
+    useEffect(() => {
+        const el = chatTextareaRef.current;
+        if (!el) return;
+        const handlePaste = (e) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const file = item.getAsFile();
+                    if (!file) continue;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        setPastedImage({ dataUrl: ev.target.result, file, name: `screenshot_${Date.now()}.png` });
+                    };
+                    reader.readAsDataURL(file);
+                    return;
+                }
+            }
+        };
+        el.addEventListener('paste', handlePaste);
+        return () => el.removeEventListener('paste', handlePaste);
+    }, [chatTextareaRef]);
+
     const onChatImageSelect = (e) => {
         const f = e.target.files?.[0];
         if (!f) return;
@@ -856,7 +884,7 @@ export default function App() {
     const sendChat = async () => {
         const hasImage = !!chatImage;
         const text = chatInput.trim();
-        if ((!text && !hasImage) || chatLoading) return;
+        if ((!text && !hasImage && !pastedImage) || chatLoading) return;
         if (text.length > MAX_CHAT_CHARS) return;
 
         // If there's an image, use the image endpoint
@@ -900,14 +928,26 @@ export default function App() {
             return;
         }
 
-        // Text-only chat
-        const userMsg = { role: 'user', content: text };
+        // Text-only chat (or pastedImage chat payload to /chat)
+        const userMsg = { 
+            role: 'user', 
+            content: text || (pastedImage ? ' [Screenshot attached]' : ''),
+            image: pastedImage ? pastedImage.dataUrl : undefined 
+        };
         const updated = [...chatMessages, userMsg].slice(-MAX_CHAT_MESSAGES);
         setChatMessages(updated);
         setChatInput('');
         setChatLoading(true);
 
         try {
+            let imageBase64 = null;
+            let imageMediaType = null;
+            if (pastedImage?.dataUrl) {
+                const parts = pastedImage.dataUrl.split(',');
+                imageBase64 = parts[1];
+                imageMediaType = pastedImage.dataUrl.match(/data:([^;]+);/)?.[1] || 'image/png';
+            }
+
             const res = await fetch(`${BACKEND_URL}/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -916,6 +956,8 @@ export default function App() {
                     context: analysisContextRef.current,
                     binary_context: binaryContext,
                     tried_commands: triedCommands,
+                    image_base64: imageBase64,
+                    image_media_type: imageMediaType,
                 }),
             });
 
@@ -943,6 +985,7 @@ export default function App() {
             ]);
         } finally {
             setChatLoading(false);
+            setPastedImage(null);
         }
     };
 
@@ -1744,11 +1787,65 @@ export default function App() {
                                 ))}
                               </div>
                             )}
-                            <div className="chat-input-row">
-                                <button className="chat-image-btn" onClick={()=>chatImageRef.current?.click()} disabled={chatLoading} title="Attach screenshot" type="button"></button>
-                                <input ref={chatImageRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={onChatImageSelect} style={{display:'none'}}/>
-                                <textarea className="chat-input chat-textarea" placeholder={chatImage?'Add a message about your screenshot... (Shift+Enter for new line)':'Ask anything about this binary... (Shift+Enter for new line)'} value={chatInput} onChange={e=>{setChatInput(e.target.value.slice(0,MAX_CHAT_CHARS));e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,200)+'px';}} onKeyDown={onChatKeyDown} disabled={chatLoading} maxLength={MAX_CHAT_CHARS} id="chat-input" rows={3}/>
-                                <button className="chat-send-btn" onClick={sendChat} disabled={chatLoading||(!chatInput.trim()&&!chatImage)} id="chat-send-btn">{chatLoading?'...':' Send'}</button>
+                            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
+                              style={{display:'none'}}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onload = (ev) => setPastedImage({dataUrl: ev.target.result, file, name: file.name});
+                                reader.readAsDataURL(file);
+                              }} />
+                            <input ref={fileInputRef} type="file" accept="image/*"
+                              style={{display:'none'}}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onload = (ev) => setPastedImage({dataUrl: ev.target.result, file, name: file.name});
+                                reader.readAsDataURL(file);
+                              }} />
+                            <div className="chat-input-row" style={{ display: 'block' }}>
+                              {pastedImage && (
+                                <div style={{
+                                  display: 'flex', alignItems: 'center', gap: '8px',
+                                  padding: '6px 10px', background: '#161b22',
+                                  borderBottom: '1px solid #30363d', borderRadius: '6px 6px 0 0',
+                                  marginBottom: '8px'
+                                }}>
+                                  <img src={pastedImage.dataUrl} alt="Attached"
+                                    style={{width: '48px', height: '48px', objectFit: 'cover',
+                                      borderRadius: '4px', border: '1px solid #30363d'}} />
+                                  <span style={{color: '#8b949e', fontSize: '12px', flex: 1}}>
+                                    {pastedImage.name}
+                                  </span>
+                                  <button onClick={() => setPastedImage(null)} style={{
+                                    background: 'none', border: 'none', color: '#6e7681',
+                                    fontSize: '18px', cursor: 'pointer', padding: '0 4px'
+                                  }} type="button">✕</button>
+                                </div>
+                              )}
+                              <div style={{display: 'flex', alignItems: 'flex-end', gap: '6px'}}>
+                                <button type="button" title="Take photo or use camera"
+                                  onClick={() => cameraInputRef.current?.click()}
+                                  style={{
+                                    background: '#21262d', border: '1px solid #30363d', borderRadius: '6px',
+                                    color: '#8b949e', fontSize: '18px', cursor: 'pointer',
+                                    padding: '6px 8px', lineHeight: '1', flexShrink: 0, minWidth: '36px'
+                                  }}>📷</button>
+                                <button type="button" title="Upload image from disk"
+                                  onClick={() => fileInputRef.current?.click()}
+                                  style={{
+                                    background: '#21262d', border: '1px solid #30363d', borderRadius: '6px',
+                                    color: '#8b949e', fontSize: '18px', cursor: 'pointer',
+                                    padding: '6px 8px', lineHeight: '1', flexShrink: 0, minWidth: '36px'
+                                  }}>🖼</button>
+                                <textarea ref={chatTextareaRef} className="chat-input chat-textarea" placeholder={chatImage||pastedImage?'Add a message about your screenshot... (Shift+Enter for new line)':'Ask anything about this binary... (Shift+Enter for new line)'} value={chatInput} onChange={e=>{setChatInput(e.target.value.slice(0,MAX_CHAT_CHARS));e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,200)+'px';}} onKeyDown={onChatKeyDown} disabled={chatLoading} maxLength={MAX_CHAT_CHARS} id="chat-input" rows={3}/>
+                                <button className="chat-send-btn" onClick={sendChat} disabled={chatLoading||(!chatInput.trim()&&!chatImage&&!pastedImage)} id="chat-send-btn">{chatLoading?'...':' Send'}</button>
+                              </div>
+                              <div style={{fontSize: '11px', color: '#484f58', padding: '4px 2px 0'}}>
+                                💡 Paste terminal screenshots with Ctrl+V or drag and drop
+                              </div>
                             </div>
                         </div>
                     </>
