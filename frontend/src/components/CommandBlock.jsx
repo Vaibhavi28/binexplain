@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import CommandDiagram from './CommandDiagram';
+import { detectToolInCommand } from '../utils/toolDetection';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -39,6 +40,8 @@ export default function CommandBlock({ command, language, binaryContext }) {
     }
   };
 
+  const toolInfo = detectToolInCommand(command);
+
   return (
     <div className="chat-code-block" style={{ marginBottom: '12px', width: '100%' }}>
       <div className="chat-code-header">
@@ -59,6 +62,23 @@ export default function CommandBlock({ command, language, binaryContext }) {
         </div>
       </div>
       <pre className="chat-code-pre"><code>{command}</code></pre>
+      {toolInfo && (
+        <div style={{
+          padding: '4px 12px', background: '#1a1200',
+          borderTop: '1px solid #30363d', display: 'flex',
+          alignItems: 'center', gap: '8px', fontSize: '11px'
+        }}>
+          <span style={{color: '#e3b341'}}>⬇ Requires {toolInfo.tool}</span>
+          <button onClick={() => navigator.clipboard.writeText(toolInfo.installCmd)}
+            style={{
+              background: '#1c1a00', border: '1px solid #9e6a03',
+              color: '#e3b341', borderRadius: '4px', padding: '2px 8px',
+              fontSize: '11px', cursor: 'pointer'
+            }}>
+            Copy install command
+          </button>
+        </div>
+      )}
       {explanation && (
         <div style={{ borderTop: '1px solid #30363d' }}>
           <CommandDiagram explanation={explanation} rawCommand={command} />

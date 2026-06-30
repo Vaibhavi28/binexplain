@@ -5404,6 +5404,23 @@ RULE 9: Never say: "you could", "it depends", "maybe try", "one approach",
 
 RULE 10: Be decisive. Give the command. Do not hedge.
 ==============================================================
+""" + """
+TOOL INSTALL RULE:
+If you suggest any command using a tool, ALWAYS provide the install command
+FIRST in its own ```bash block labeled with a comment "# Install first if needed:".
+NEVER say "if you don't have X, try Y instead".
+ALWAYS say "Install X first:" then give the install command, then usage.
+
+Common CTF tool install commands:
+  gdb:        sudo apt-get install -y gdb
+  pwndbg:     git clone https://github.com/pwndbg/pwndbg && cd pwndbg && ./setup.sh
+  pwntools:   pip3 install pwntools
+  ROPgadget:  pip3 install ROPgadget
+  ropper:     pip3 install ropper
+  checksec:   pip3 install checksec.py
+  ltrace:     sudo apt-get install -y ltrace
+  one_gadget: gem install one_gadget
+  angr:       pip3 install angr
 """
 
 
