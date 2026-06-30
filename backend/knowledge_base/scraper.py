@@ -5,6 +5,8 @@ import urllib.parse
 import requests
 import time
 import random
+import glob
+from collections import Counter
 from bs4 import BeautifulSoup
 
 try:
@@ -19,7 +21,6 @@ except ImportError:
 sys.stdout.reconfigure(encoding='utf-8')
 
 
-
 def contains_likely_credentials(text: str) -> bool:
     """Return True if text contains patterns that look like real credentials."""
     patterns = [
@@ -31,29 +32,64 @@ def contains_likely_credentials(text: str) -> bool:
     return any(re.search(p, text) for p in patterns)
 
 
-def get_current_category_counts(walkthrough_dir: str) -> dict:
-    import os, re
-    counts = {
-        "ret2win": 0, "ret2libc": 0, "format_string": 0,
-        "heap_exploitation": 0, "rop_chain": 0, "shellcode": 0, "unknown": 0
-    }
-    if not os.path.exists(walkthrough_dir):
-        return counts
-    for fname in os.listdir(walkthrough_dir):
-        if not fname.endswith(".txt"):
-            continue
-        path = os.path.join(walkthrough_dir, fname)
+WALKTHROUGHS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "walkthroughs")
+
+
+def extract_category_from_file(filepath: str) -> str:
+    """
+    Determine a writeup's category by reading its metadata header block
+    (between the opening and closing --- delimiters), NOT a fixed byte
+    count. Falls back to 'no_header_found' ONLY if a CATEGORY: line is
+    genuinely absent from the header, not because of a read cutoff or
+    regex mismatch. Handles both \n and \r\n line endings and is
+    case-insensitive on the CATEGORY label itself.
+    """
+    try:
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read(4000)  # generous cutoff, header blocks are small
+
+        # Normalize line endings so \r\n files don't break MULTILINE matching
+        content = content.replace("\r\n", "\n").replace("\r", "\n")
+
+        match = re.search(r"^CATEGORY:\s*(\S+)\s*$", content, re.MULTILINE | re.IGNORECASE)
+        if match:
+            category = match.group(1).strip().lower()
+            return category if category else "other"
+    except Exception as e:
+        print(f"[WARN] Failed to read category from {filepath}: {e}")
+        return "read_error"
+    return "no_header_found"
+
+
+def count_existing_writeups(base_dir: str = WALKTHROUGHS_DIR) -> dict:
+    """
+    Canonical, recursive count of all existing writeup .txt files on disk,
+    broken down by category. This is the ONLY function in this codebase
+    allowed to determine current writeup counts. Every cap-check in the
+    scraper must call this function instead of maintaining its own counter.
+
+    Returns:
+        {
+            "total": int,
+            "by_category": {"ret2win": int, "ret2libc": int, ...},
+        }
+    """
+    pattern = os.path.join(base_dir, "**", "*.txt")
+    all_files = glob.glob(pattern, recursive=True)
+
+    by_category = Counter()
+    for filepath in all_files:
         try:
-            with open(path, encoding="utf-8", errors="ignore") as f:
-                header = f.read(1000)  # metadata header is at the top
-            match = re.search(r"CATEGORY:\s*(\w+)", header)
-            if match and match.group(1) in counts:
-                counts[match.group(1)] += 1
-            else:
-                counts["unknown"] += 1
-        except Exception:
-            counts["unknown"] += 1
-    return counts
+            category = extract_category_from_file(filepath)
+            by_category[category] += 1
+        except Exception as e:
+            print(f"[WARN] Error counting {filepath}: {e}")
+            by_category["read_error"] += 1
+
+    return {
+        "total": len(all_files),
+        "by_category": dict(by_category),
+    }
 
 class WriteupScraper:
     def __init__(self):
@@ -61,6 +97,7 @@ class WriteupScraper:
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
         self.walkthroughs_dir = os.path.join(self.base_dir, "walkthroughs")
         self.saved_count = 0
+        self.counts = count_existing_writeups(self.walkthroughs_dir)
 
     def sanitize_filename(self, name):
         sanitized = re.sub(r'[^a-zA-Z0-9_\-\s]', '', name)
@@ -210,6 +247,8 @@ TECHNIQUE_TAGS: {tags_str}
             
         print(f"Scraped: {filename}")
         self.saved_count += 1
+        self.counts["total"] += 1
+        self.counts["by_category"][category] = self.counts["by_category"].get(category, 0) + 1
 
     def scrape_github_repo(self, owner, repo, branch="master", path_filter=""):
         # Let's check if the repo is relevant to pwn/CTF
@@ -218,9 +257,7 @@ TECHNIQUE_TAGS: {tags_str}
             print(f"Skipping unrelated repository: {owner}/{repo}")
             return
 
-        counts = get_current_category_counts(self.walkthroughs_dir)
-        total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-        if total_files >= 2200:
+        if self.counts["total"] >= 2200:
             return
 
         print(f"\n[Scraper] Scraping GitHub repository: {owner}/{repo} (trying branch: {branch})...")
@@ -262,13 +299,13 @@ TECHNIQUE_TAGS: {tags_str}
             random.shuffle(candidates)
             
             for path in candidates:
-                total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-                if total_files >= 2200:
+                if self.counts["total"] >= 2200:
+                    print(f"[Scraper] Total cap reached: {self.counts['total']}/2200. Stopping.")
                     break
                     
-                counts = get_current_category_counts(self.walkthroughs_dir)
                 pred_cat = self.predict_category_from_meta(os.path.basename(path), path)
-                if pred_cat != "other" and counts.get(pred_cat, 0) >= 330:
+                if pred_cat != "other" and self.counts["by_category"].get(pred_cat, 0) >= 330:
+                    print(f"[Scraper] Category '{pred_cat}' cap reached: {self.counts['by_category'].get(pred_cat, 0)}/330. Skipping.")
                     continue
                     
                 raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"
@@ -279,7 +316,8 @@ TECHNIQUE_TAGS: {tags_str}
                     if len(text) < 150:
                         continue
                     cat = self.detect_category(text)
-                    if cat != "other" and counts.get(cat, 0) >= 330:
+                    if cat != "other" and self.counts["by_category"].get(cat, 0) >= 330:
+                        print(f"[Scraper] Category '{cat}' cap reached: {self.counts['by_category'].get(cat, 0)}/330. Skipping.")
                         continue
                         
                     challenge_name = os.path.splitext(os.path.basename(path))[0]
@@ -295,9 +333,7 @@ TECHNIQUE_TAGS: {tags_str}
             print(f"Error scraping repo {owner}/{repo}: {e}")
 
     def scrape_hacktricks(self):
-        counts = get_current_category_counts(self.walkthroughs_dir)
-        total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-        if total_files >= 2200:
+        if self.counts["total"] >= 2200:
             return
 
         print("\n[Scraper] Scraping HackTricks...")
@@ -319,13 +355,13 @@ TECHNIQUE_TAGS: {tags_str}
                         
             print(f"Found {len(links)} HackTricks sub-links. Scraping them...")
             for url in links:
-                total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-                if total_files >= 2200:
+                if self.counts["total"] >= 2200:
+                    print(f"[Scraper] Total cap reached: {self.counts['total']}/2200. Stopping.")
                     break
                     
-                counts = get_current_category_counts(self.walkthroughs_dir)
                 pred_cat = self.predict_category_from_meta("", url)
-                if pred_cat != "other" and counts.get(pred_cat, 0) >= 330:
+                if pred_cat != "other" and self.counts["by_category"].get(pred_cat, 0) >= 330:
+                    print(f"[Scraper] Category '{pred_cat}' cap reached: {self.counts['by_category'].get(pred_cat, 0)}/330. Skipping.")
                     continue
                     
                 time.sleep(0.5)
@@ -336,7 +372,8 @@ TECHNIQUE_TAGS: {tags_str}
                     if len(text.split()) < 150:
                         continue
                     cat = self.detect_category(text)
-                    if cat != "other" and counts.get(cat, 0) >= 330:
+                    if cat != "other" and self.counts["by_category"].get(cat, 0) >= 330:
+                        print(f"[Scraper] Category '{cat}' cap reached: {self.counts['by_category'].get(cat, 0)}/330. Skipping.")
                         continue
                         
                     challenge_name = url.rstrip('/').split('/')[-1].replace('-', '_')
@@ -352,16 +389,14 @@ TECHNIQUE_TAGS: {tags_str}
             print(f"Error scraping HackTricks: {e}")
 
     def scrape_github_search(self):
-        counts = get_current_category_counts(self.walkthroughs_dir)
-        total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-        if total_files >= 2200:
+        if self.counts["total"] >= 2200:
             return
 
         print("\n[Scraper] Searching GitHub for ctf-writeups and pwn-writeups...")
         queries = ["ctf-writeups", "pwn-writeups"]
         for q in queries:
-            total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-            if total_files >= 2200:
+            if self.counts["total"] >= 2200:
+                print(f"[Scraper] Total cap reached: {self.counts['total']}/2200. Stopping.")
                 break
             search_url = f"https://api.github.com/search/repositories?q={q}+stars:%3E=10&sort=stars&order=desc"
             try:
@@ -386,10 +421,8 @@ TECHNIQUE_TAGS: {tags_str}
         print("STEP 0: Backfilling technique tags for existing walkthroughs...")
         if os.path.exists(self.walkthroughs_dir):
             backfilled_count = 0
-            for fname in os.listdir(self.walkthroughs_dir):
-                if not fname.endswith(".txt"):
-                    continue
-                fpath = os.path.join(self.walkthroughs_dir, fname)
+            pattern = os.path.join(self.walkthroughs_dir, "**", "*.txt")
+            for fpath in glob.glob(pattern, recursive=True):
                 try:
                     with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
                         content = f.read()
@@ -416,12 +449,18 @@ TECHNIQUE_TAGS: {tags_str}
                                 f.write(new_content)
                             backfilled_count += 1
                 except Exception as e:
-                    print(f"Error backfilling {fname}: {e}")
+                    print(f"Error backfilling {os.path.basename(fpath)}: {e}")
             print(f"Backfilled {backfilled_count} files with technique tags.")
 
+        # Recalculate baseline after backfill completes to ensure perfect consistency
+        self.counts = count_existing_writeups(self.walkthroughs_dir)
+        print(f"[Scraper] Starting. Current total: {self.counts['total']}/2200")
+        for cat in sorted(self.counts["by_category"].keys()):
+            n = self.counts["by_category"][cat]
+            print(f"[Scraper]   {cat}: {n}/330")
+
         # STEP B — Scrape CTFtime.org writeups
-        total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-        if total_files < 2200:
+        if self.counts["total"] < 2200:
             print("\nSTEP B: Scraping CTFtime.org...")
             ctftime_links = []
             page = 1
@@ -446,12 +485,12 @@ TECHNIQUE_TAGS: {tags_str}
 
             print(f"Found {len(ctftime_links)} writeup links. Scraping them...")
             for url in ctftime_links:
-                total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-                if total_files >= 2200:
+                if self.counts["total"] >= 2200:
+                    print(f"[Scraper] Total cap reached: {self.counts['total']}/2200. Stopping.")
                     break
-                counts = get_current_category_counts(self.walkthroughs_dir)
                 pred_cat = self.predict_category_from_meta("", url)
-                if pred_cat != "other" and counts.get(pred_cat, 0) >= 330:
+                if pred_cat != "other" and self.counts["by_category"].get(pred_cat, 0) >= 330:
+                    print(f"[Scraper] Category '{pred_cat}' cap reached: {self.counts['by_category'].get(pred_cat, 0)}/330. Skipping.")
                     continue
 
                 try:
@@ -481,7 +520,8 @@ TECHNIQUE_TAGS: {tags_str}
                         keywords = ["overflow", "format string", "heap", "ROP", "shellcode", "pwntools", "pwn", "binary", "exploit", "gets(", "printf(", "malloc(", "free("]
                         if any(kw in writeup_text for kw in keywords):
                             cat = self.detect_category(writeup_text)
-                            if cat != "other" and counts.get(cat, 0) >= 330:
+                            if cat != "other" and self.counts["by_category"].get(cat, 0) >= 330:
+                                print(f"[Scraper] Category '{cat}' cap reached: {self.counts['by_category'].get(cat, 0)}/330. Skipping.")
                                 continue
                             self.save_writeup(
                                 source="ctftime",
@@ -495,8 +535,7 @@ TECHNIQUE_TAGS: {tags_str}
                     print(f"Error scraping CTFtime writeup at {url}: {e}")
 
         # STEP C — Scrape CTF-Wiki
-        total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-        if total_files < 2200:
+        if self.counts["total"] < 2200:
             print("\nSTEP C: Scraping CTF-Wiki...")
             ctfwiki_targets = [
                 {"url": "https://ctf-wiki.org/pwn/linux/user-mode/stackoverflow/x86-64/basic-rop/", "fallback": "https://ctf-wiki.org/pwn/linux/user-mode/stackoverflow/x86/basic-rop/", "topic": "basic_rop"},
@@ -505,9 +544,9 @@ TECHNIQUE_TAGS: {tags_str}
                 {"url": "https://ctf-wiki.org/pwn/linux/user-mode/heap/ptmalloc2/use-after-free/", "fallback": "https://ctf-wiki.org/pwn/linux/user-mode/heap/ptmalloc2/use-after-free/", "topic": "use_after_free"}
             ]
             for target in ctfwiki_targets:
-                counts = get_current_category_counts(self.walkthroughs_dir)
                 pred_cat = self.predict_category_from_meta(target["topic"], target["url"])
-                if pred_cat != "other" and counts.get(pred_cat, 0) >= 330:
+                if pred_cat != "other" and self.counts["by_category"].get(pred_cat, 0) >= 330:
+                    print(f"[Scraper] Category '{pred_cat}' cap reached: {self.counts['by_category'].get(pred_cat, 0)}/330. Skipping.")
                     continue
 
                 try:
@@ -523,7 +562,8 @@ TECHNIQUE_TAGS: {tags_str}
                         soup = BeautifulSoup(r.text, 'lxml')
                         text = self.extract_page_content(soup, 'ctfwiki')
                         cat = self.detect_category(text)
-                        if cat != "other" and counts.get(cat, 0) >= 330:
+                        if cat != "other" and self.counts["by_category"].get(cat, 0) >= 330:
+                            print(f"[Scraper] Category '{cat}' cap reached: {self.counts['by_category'].get(cat, 0)}/330. Skipping.")
                             continue
                         self.save_writeup(
                             source="ctfwiki",
@@ -537,8 +577,7 @@ TECHNIQUE_TAGS: {tags_str}
                     print(f"Error scraping CTF-Wiki for {target['topic']}: {e}")
 
         # STEP D — Scrape ir0nstone's GitBook
-        total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-        if total_files < 2200:
+        if self.counts["total"] < 2200:
             print("\nSTEP D: Scraping ir0nstone's GitBook...")
             ironstone_targets = [
                 {"url": "https://ir0nstone.gitbook.io/notes/types/stack/return-oriented-programming", "fallback": "https://ir0nstone.gitbook.io/notes/binexp/stack/return-oriented-programming", "topic": "return_oriented_programming"},
@@ -547,9 +586,9 @@ TECHNIQUE_TAGS: {tags_str}
                 {"url": "https://ir0nstone.gitbook.io/notes/types/heap/use-after-free", "fallback": "https://ir0nstone.gitbook.io/notes/binexp/heap/use-after-free", "topic": "use_after_free"}
             ]
             for target in ironstone_targets:
-                counts = get_current_category_counts(self.walkthroughs_dir)
                 pred_cat = self.predict_category_from_meta(target["topic"], target["url"])
-                if pred_cat != "other" and counts.get(pred_cat, 0) >= 330:
+                if pred_cat != "other" and self.counts["by_category"].get(pred_cat, 0) >= 330:
+                    print(f"[Scraper] Category '{pred_cat}' cap reached: {self.counts['by_category'].get(pred_cat, 0)}/330. Skipping.")
                     continue
 
                 try:
@@ -565,7 +604,8 @@ TECHNIQUE_TAGS: {tags_str}
                         soup = BeautifulSoup(r.text, 'lxml')
                         text = self.extract_page_content(soup, 'ironstone')
                         cat = self.detect_category(text)
-                        if cat != "other" and counts.get(cat, 0) >= 330:
+                        if cat != "other" and self.counts["by_category"].get(cat, 0) >= 330:
+                            print(f"[Scraper] Category '{cat}' cap reached: {self.counts['by_category'].get(cat, 0)}/330. Skipping.")
                             continue
                         self.save_writeup(
                             source="ironstone",
@@ -579,8 +619,7 @@ TECHNIQUE_TAGS: {tags_str}
                     print(f"Error scraping ir0nstone GitBook for {target['topic']}: {e}")
 
         # STEP E — Scrape guyinatuxedo (nightmare)
-        total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-        if total_files < 2200:
+        if self.counts["total"] < 2200:
             print("\nSTEP E: Scraping guyinatuxedo (nightmare)...")
             try:
                 base_url = "https://guyinatuxedo.github.io/"
@@ -599,12 +638,12 @@ TECHNIQUE_TAGS: {tags_str}
                                     
                     print(f"Found {len(nightmare_links)} guyinatuxedo challenge links. Scraping them...")
                     for url in nightmare_links:
-                        total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-                        if total_files >= 2200:
+                        if self.counts["total"] >= 2200:
+                            print(f"[Scraper] Total cap reached: {self.counts['total']}/2200. Stopping.")
                             break
-                        counts = get_current_category_counts(self.walkthroughs_dir)
                         pred_cat = self.predict_category_from_meta("", url)
-                        if pred_cat != "other" and counts.get(pred_cat, 0) >= 330:
+                        if pred_cat != "other" and self.counts["by_category"].get(pred_cat, 0) >= 330:
+                            print(f"[Scraper] Category '{pred_cat}' cap reached: {self.counts['by_category'].get(pred_cat, 0)}/330. Skipping.")
                             continue
 
                         try:
@@ -617,7 +656,8 @@ TECHNIQUE_TAGS: {tags_str}
                                 
                                 text = self.extract_page_content(sub_soup, 'nightmare')
                                 cat = self.detect_category(text)
-                                if cat != "other" and counts.get(cat, 0) >= 330:
+                                if cat != "other" and self.counts["by_category"].get(cat, 0) >= 330:
+                                    print(f"[Scraper] Category '{cat}' cap reached: {self.counts['by_category'].get(cat, 0)}/330. Skipping.")
                                     continue
                                 self.save_writeup(
                                     source="nightmare",
@@ -633,40 +673,35 @@ TECHNIQUE_TAGS: {tags_str}
                 print(f"Error scraping guyinatuxedo: {e}")
 
         # STEP H — Scrape pwn.college writeups
-        total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-        if total_files < 2200:
+        if self.counts["total"] < 2200:
             self.scrape_github_repo("w181496", "pwn.college-writeups")
             self.scrape_github_repo("AidenHils", "pwn-college")
             self.scrape_github_repo("xct", "pwn.college")
 
         # STEP I — Scrape LiveOverflow repositories
-        total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-        if total_files < 2200:
+        if self.counts["total"] < 2200:
             self.scrape_github_repo("LiveOverflow", "LiveOverflow-CTF")
             self.scrape_github_repo("liveoverflow", "lo-exploit-dev")
 
         # STEP J — Scrape HackTricks
-        total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-        if total_files < 2200:
+        if self.counts["total"] < 2200:
             self.scrape_hacktricks()
 
         # STEP K — Scrape other specific high quality repositories
-        total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-        if total_files < 2200:
+        if self.counts["total"] < 2200:
             self.scrape_github_repo("ctfs", "writeups")
             self.scrape_github_repo("Dvd848", "CTFs")
             self.scrape_github_repo("M4x", "ctf-writeups")
             self.scrape_github_repo("ir0nstone", "ir0nstone.github.io")
 
         # STEP L — Scrape GitHub Code Search general pwn writeups
-        total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-        if total_files < 2200:
+        if self.counts["total"] < 2200:
             self.scrape_github_search()
 
-        final_counts = get_current_category_counts(self.walkthroughs_dir)
-        total_files = len([f for f in os.listdir(self.walkthroughs_dir) if f.endswith(".txt")])
-        print(f"\nTOTAL COLLECTED: {total_files} writeups")
-        print("Final Category counts:", final_counts)
+        final_counts = count_existing_writeups(self.walkthroughs_dir)
+        print(f"\nTOTAL COLLECTED: {final_counts['total']} writeups")
+        print("Final Category counts:", dict(final_counts["by_category"]))
+
 
 if __name__ == "__main__":
     scraper = WriteupScraper()
