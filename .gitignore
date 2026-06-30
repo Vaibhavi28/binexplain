@@ -23,3 +23,12 @@ desktop.ini
 *.o
 *.obj
 *.dat
+
+# Added for BinExplain monorepo clean-up
+frontend/*.elf
+frontend/*.exe
+frontend/*.bin
+backend/logs/*.log
+backend/cache/*.db-shm
+backend/cache/*.db-wal
+backend/cache/*.db-journal
