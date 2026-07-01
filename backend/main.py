@@ -250,8 +250,8 @@ ALLOWED_EXTENSIONS: set[str] = {
 }
 MIN_STRING_LENGTH = 4  # minimum printable-ASCII run to extract
 MAX_STRINGS_FOR_AI = 100  # cap strings sent to Claude to avoid token abuse
-MAX_CHAT_MESSAGES = 10    # max conversation turns kept per request
-MAX_CHAT_CHARS = 2000     # max characters per single chat message
+MAX_CHAT_MESSAGES = 20    # max conversation turns kept per request
+MAX_CHAT_CHARS = 10000     # max characters per single chat message
 MAX_SOURCE_CODE_CHARS = 10000  # max characters for source code analysis
 SOURCE_CODE_EXTENSIONS: set[str] = {
     ".c", ".cpp", ".h", ".hpp",  # C/C++
@@ -530,8 +530,6 @@ class ChatMessage(BaseModel):
     def cap_content_length(cls, v: str) -> str:
         if not v.strip():
             raise ValueError("Message content is empty.")
-        if len(v) > MAX_CHAT_CHARS:
-            raise ValueError(f"Message content exceeds {MAX_CHAT_CHARS} character limit.")
         return v
 
 
@@ -5379,7 +5377,7 @@ def build_chat_system_prompt(binary_context: dict, tried_commands: list = None) 
     import_lines = "\n".join(f"  - {i}" for i in imports[:10]) if imports else "  None found"
 
     template = binary_context.get("pwntools_template", "")
-    template_section = f"\nPWNTOOLS TEMPLATE (ALREADY GENERATED — TELL USER TO USE THIS, NOT START FROM SCRATCH):\n```python\n{template[:600]}\n```" if template else ""
+    template_section = f"\nPWNTOOLS TEMPLATE (ALREADY GENERATED — TELL USER TO USE THIS, NOT START FROM SCRATCH):\n```python\n{template[:1200]}\n```" if template else ""
 
     flag_formats = binary_context.get("flag_formats", ["flag{"])
     similar = binary_context.get("similar_writeups", [])

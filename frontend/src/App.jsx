@@ -243,8 +243,8 @@ const renderAIMessage = (content, binaryContext) => {
 };
 
 /* -- App ------------------------------------------------------------- */
-const MAX_CHAT_CHARS = 2000;
-const MAX_CHAT_MESSAGES = 10;
+const MAX_CHAT_CHARS = 10000;
+const MAX_CHAT_MESSAGES = 20;
 const MAX_SOURCE_CODE_CHARS = 10000;
 const SOURCE_CODE_EXTENSIONS = ['.c', '.cpp', '.h', '.hpp', '.py', '.js', '.rs', '.go', '.java'];
 
@@ -885,7 +885,6 @@ export default function App() {
         const hasImage = !!chatImage;
         const text = chatInput.trim();
         if ((!text && !hasImage && !pastedImage) || chatLoading) return;
-        if (text.length > MAX_CHAT_CHARS) return;
 
         // If there's an image, use the image endpoint
         if (hasImage) {
@@ -1840,7 +1839,7 @@ export default function App() {
                                     color: '#8b949e', fontSize: '18px', cursor: 'pointer',
                                     padding: '6px 8px', lineHeight: '1', flexShrink: 0, minWidth: '36px'
                                   }}>🖼</button>
-                                <textarea ref={chatTextareaRef} className="chat-input chat-textarea" placeholder={chatImage||pastedImage?'Add a message about your screenshot... (Shift+Enter for new line)':'Ask anything about this binary... (Shift+Enter for new line)'} value={chatInput} onChange={e=>{setChatInput(e.target.value.slice(0,MAX_CHAT_CHARS));e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,200)+'px';}} onKeyDown={onChatKeyDown} disabled={chatLoading} maxLength={MAX_CHAT_CHARS} id="chat-input" rows={3}/>
+                                <textarea ref={chatTextareaRef} className="chat-input chat-textarea" placeholder={chatImage||pastedImage?'Add a message about your screenshot... (Shift+Enter for new line)':'Ask anything about this binary... (Shift+Enter for new line)'} value={chatInput} onChange={e=>{setChatInput(e.target.value);e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,200)+'px';}} onKeyDown={onChatKeyDown} disabled={chatLoading} id="chat-input" rows={3}/>
                                 <button className="chat-send-btn" onClick={sendChat} disabled={chatLoading||(!chatInput.trim()&&!chatImage&&!pastedImage)} id="chat-send-btn">{chatLoading?'...':' Send'}</button>
                               </div>
                               <div style={{fontSize: '11px', color: '#484f58', padding: '4px 2px 0'}}>
@@ -2231,7 +2230,7 @@ export default function App() {
                               </div>
                             )}
                             <div className="chat-input-row">
-                                <textarea className="chat-input chat-textarea" placeholder="Ask anything about this source code... (Shift+Enter for new line)" value={srcChatInput} onChange={e=>{setSrcChatInput(e.target.value.slice(0,MAX_CHAT_CHARS));e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,200)+'px';}} onKeyDown={onSrcChatKeyDown} disabled={srcChatLoading} maxLength={MAX_CHAT_CHARS} id="src-chat-input" rows={3}/>
+                                <textarea className="chat-input chat-textarea" placeholder="Ask anything about this source code... (Shift+Enter for new line)" value={srcChatInput} onChange={e=>{setSrcChatInput(e.target.value);e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,200)+'px';}} onKeyDown={onSrcChatKeyDown} disabled={srcChatLoading} id="src-chat-input" rows={3}/>
                                 <button className="chat-send-btn" onClick={sendSrcChat} disabled={srcChatLoading||!srcChatInput.trim()} id="src-chat-send-btn">{srcChatLoading?'...':' Send'}</button>
                             </div>
                         </div>
