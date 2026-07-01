@@ -288,9 +288,7 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") or ""
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or ""
 VIRUSTOTAL_API_KEY = os.environ.get("VIRUSTOTAL_API_KEY") or ""
 
-# CORS: read allowed origins from env (comma-separated), default to localhost
-_raw_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173")
-ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 
 # ── Startup debug: confirm API key status ─────────────────────────────
 if ANTHROPIC_API_KEY:
@@ -676,6 +674,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
@@ -703,12 +702,18 @@ async def custom_500_handler(request: Request, exc: Exception):
         content={"detail": "Internal Server Error"},
     )
 
+import os
+
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+    max_age=3600,
 )
 
 
