@@ -636,7 +636,10 @@ def get_ipaddr(request: Request) -> str:
         return "127.0.0.1"
     return request.client.host
 
-limiter = Limiter(key_func=get_ipaddr)
+limiter = Limiter(
+    key_func=get_ipaddr,
+    enabled=os.getenv("TESTING") != "true",
+)
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 show_docs = ENVIRONMENT != "production"
