@@ -628,19 +628,6 @@ SUSPICIOUS_HEADERS: list[bytes] = [
 # ---------------------------------------------------------------------------
 # Application & middleware
 # ---------------------------------------------------------------------------
-def get_ipaddr(request: Request) -> str:
-    """Get the real client IP, respecting X-Forwarded-For if behind a proxy."""
-    if "x-forwarded-for" in request.headers:
-        return request.headers["x-forwarded-for"].split(",")[0].strip()
-    if not request.client or not request.client.host:
-        return "127.0.0.1"
-    return request.client.host
-
-limiter = Limiter(
-    key_func=get_ipaddr,
-    enabled=os.getenv("TESTING") != "true",
-)
-
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 show_docs = ENVIRONMENT != "production"
 
@@ -653,7 +640,16 @@ app = FastAPI(
     openapi_url="/openapi.json" if show_docs else None,
 )
 
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+limiter = Limiter(key_func=get_remote_address)
+if os.environ.get("TESTING") == "true":
+    limiter.enabled = False
+
 app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Rate limiting middleware
 from slowapi.middleware import SlowAPIMiddleware
@@ -673,10 +669,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 @app.exception_handler(RateLimitExceeded)
-async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     return JSONResponse(
         status_code=429,
-        content={"detail": "Rate limit exceeded. Maximum 10 requests per IP per hour."},
+        content={"detail": "Too many requests. Please wait a moment and try again."}
     )
 
 @app.exception_handler(404)
@@ -5168,7 +5164,7 @@ async def health():
 
 
 @app.post("/analyze")
-@limiter.limit("10/hour")
+@limiter.limit("10/minute")
 async def analyze(
     request: Request,
     file: UploadFile = File(...),
@@ -5725,6 +5721,7 @@ def should_skip_cache(user_message: str) -> bool:
 
 
 @app.post("/chat")
+@limiter.limit("30/minute")
 async def chat(request: Request, body: ChatRequest):
     """
     Conversational follow-up endpoint.
@@ -5925,15 +5922,16 @@ async def chat(request: Request, body: ChatRequest):
 # Command Explainer endpoint
 # ---------------------------------------------------------------------------
 @app.post("/explain-command")
-async def explain_command_endpoint(request: dict):
-    command = request.get("command", "")
+@limiter.limit("20/minute")
+async def explain_command_endpoint(request: Request, body: dict = Body(...)):
+    command = body.get("command", "")
     if not command or not command.strip() or len(command) > 500:
         raise HTTPException(status_code=422, detail="Command validation failed")
 
     if _is_testing():
         return {"explanation": "Mocked command explanation for testing."}
 
-    binary_context = request.get("binary_context", {}) or {}
+    binary_context = body.get("binary_context", {}) or {}
     filename = binary_context.get("filename", "binary")
     category = binary_context.get("ctf_category", "binary exploitation")
 
