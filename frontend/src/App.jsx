@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo, lazy, Suspense } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 
 const About = lazy(() => import('./pages/About.jsx'));
@@ -2386,22 +2386,24 @@ export default function App() {
                         </span>
                     )}
                     <div className="footer-links">
-                        <a href="#/" onClick={(e) => { e.preventDefault(); navigate('#/'); }} className="footer-link">Home</a>
+                        <Link to="/" className="footer-link">Home</Link>
                         <span className="footer-link-separator">|</span>
-                        <a href="#/about" onClick={(e) => { e.preventDefault(); navigate('#/about'); }} className="footer-link">About</a>
+                        <Link to="/about" className="footer-link">About</Link>
                         <span className="footer-link-separator">|</span>
-                        <a href="#/docs" onClick={(e) => { e.preventDefault(); navigate('#/docs'); }} className="footer-link">Docs</a>
+                        <Link to="/docs" className="footer-link">Docs</Link>
                         <span className="footer-link-separator">|</span>
-                        <a href="#/blog" onClick={(e) => { e.preventDefault(); navigate('#/blog'); }} className="footer-link">Blog</a>
+                        <Link to="/blog" className="footer-link">Blog</Link>
                         <span className="footer-link-separator">|</span>
-                        <a href="#/contact" onClick={(e) => { e.preventDefault(); navigate('#/contact'); }} className="footer-link">Contact</a>
+                        <Link to="/contact" className="footer-link">Contact</Link>
                         <span className="footer-link-separator">|</span>
-                        <a href="#/privacy" onClick={(e) => { e.preventDefault(); navigate('#/privacy'); }} className="footer-link">Privacy Policy</a>
+                        <Link to="/privacy" className="footer-link">Privacy Policy</Link>
+                        <span className="footer-link-separator">|</span>
+                        <a href="https://github.com/Vaibhavi28/binexplain" target="_blank" rel="noopener noreferrer" className="footer-link">GitHub</a>
                     </div>
                     <span>
                         © 2026 Vaibhavi Sanjay Kathepuri · CC BY-NC-ND 4.0 ·{' '}
-                        <a href="#/privacy" onClick={(e) => { e.preventDefault(); navigate('#/privacy'); }} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: '700' }}>Privacy Policy</a> ·{' '}
-                        <a href="#/contact" onClick={(e) => { e.preventDefault(); navigate('#/contact'); }} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: '700' }}>Contact</a>
+                        <Link to="/privacy" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: '700' }}>Privacy Policy</Link> ·{' '}
+                        <Link to="/contact" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: '700' }}>Contact</Link>
                     </span>
                 </footer>
             </div>

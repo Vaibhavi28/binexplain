@@ -1,5 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
+import { Link } from 'react-router-dom';
 
 export default function About({ onNavigate }) {
     const handleBackClick = (e) => {
@@ -118,6 +119,9 @@ export default function About({ onNavigate }) {
                         </p>
                     </div>
                 </div>
+                <p style={{ marginTop: '24px', textAlign: 'center' }}>
+                    BinExplain analyzes your binary and gives you category classification, ROP gadgets, and AI hints. <Link to="/docs">See the full feature documentation</Link>.
+                </p>
             </section>
 
             {/* SECTION 4 — The Builder */}
@@ -134,11 +138,16 @@ export default function About({ onNavigate }) {
 
             {/* SECTION 6 — Contact CTA */}
             <section className="about-cta-section">
-                <div className="about-cta-container">
-                    <a href="/contact" className="about-btn about-btn--primary">
-                        Get in Touch
-                    </a>
-                    <a href="https://github.com/Vaibhavi28/binexplain" target="_blank" rel="noopener noreferrer" className="about-btn about-btn--secondary">
+                <div className="about-cta-container" style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <Link to="/" className="about-btn about-btn--primary" style={{ textDecoration: 'none' }}>
+                            Try BinExplain now
+                        </Link>
+                        <a href="/contact" className="about-btn about-btn--secondary" onClick={(e) => { e.preventDefault(); onNavigate('#/contact'); }}>
+                            Get in Touch
+                        </a>
+                    </div>
+                    <a href="https://github.com/Vaibhavi28/binexplain" target="_blank" rel="noopener noreferrer" className="about-btn about-btn--secondary" style={{ width: 'fit-content' }}>
                         View on GitHub
                     </a>
                 </div>

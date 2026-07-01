@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { Link } from 'react-router-dom';
 
 export default function Blog({ onNavigate }) {
     const articles = [
@@ -126,19 +127,41 @@ export default function Blog({ onNavigate }) {
             {/* Articles Grid */}
             <div className="blog-grid">
                 {articles.map((art, index) => (
-                    <article className="blog-card" key={index}>
+                    <article className="blog-card" key={index} style={{ display: 'flex', flexDirection: 'column' }}>
                         <div className="blog-card-header">
                             <span className="blog-card-category">{art.category}</span>
                             <span className={`blog-card-tag ${art.tagClass}`}>{art.tag}</span>
                         </div>
-                        <h2 className="blog-card-title">{art.title}</h2>
+                        <h2 className="blog-card-title">
+                            <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}>
+                                {art.title}
+                            </Link>
+                        </h2>
                         <p className="blog-card-excerpt">{art.excerpt}</p>
-                        <div className="blog-card-footer">
+                        <div className="blog-card-footer" style={{ marginTop: 'auto' }}>
                             <span className="blog-card-date">{art.date}</span>
-                            <span className="blog-card-readmore">Read More &rarr;</span>
+                            <Link to="/" className="blog-card-readmore" style={{ textDecoration: 'none' }}>
+                                Read More &rarr;
+                            </Link>
                         </div>
                     </article>
                 ))}
+            </div>
+
+            {/* Discover Callout */}
+            <div className="blog-discover-callout" style={{ marginTop: '48px', padding: '32px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center' }}>
+                <h3 style={{ fontSize: '20px', marginBottom: '12px', color: 'var(--primary)' }}>Ready to Exploit CTF Challenges?</h3>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>
+                    BinExplain is a free, web-based CTF binary static analyzer that finds ROP gadgets and generates python exploit templates.
+                </p>
+                <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+                    <Link to="/" className="blog-subscribe-btn" style={{ textDecoration: 'none', padding: '10px 20px', borderRadius: '6px' }}>
+                        Try the Tool
+                    </Link>
+                    <Link to="/docs" style={{ color: 'var(--primary)', textDecoration: 'none', alignSelf: 'center', fontWeight: '600' }}>
+                        Read the Docs &rarr;
+                    </Link>
+                </div>
             </div>
         </div>
     );

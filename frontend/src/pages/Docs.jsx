@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { Link } from 'react-router-dom';
 
 export default function Docs({ onNavigate }) {
     const sections = [
@@ -154,7 +155,7 @@ export default function Docs({ onNavigate }) {
                     <h2>1. Getting Started</h2>
                     <h3>What is BinExplain</h3>
                     <p>
-                        BinExplain is a modern, web-based static analysis platform designed to help beginners and experienced security researchers analyze binary executables and source code. It combines traditional static analysis tools with advanced AI models to translate low-level output into understandable, context-rich explanations and actionable guidance.
+                        BinExplain is a modern, web-based static analysis platform designed to help beginners and experienced security researchers analyze binary executables and source code. It combines traditional static analysis tools with advanced AI models to translate low-level output into understandable, context-rich explanations and actionable guidance. BinExplain was built to lower the barrier to entry for CTF beginners. <Link to="/about">Read the full story</Link> of why this tool exists.
                     </p>
                     <h3>No Installation Required</h3>
                     <p>
