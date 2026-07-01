@@ -972,7 +972,7 @@ export default function App() {
             }
 
             setChatMessages(prev => {
-                const updatedHistory = [...prev, { role: 'assistant', content: data.response }];
+                const updatedHistory = [...prev, { role: 'assistant', content: data.response, response_source: data.response_source }];
                 const allTried = extractCommandsFromHistory(updatedHistory);
                 const failed = extractFailedCommands(updatedHistory);
                 setTriedCommands([...new Set([...allTried, ...failed])]);
@@ -1109,7 +1109,7 @@ export default function App() {
                 return;
             }
             setSrcChatMessages(prev => {
-                const updatedHistory = [...prev, { role: 'assistant', content: data.response }];
+                const updatedHistory = [...prev, { role: 'assistant', content: data.response, response_source: data.response_source }];
                 const allTried = extractCommandsFromHistory(updatedHistory);
                 const failed = extractFailedCommands(updatedHistory);
                 setTriedCommands([...new Set([...allTried, ...failed])]);
@@ -1761,7 +1761,7 @@ export default function App() {
                         <div className="bottom-section">
                             <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Follow-up Chat</h3></div>
                             <div className="chat-messages" id="chat-messages" style={{ padding: '16px', gap: '16px' }}>
-                                {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i} style={{ padding: '16px' }}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div></div>))}
+                                {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i} style={{ padding: '16px' }}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}{msg.role === 'assistant' && msg.response_source === 'cache' && (<span className="response-source-badge response-source-badge--cache" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(46, 160, 67, 0.15)', color: '#3fb950', border: '1px solid rgba(46, 160, 67, 0.4)', display: 'inline-flex', alignItems: 'center' }}>⚡ Instant</span>)}{msg.role === 'assistant' && msg.response_source === 'ai' && (<span className="response-source-badge response-source-badge--ai" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(56, 139, 253, 0.15)', color: '#58a6ff', border: '1px solid rgba(56, 139, 253, 0.4)', display: 'inline-flex', alignItems: 'center' }}>🤖 AI</span>)}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div></div>))}
                                 {chatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={chatEndRef}/>
                             </div>
@@ -2205,7 +2205,7 @@ export default function App() {
                         <div className="bottom-section">
                             <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Source Code Chat</h3></div>
                             <div className="chat-messages" id="src-chat-messages" style={{ padding: '16px', gap: '16px' }}>
-                                {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i} style={{ padding: '16px' }}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}</span><div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div></div>))}
+                                {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i} style={{ padding: '16px' }}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}{msg.role === 'assistant' && msg.response_source === 'cache' && (<span className="response-source-badge response-source-badge--cache" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(46, 160, 67, 0.15)', color: '#3fb950', border: '1px solid rgba(46, 160, 67, 0.4)', display: 'inline-flex', alignItems: 'center' }}>⚡ Instant</span>)}{msg.role === 'assistant' && msg.response_source === 'ai' && (<span className="response-source-badge response-source-badge--ai" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(56, 139, 253, 0.15)', color: '#58a6ff', border: '1px solid rgba(56, 139, 253, 0.4)', display: 'inline-flex', alignItems: 'center' }}>🤖 AI</span>)}</span><div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div></div>))}
                                 {srcChatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={srcChatEndRef}/>
                             </div>

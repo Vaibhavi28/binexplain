@@ -132,8 +132,6 @@ def _prewarm_cache() -> None:
     """Pre-generate cached hints for the 6 most common CTF patterns.
 
     Only runs when the cache is completely empty (first launch).
-    Uses the real LLM pipeline so that subsequent requests for these
-    common patterns are served instantly.
     """
     stats = _hint_cache.get_stats()
     if stats["total_cached"] > 0:
@@ -145,43 +143,77 @@ def _prewarm_cache() -> None:
             "category": "format_string",
             "checksec": {"nx": True, "pie": True, "canary": False},
             "dangerous": ["printf"],
-            "strings": ["printf", "%s", "%p", "flag.txt"],
-            "patterns": {"dangerous_functions": ["printf"]},
+            "hints": (
+                "This is a format string vulnerability. "
+                "NX and PIE are enabled, but there is no stack Canary. "
+                "Use a format string leak to find the libc address or heap base. "
+                "You can test manual leaks with: python3 -c 'print(\"%p.\"*20)' | ./{filename}. "
+                "Identify the offset to your input and overwrite the return address or GOT entry."
+            ),
+            "kill_chain": "Leaking memory -> Finding offset -> Overwriting return address/GOT"
         },
         {
             "category": "ret2win",
             "checksec": {"nx": True, "pie": False, "canary": False},
             "dangerous": ["gets"],
-            "strings": ["gets", "flag.txt", "You win!"],
-            "patterns": {"dangerous_functions": ["gets"], "win_conditions": ["You win!"], "flag_reads": ["flag.txt"]},
+            "hints": (
+                "This is ret2win — no protections. "
+                "Your offset is {offset} bytes. "
+                "Find the win function: nm -a ./{filename} | grep -i win. "
+                "Then run your template: python3 exploit_{filename_clean}.py."
+            ),
+            "kill_chain": "Overflowing buffer -> Overwriting instruction pointer -> Redirecting to win function"
         },
         {
             "category": "ret2libc",
             "checksec": {"nx": True, "pie": False, "canary": False},
             "dangerous": ["system"],
-            "strings": ["system", "/bin/sh", "gets"],
-            "patterns": {"dangerous_functions": ["system", "gets"]},
+            "hints": (
+                "This is ret2libc. "
+                "NX is enabled, PIE and Canary are disabled. "
+                "Check which libc version is loaded: ldd ./{filename}. "
+                "Use a ROP chain to leak the address of a libc function like puts, then compute system and /bin/sh. "
+                "Finally, spawn a shell using system('/bin/sh')."
+            ),
+            "kill_chain": "Leaking libc -> Calculating system/bin/sh -> Calling system('/bin/sh')"
         },
         {
             "category": "heap_exploitation",
             "checksec": {"nx": True, "pie": False, "canary": False},
             "dangerous": ["free", "malloc"],
-            "strings": ["malloc", "free", "1) Create", "2) Delete"],
-            "patterns": {"dangerous_functions": ["malloc", "free"], "memory_functions": ["malloc", "free"]},
+            "hints": (
+                "This is heap exploitation. "
+                "NX is enabled, PIE and Canary are disabled. "
+                "Use free and malloc to trigger heap overflows, Use-After-Free (UAF), or double-free vulnerabilities. "
+                "Track heap bins using gdb: gdb ./{filename} -ex 'init-pwndbg' -ex 'heap'. "
+                "Craft chunk overlaps to overwrite chunk headers or metadata."
+            ),
+            "kill_chain": "Allocating chunks -> Corrupting heap metadata -> Overwriting function pointers/hooks"
         },
         {
             "category": "rop_chain",
             "checksec": {"nx": True, "pie": False, "canary": False},
             "dangerous": [],
-            "strings": ["gets", "Enter input:"],
-            "patterns": {"dangerous_functions": ["gets"]},
+            "hints": (
+                "This is a ROP chain challenge. "
+                "NX is enabled, but PIE is disabled. "
+                "Since you cannot execute shellcode directly on the stack, chain ROP gadgets to control register state. "
+                "Extract gadgets using pwntools or a CLI tool: ROPgadget --binary ./{filename}. "
+                "Build a chain to call execve('/bin/sh', 0, 0)."
+            ),
+            "kill_chain": "Controlling registers -> Building gadget chain -> Calling execve"
         },
         {
             "category": "shellcode",
             "checksec": {"nx": False, "pie": False, "canary": False},
             "dangerous": [],
-            "strings": ["gets", "Enter shellcode:"],
-            "patterns": {"dangerous_functions": ["gets"]},
+            "hints": (
+                "This is shellcode injection — NX is disabled. "
+                "Since the stack is executable, you can inject shellcode directly into your input buffer. "
+                "Generate a standard shellcode template using pwntools: asm(shellcraft.sh()). "
+                "Redirect execution to the stack or input buffer address to execute your shellcode."
+            ),
+            "kill_chain": "Injecting shellcode -> Overwriting return address -> Redirecting execution to shellcode"
         },
     ]
 
@@ -189,19 +221,7 @@ def _prewarm_cache() -> None:
     for pw in PREWARM_PATTERNS:
         key = _hint_cache.generate_key(pw["category"], pw["checksec"], pw["dangerous"])
         try:
-            # Build a minimal category dict for the hint generator
-            cat_dict = {"category": pw["category"], "confidence": "High", "explanation": "Pre-warm"}
-            hints = get_ai_hints(
-                pw["strings"], pw["patterns"], "",
-                ctf_category=cat_dict,
-                checksec=pw["checksec"],
-                _skip_cache=True,  # avoid infinite recursion
-            )
-            # Extract kill chain section
-            kill_chain = ""
-            if "Kill Chain" in hints:
-                kill_chain = hints.split("Kill Chain", 1)[1].split("\n\n", 1)[0] if "Kill Chain" in hints else ""
-            _hint_cache.set(key, hints, kill_chain, pw["category"])
+            _hint_cache.set(key, pw["hints"], pw["kill_chain"], pw["category"])
             print(f"[CAG]   Pre-warmed: {key}")
         except Exception as exc:
             print(f"[CAG]   Pre-warm failed for {key}: {exc}")
@@ -4736,6 +4756,23 @@ def _analyze_single_file(
             hints_quick = None
             hints_enhanced = None
 
+        # Format cached responses if they contain placeholders
+        offset_val = overflow_hint.get("likely_offset") if overflow_hint else None
+        offset_str = str(offset_val) if offset_val is not None else "unknown"
+        filename_clean = Path(filename).stem
+        filename_clean = re.sub(r'[^a-zA-Z0-9_]', '', filename_clean)
+
+        def format_templates(t: str) -> str:
+            if not t:
+                return t
+            return t.replace("{filename}", filename).replace("{offset}", offset_str).replace("{filename_clean}", filename_clean)
+
+        hints = format_templates(hints)
+        if hints_quick:
+            hints_quick = format_templates(hints_quick)
+        if hints_enhanced:
+            hints_enhanced = format_templates(hints_enhanced)
+
         # AI decompilation hints — explain disassembly using AI
         decompilation_hints = get_decompilation_hints(
             disassembly, strings, ctf_category=ctf_category,
@@ -5527,6 +5564,18 @@ def _try_groq_vision(user_prompt: str, image_b64: str, image_media_type: str = "
         return None
 
 
+failure_indicators = [
+    "didn't work", "didnt work", "not working", "failed",
+    "same error", "still stuck", "that didn't help", "useless",
+    "no output", "error:", "segfault", "crashed"
+]
+
+
+def should_skip_cache(user_message: str) -> bool:
+    msg_lower = user_message.lower()
+    return any(indicator in msg_lower for indicator in failure_indicators)
+
+
 @app.post("/chat")
 async def chat(request: Request, body: ChatRequest):
     """
@@ -5552,10 +5601,65 @@ async def chat(request: Request, body: ChatRequest):
         raise HTTPException(status_code=400, detail="No messages provided.")
 
     if _is_testing():
-        return {"response": "Mocked AI response for chat.\n• Observation 1.\n• Observation 2.\n**Next:** Try checksec."}
+        return {"response": "Mocked AI response for chat.\n• Observation 1.\n• Observation 2.\n**Next:** Try checksec.", "response_source": "ai"}
+
+    # ── CAG: cache lookup ─────────────────────────────────────────────
+    user_message = body.messages[-1].content if body.messages else ""
+    binary_context = body.binary_context or {}
+
+    if should_skip_cache(user_message):
+        # skip cache entirely, call AI
+        pass
+    else:
+        # check cache as normal
+        cat = "unknown"
+        ctf_cat_val = binary_context.get("ctf_category")
+        if isinstance(ctf_cat_val, dict):
+            cat = ctf_cat_val.get("category") or "unknown"
+        elif isinstance(ctf_cat_val, str):
+            cat = ctf_cat_val
+
+        # extract checksec
+        checksec = None
+        protections = binary_context.get("protections") or {}
+        nx = protections.get("nx") if "nx" in protections else binary_context.get("nx")
+        pie = protections.get("pie") if "pie" in protections else binary_context.get("pie")
+        canary = protections.get("canary") if "canary" in protections else binary_context.get("canary")
+        if nx is not None or pie is not None or canary is not None:
+            checksec = {
+                "nx": bool(nx) if nx != "unknown" else False,
+                "pie": bool(pie) if pie != "unknown" else False,
+                "canary": bool(canary) if canary != "unknown" else False,
+            }
+
+        # extract dangerous functions
+        dangerous_funcs = []
+        known_dangerous = ("gets", "strcpy", "sprintf", "system", "exec", "printf", "scanf", "malloc", "free")
+        raw_funcs = binary_context.get("functions") or []
+        raw_imports = binary_context.get("imports") or []
+        for f in raw_funcs + raw_imports:
+            name = f.get("name") if isinstance(f, dict) else str(f)
+            name_clean = name.strip()
+            if any(d in name_clean for d in known_dangerous):
+                dangerous_funcs.append(name_clean)
+
+        if checksec is not None:
+            cache_key = _hint_cache.generate_key(cat or "unknown", checksec, dangerous_funcs)
+            cached = _hint_cache.get(cache_key)
+            if cached:
+                print(f"[CAG] Cache HIT in /chat for {cache_key}")
+                hints_str = cached["hints"]
+                # Format variables
+                filename = binary_context.get("filename") or "binary"
+                offset_val = binary_context.get("predicted_offset")
+                offset_str = str(offset_val) if offset_val is not None else "unknown"
+                filename_clean = Path(filename).stem
+                filename_clean = re.sub(r'[^a-zA-Z0-9_]', '', filename_clean)
+                
+                formatted_hints = hints_str.replace("{filename}", filename).replace("{offset}", offset_str).replace("{filename_clean}", filename_clean)
+                return {"response": formatted_hints, "response_source": "cache"}
 
     # ── Build system prompt dynamically ────────────────
-    binary_context = body.binary_context or {}
     tried_commands = body.tried_commands or []
     system_prompt = build_chat_system_prompt(binary_context, tried_commands)
 
@@ -5574,7 +5678,7 @@ async def chat(request: Request, body: ChatRequest):
             res = _try_groq_vision(full_prompt, body.image_base64, body.image_media_type, system_prompt=system_prompt)
         
         if res:
-            return {"response": res}
+            return {"response": res, "response_source": "ai"}
         
         raise HTTPException(
             status_code=503,
@@ -5615,38 +5719,38 @@ async def chat(request: Request, body: ChatRequest):
     groq_result = _try_groq(messages=ai_messages, system_prompt=system_prompt)
     if groq_result:
         logger.info("[BinExplain] /chat: Groq succeeded")
-        return {"response": groq_result}
+        return {"response": groq_result, "response_source": "ai"}
 
     # ── Provider 2: Nemotron ──────────────────────────────────────────
     nemotron_result = _try_nemotron(prompt=ai_messages, system=system_prompt)
     if nemotron_result:
         logger.info("[BinExplain] /chat: Nemotron succeeded")
-        return {"response": nemotron_result}
+        return {"response": nemotron_result, "response_source": "ai"}
 
     # ── Provider 3: Gemini ────────────────────────────────────────────
     gemini_result = _try_gemini(messages=ai_messages, system_prompt=system_prompt)
     if gemini_result:
         logger.info("[BinExplain] /chat: Gemini succeeded")
-        return {"response": gemini_result}
+        return {"response": gemini_result, "response_source": "ai"}
 
     # ── Provider 4: OpenAI GPT-4o-mini ────────────────────────────────
     openai_result = _try_openai(messages=ai_messages, system_prompt=system_prompt)
     if openai_result:
         logger.info("[BinExplain] /chat: OpenAI succeeded")
-        return {"response": openai_result}
+        return {"response": openai_result, "response_source": "ai"}
 
     # ── Provider 5: Ollama multi-turn chat ────────────────────────────
     ollama_messages = [{"role": "system", "content": system_prompt}] + ai_messages
     ollama_result = _try_ollama_chat(ollama_messages)
     if ollama_result:
         logger.info("[BinExplain] /chat: Ollama succeeded")
-        return {"response": ollama_result}
+        return {"response": ollama_result, "response_source": "ai"}
 
     # ── Provider 6: Claude (last resort) ──────────────────────────────
     claude_result = _try_claude(messages=ai_messages, system_prompt=system_prompt)
     if claude_result:
         logger.info("[BinExplain] /chat: Claude succeeded")
-        return {"response": claude_result}
+        return {"response": claude_result, "response_source": "ai"}
 
     raise HTTPException(
         status_code=503,

@@ -238,6 +238,78 @@ class TestCacheStatsEndpoint:
         assert data["total_hits"] >= 1
 
 
+
+class TestChatCaching:
+    """Test /chat caching, skipping, and response source flags."""
+
+    def setup_method(self):
+        hint_cache.clear()
+
+    def test_chat_cache_hit(self):
+        key = hint_cache.generate_key("ret2win", {"nx": True, "pie": False, "canary": False}, ["gets"])
+        hint_cache.set(key, "This is ret2win — no protections. Your offset is {offset} bytes. Find the win function: nm -a ./{filename} | grep -i win. Then run your template: python3 exploit_{filename_clean}.py.", "kill chain", "ret2win")
+
+        payload = {
+            "messages": [{"role": "user", "content": "How do I do this?"}],
+            "binary_context": {
+                "filename": "vuln.elf",
+                "predicted_offset": 64,
+                "ctf_category": "ret2win",
+                "protections": {
+                    "nx": True,
+                    "pie": False,
+                    "canary": False
+                },
+                "functions": ["gets"]
+            }
+        }
+        import main
+        original_testing = main._is_testing
+        main._is_testing = lambda: False
+        try:
+            response = client.post("/chat", json=payload)
+            assert response.status_code == 200
+            data = response.json()
+            assert data["response_source"] == "cache"
+            assert "vuln.elf" in data["response"]
+            assert "64" in data["response"]
+            assert "vuln" in data["response"]
+        finally:
+            main._is_testing = original_testing
+
+    def test_chat_cache_skip(self):
+        key = hint_cache.generate_key("ret2win", {"nx": True, "pie": False, "canary": False}, ["gets"])
+        hint_cache.set(key, "cached hints", "kill chain", "ret2win")
+
+        payload = {
+            "messages": [{"role": "user", "content": "I tried but it failed"}],
+            "binary_context": {
+                "filename": "vuln.elf",
+                "predicted_offset": 64,
+                "ctf_category": "ret2win",
+                "protections": {
+                    "nx": True,
+                    "pie": False,
+                    "canary": False
+                },
+                "functions": ["gets"]
+            }
+        }
+        import main
+        original_testing = main._is_testing
+        main._is_testing = lambda: False
+        import unittest.mock as mock
+        with mock.patch("main._try_groq", return_value="Fresh AI hints"):
+            try:
+                response = client.post("/chat", json=payload)
+                assert response.status_code == 200
+                data = response.json()
+                assert data["response_source"] == "ai"
+                assert data["response"] == "Fresh AI hints"
+            finally:
+                main._is_testing = original_testing
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Cleanup
 # ═══════════════════════════════════════════════════════════════════════
