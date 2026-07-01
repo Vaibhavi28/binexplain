@@ -534,7 +534,7 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    message: str = Field("", max_length=10000)
+    message: str = Field(..., min_length=1, max_length=10000)
     conversation_history: List[Dict[str, Any]] = Field(default_factory=list)
     binary_context: Optional[Dict[str, Any]] = None
     tried_commands: Optional[List[str]] = Field(default_factory=list)
@@ -544,6 +544,20 @@ class ChatRequest(BaseModel):
     context: str = ""
     ctf_category: str = ""
     messages: Optional[List[Dict[str, Any]]] = None
+
+    @field_validator('conversation_history')
+    @classmethod
+    def limit_history_length(cls, v):
+        if len(v) > 30:
+            return v[-30:]  # keep only last 30 messages
+        return v
+
+    @field_validator('tried_commands')
+    @classmethod
+    def limit_tried_commands(cls, v):
+        if v and len(v) > 50:
+            return v[-50:]
+        return v
 
     @model_validator(mode="before")
     @classmethod
@@ -708,6 +722,8 @@ def _validate_extension(filename: str | None) -> str:
     """
     if not filename:
         raise HTTPException(status_code=400, detail="Filename is missing from the upload.")
+    if ".." in filename or "/" in filename or "\\" in filename or "\x00" in filename:
+        raise HTTPException(status_code=400, detail="Invalid characters in filename.")
     ext = Path(filename).suffix.lower()
     # Extensionless files are allowed — they'll be auto-detected via magic bytes
     if ext == "":
@@ -5730,6 +5746,15 @@ async def chat(request: Request, body: ChatRequest):
     server-side) plus the initial analysis context, forwards to Anthropic
     Claude (with Ollama fallback), and returns a single AI response.
     """
+    if body.image_base64:
+        import base64
+        try:
+            decoded = base64.b64decode(body.image_base64, validate=True)
+            if len(decoded) > 5 * 1024 * 1024:  # 5MB limit
+                raise HTTPException(status_code=400, detail="Image too large")
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid image data")
+
     history = body.conversation_history or []
     summary = body.conversation_summary or ""
     binary_context = body.binary_context or {}
@@ -5924,9 +5949,11 @@ async def chat(request: Request, body: ChatRequest):
 @app.post("/explain-command")
 @limiter.limit("20/minute")
 async def explain_command_endpoint(request: Request, body: dict = Body(...)):
-    command = body.get("command", "")
-    if not command or not command.strip() or len(command) > 500:
-        raise HTTPException(status_code=422, detail="Command validation failed")
+    command = body.get("command", "").strip()
+    if not command:
+        raise HTTPException(status_code=400, detail="Command cannot be empty")
+    if len(command) > 2000:
+        raise HTTPException(status_code=400, detail="Command too long")
 
     if _is_testing():
         return {"explanation": "Mocked command explanation for testing."}

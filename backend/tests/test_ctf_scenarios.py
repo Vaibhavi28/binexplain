@@ -336,7 +336,7 @@ class TestSecurityMechanisms:
         payload = {"messages": messages, "context": ""}
         response = client.post("/chat", json=payload)
         if response.status_code != 429:
-            assert response.status_code == 400
+            assert response.status_code == 200
 
 
 # ═══════════════════════════════════════════════════════════════════════

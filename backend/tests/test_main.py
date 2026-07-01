@@ -337,14 +337,14 @@ class TestPasswordProtectedZip:
         assert "results" in data or "filename" in data
 
 class TestExplainCommand:
-    def test_rejects_command_over_500_chars(self):
-        long_cmd = "a" * 501
+    def test_rejects_command_over_2000_chars(self):
+        long_cmd = "a" * 2001
         response = client.post("/explain-command", json={"command": long_cmd})
-        assert response.status_code == 422
+        assert response.status_code == 400
 
     def test_rejects_empty_command(self):
         response = client.post("/explain-command", json={"command": "   "})
-        assert response.status_code == 422
+        assert response.status_code == 400
 
 
 class TestContactForm:
