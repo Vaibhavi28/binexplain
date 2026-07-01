@@ -9,6 +9,7 @@ import { buildBinaryContext } from './utils/buildBinaryContext';
 import CommandBlock from './components/CommandBlock';
 import { extractCommandsFromHistory, extractFailedCommands } from './utils/commandTracker';
 import { parseAIResponse } from './utils/responseParser';
+import { initDevtoolsDeterrent } from './utils/devtoolsDeterrent';
 
 /* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -249,6 +250,10 @@ const MAX_SOURCE_CODE_CHARS = 10000;
 const SOURCE_CODE_EXTENSIONS = ['.c', '.cpp', '.h', '.hpp', '.py', '.js', '.rs', '.go', '.java'];
 
 export default function App() {
+    useEffect(() => {
+        initDevtoolsDeterrent();
+    }, []);
+
     const [file, setFile] = useState(null);
     const [dragOver, setDragOver] = useState(false);
 

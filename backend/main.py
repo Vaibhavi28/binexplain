@@ -638,14 +638,35 @@ def get_ipaddr(request: Request) -> str:
 
 limiter = Limiter(key_func=get_ipaddr)
 
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+show_docs = ENVIRONMENT != "production"
+
 app = FastAPI(
     title="BinExplain API",
     description="Static analysis of binary files — extract readable strings without executing anything.",
     version="0.1.0",
+    docs_url="/docs" if show_docs else None,
+    redoc_url="/redoc" if show_docs else None,
 )
 
 app.state.limiter = limiter
 
+# Rate limiting middleware
+from slowapi.middleware import SlowAPIMiddleware
+app.add_middleware(SlowAPIMiddleware)
+
+# Security headers middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 @app.exception_handler(RateLimitExceeded)
 async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
@@ -654,6 +675,19 @@ async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
         content={"detail": "Rate limit exceeded. Maximum 10 requests per IP per hour."},
     )
 
+@app.exception_handler(404)
+async def custom_404_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=404,
+        content={"detail": "Not Found"},
+    )
+
+@app.exception_handler(500)
+async def custom_500_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error"},
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -5128,6 +5162,7 @@ async def health():
 
 
 @app.post("/analyze")
+@limiter.limit("10/hour")
 async def analyze(
     request: Request,
     file: UploadFile = File(...),
