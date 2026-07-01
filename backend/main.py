@@ -650,6 +650,7 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs" if show_docs else None,
     redoc_url="/redoc" if show_docs else None,
+    openapi_url="/openapi.json" if show_docs else None,
 )
 
 app.state.limiter = limiter
@@ -4981,7 +4982,8 @@ def _analyze_zip(
                                 "error_code": "password_required",
                             },
                         )
-                raise HTTPException(status_code=400, detail=f"Failed to extract ZIP: {str(exc)[:200]}")
+                logger.error("[BinExplain] ZIP pyzipper extraction failed: %s", exc)
+                raise HTTPException(status_code=400, detail="Failed to extract ZIP archive. It may be corrupted or use an unsupported format.")
             except Exception as exc:
                 exc_msg = str(exc).lower()
                 if "password" in exc_msg or "bad password" in exc_msg or "wrong password" in exc_msg:
@@ -5022,7 +5024,8 @@ def _analyze_zip(
                             "error_code": "password_required",
                         },
                     )
-            raise HTTPException(status_code=400, detail=f"Failed to extract ZIP: {str(exc)[:200]}")
+            logger.error("[BinExplain] ZIP extraction failed: %s", exc)
+            raise HTTPException(status_code=400, detail="Failed to extract ZIP archive. It may be corrupted or use an unsupported format.")
         except Exception as exc:
             # pyzipper or other extraction errors for wrong password
             exc_msg = str(exc).lower()
@@ -5105,7 +5108,7 @@ def _analyze_zip(
                     source_code_results.append(src_result)
                 except Exception as exc:
                     logger.warning("Failed to analyze source code '%s' from ZIP: %s", entry, exc)
-                    skipped.append({"filename": entry, "reason": f"Source code analysis failed: {exc}"})
+                    skipped.append({"filename": entry, "reason": "Source code analysis failed."})
                 continue
             elif inner_ext not in ALLOWED_EXTENSIONS:
                 skipped.append({"filename": entry, "reason": f"Extension '{inner_ext}' is not a supported binary format."})
@@ -5131,7 +5134,7 @@ def _analyze_zip(
                 results.append(result)
             except Exception as exc:
                 logger.warning("Failed to analyze '%s' from ZIP: %s", entry, exc)
-                skipped.append({"filename": entry, "reason": f"Analysis failed: {exc}"})
+                skipped.append({"filename": entry, "reason": "Analysis failed."})
 
         if not results and not source_code_results:
             raise HTTPException(
@@ -6259,10 +6262,10 @@ async def refresh_knowledge_base():
             "document_count": doc_count,
         }
     except Exception as exc:
-        logger.error("Knowledge base refresh failed: %s", exc)
+        logger.error("[BinExplain] Knowledge base refresh failed: %s", exc)
         return JSONResponse(
             status_code=500,
-            content={"status": "error", "detail": str(exc)},
+            content={"status": "error", "detail": "Knowledge base refresh failed. Check server logs for details."},
         )
 
 
