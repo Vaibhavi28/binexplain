@@ -10,6 +10,7 @@ const Privacy = lazy(() => import('./pages/Privacy.jsx'));
 
 import { buildBinaryContext } from './utils/buildBinaryContext';
 import CommandBlock from './components/CommandBlock';
+import TopNav from './components/TopNav';
 import { extractCommandsFromHistory, extractFailedCommands } from './utils/commandTracker';
 import { parseAIResponse } from './utils/responseParser';
 import { initDevtoolsDeterrent } from './utils/devtoolsDeterrent';
