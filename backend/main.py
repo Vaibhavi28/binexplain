@@ -45,7 +45,7 @@ from typing import Literal, Optional, Dict, Any, List
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field, model_validator
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -250,7 +250,7 @@ ALLOWED_EXTENSIONS: set[str] = {
 }
 MIN_STRING_LENGTH = 4  # minimum printable-ASCII run to extract
 MAX_STRINGS_FOR_AI = 100  # cap strings sent to Claude to avoid token abuse
-MAX_CHAT_MESSAGES = 20    # max conversation turns kept per request
+MAX_CHAT_MESSAGES = 50    # max conversation turns kept per request
 MAX_CHAT_CHARS = 10000     # max characters per single chat message
 MAX_SOURCE_CODE_CHARS = 10000  # max characters for source code analysis
 SOURCE_CODE_EXTENSIONS: set[str] = {
@@ -534,13 +534,32 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    messages: list[ChatMessage]
-    context: str = ""
-    ctf_category: str = ""
+    message: str = Field("", max_length=10000)
+    conversation_history: List[Dict[str, Any]] = Field(default_factory=list)
     binary_context: Optional[Dict[str, Any]] = None
-    tried_commands: Optional[List[str]] = []
+    tried_commands: Optional[List[str]] = Field(default_factory=list)
     image_base64: Optional[str] = None
     image_media_type: Optional[str] = "image/png"
+    conversation_summary: Optional[str] = None
+    context: str = ""
+    ctf_category: str = ""
+    messages: Optional[List[Dict[str, Any]]] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_old_format(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "messages" in data and ("message" not in data or not data["message"]):
+                old_messages = data["messages"]
+                if old_messages:
+                    last_msg = old_messages[-1]
+                    content_val = last_msg.get("content", "") if isinstance(last_msg, dict) else getattr(last_msg, "content", "")
+                    data["message"] = content_val
+                    data["conversation_history"] = old_messages[:-1]
+                else:
+                    data["message"] = ""
+                    data["conversation_history"] = []
+        return data
 
 class ExplainCommandRequest(BaseModel):
     command: str
@@ -5562,6 +5581,96 @@ def _try_groq_vision(user_prompt: str, image_b64: str, image_media_type: str = "
         return None
 
 
+async def summarize_conversation(
+    conversation_history: list,
+    binary_context: dict
+) -> str:
+    if not conversation_history or len(conversation_history) < 6:
+        return ""
+
+    filename = binary_context.get("filename", "binary")
+    category = binary_context.get("ctf_category", "unknown")
+    if isinstance(category, dict):
+        category = category.get("category", "unknown")
+
+    history_text = "\n".join([
+        f"{msg['role'].upper()}: {msg['content'][:300]}"
+        for msg in conversation_history
+    ])
+
+    system = """You are summarizing a CTF binary exploitation debugging session.
+Create a compact summary that captures:
+1. What has been tried and what happened
+2. What the current understanding of the vulnerability is
+3. What the most recent next step was
+4. Any specific addresses, offsets, or values discovered
+Be extremely concise. Maximum 200 words. Preserve all technical specifics."""
+
+    user_msg = f"""Summarize this CTF debugging session for {filename} ({category}):
+
+{history_text}
+
+Output a 150-200 word summary preserving all technical details found."""
+
+    summary = _try_groq(messages=[{"role": "user", "content": user_msg}], system_prompt=system)
+    if not summary:
+        summary = _try_gemini(messages=[{"role": "user", "content": user_msg}], system_prompt=system)
+    if not summary:
+        # fallback: just keep last 6 messages raw
+        return ""
+
+    return summary
+
+
+async def call_ai_with_fallback(
+    system_prompt: str,
+    messages: list[dict],
+    binary_context: dict = None,
+    tried_commands: list = None
+) -> str:
+    # ── Provider 1: Groq (free, fast) ───────────────────────────────────
+    groq_result = _try_groq(messages=messages, system_prompt=system_prompt)
+    if groq_result:
+        logger.info("[BinExplain] call_ai_with_fallback: Groq succeeded")
+        return groq_result
+
+    # ── Provider 2: Nemotron ──────────────────────────────────────────
+    nemotron_result = _try_nemotron(prompt=messages, system=system_prompt)
+    if nemotron_result:
+        logger.info("[BinExplain] call_ai_with_fallback: Nemotron succeeded")
+        return nemotron_result
+
+    # ── Provider 3: Gemini ────────────────────────────────────────────
+    gemini_result = _try_gemini(messages=messages, system_prompt=system_prompt)
+    if gemini_result:
+        logger.info("[BinExplain] call_ai_with_fallback: Gemini succeeded")
+        return gemini_result
+
+    # ── Provider 4: OpenAI GPT-4o-mini ────────────────────────────────
+    openai_result = _try_openai(messages=messages, system_prompt=system_prompt)
+    if openai_result:
+        logger.info("[BinExplain] call_ai_with_fallback: OpenAI succeeded")
+        return openai_result
+
+    # ── Provider 5: Ollama multi-turn chat ────────────────────────────
+    ollama_messages = [{"role": "system", "content": system_prompt}] + messages
+    ollama_result = _try_ollama_chat(ollama_messages)
+    if ollama_result:
+        logger.info("[BinExplain] call_ai_with_fallback: Ollama succeeded")
+        return ollama_result
+
+    # ── Provider 6: Claude (last resort) ──────────────────────────────
+    claude_result = _try_claude(messages=messages, system_prompt=system_prompt)
+    if claude_result:
+        logger.info("[BinExplain] call_ai_with_fallback: Claude succeeded")
+        return claude_result
+
+    raise HTTPException(
+        status_code=503,
+        detail="AI is taking a short break — please try again in 30 seconds.",
+    )
+
+
 failure_indicators = [
     "didn't work", "didnt work", "not working", "failed",
     "same error", "still stuck", "that didn't help", "useless",
@@ -5582,28 +5691,33 @@ async def chat(request: Request, body: ChatRequest):
     Accepts the full conversation history from the client (nothing is stored
     server-side) plus the initial analysis context, forwards to Anthropic
     Claude (with Ollama fallback), and returns a single AI response.
-
-    Security:
-    • Max 10 messages in history, max 2000 chars per message.
-    • No database, no file writes, no storage of any kind.
-    • User text goes directly to the AI only.
     """
+    history = body.conversation_history or []
+    summary = body.conversation_summary or ""
+    binary_context = body.binary_context or {}
+    tried_commands = body.tried_commands or []
+
     # ── Validate message count ────────────────────────────────────────
-    if len(body.messages) > MAX_CHAT_MESSAGES:
+    if len(history) > MAX_CHAT_MESSAGES:
         raise HTTPException(
             status_code=400,
             detail=f"Too many messages. Maximum {MAX_CHAT_MESSAGES} allowed.",
         )
 
-    if not body.messages:
-        raise HTTPException(status_code=400, detail="No messages provided.")
+    # Note: body.message represents the latest user input
+    if not body.message:
+        raise HTTPException(status_code=400, detail="No message content provided.")
 
     if _is_testing():
-        return {"response": "Mocked AI response for chat.\n• Observation 1.\n• Observation 2.\n**Next:** Try checksec.", "response_source": "ai"}
+        return {
+            "response": "Mocked AI response for chat.\n• Observation 1.\n• Observation 2.\n**Next:** Try checksec.",
+            "response_source": "ai",
+            "conversation_summary": summary,
+            "should_update_summary": False
+        }
 
     # ── CAG: cache lookup ─────────────────────────────────────────────
-    user_message = body.messages[-1].content if body.messages else ""
-    binary_context = body.binary_context or {}
+    user_message = body.message
 
     if should_skip_cache(user_message):
         # skip cache entirely, call AI
@@ -5655,15 +5769,35 @@ async def chat(request: Request, body: ChatRequest):
                 filename_clean = re.sub(r'[^a-zA-Z0-9_]', '', filename_clean)
                 
                 formatted_hints = hints_str.replace("{filename}", filename).replace("{offset}", offset_str).replace("{filename_clean}", filename_clean)
-                return {"response": formatted_hints, "response_source": "cache"}
+                return {
+                    "response": formatted_hints,
+                    "response_source": "cache",
+                    "conversation_summary": summary,
+                    "should_update_summary": False
+                }
 
-    # ── Build system prompt dynamically ────────────────
-    tried_commands = body.tried_commands or []
+    # ── Summary & History truncation logic ───────────────────────────
+    # If summary exists and history is long, slice and prepend the summary
+    if summary and len(history) > 10:
+        recent_history = history[-10:]
+        history_to_send = [
+            {
+                "role": "user",
+                "content": f"[CONVERSATION SUMMARY SO FAR]: {summary}"
+            },
+            {
+                "role": "assistant",
+                "content": "Understood. I have the context of our previous discussion and will continue from there."
+            }
+        ] + recent_history
+    else:
+        history_to_send = history[-50:]
+
     system_prompt = build_chat_system_prompt(binary_context, tried_commands)
 
     # ── Vision routing if image is provided ───────────────────────────
     if body.image_base64:
-        user_prompt = body.messages[-1].content if body.messages else "Explain this screenshot"
+        user_prompt = body.message if body.message else "Explain this screenshot"
         if not user_prompt.strip():
             user_prompt = "Explain this screenshot"
         
@@ -5676,7 +5810,12 @@ async def chat(request: Request, body: ChatRequest):
             res = _try_groq_vision(full_prompt, body.image_base64, body.image_media_type, system_prompt=system_prompt)
         
         if res:
-            return {"response": res, "response_source": "ai"}
+            return {
+                "response": res,
+                "response_source": "ai",
+                "conversation_summary": summary,
+                "should_update_summary": False
+            }
         
         raise HTTPException(
             status_code=503,
@@ -5708,53 +5847,38 @@ async def chat(request: Request, body: ChatRequest):
                         "Ask me anything about exploiting this binary!",
         })
 
-    # Append the actual conversation history
-    for msg in body.messages:
-        ai_messages.append({"role": msg.role, "content": msg.content})
+    # Append the compile message history to send
+    for msg in history_to_send:
+        role = msg.role if hasattr(msg, "role") else msg.get("role", "user")
+        content = msg.content if hasattr(msg, "content") else msg.get("content", "")
+        ai_messages.append({"role": role, "content": content})
 
+    ai_messages.append({"role": "user", "content": body.message})
 
-    # ── Provider 1: Groq (free, fast) ───────────────────────────────────
-    groq_result = _try_groq(messages=ai_messages, system_prompt=system_prompt)
-    if groq_result:
-        logger.info("[BinExplain] /chat: Groq succeeded")
-        return {"response": groq_result, "response_source": "ai"}
-
-    # ── Provider 2: Nemotron ──────────────────────────────────────────
-    nemotron_result = _try_nemotron(prompt=ai_messages, system=system_prompt)
-    if nemotron_result:
-        logger.info("[BinExplain] /chat: Nemotron succeeded")
-        return {"response": nemotron_result, "response_source": "ai"}
-
-    # ── Provider 3: Gemini ────────────────────────────────────────────
-    gemini_result = _try_gemini(messages=ai_messages, system_prompt=system_prompt)
-    if gemini_result:
-        logger.info("[BinExplain] /chat: Gemini succeeded")
-        return {"response": gemini_result, "response_source": "ai"}
-
-    # ── Provider 4: OpenAI GPT-4o-mini ────────────────────────────────
-    openai_result = _try_openai(messages=ai_messages, system_prompt=system_prompt)
-    if openai_result:
-        logger.info("[BinExplain] /chat: OpenAI succeeded")
-        return {"response": openai_result, "response_source": "ai"}
-
-    # ── Provider 5: Ollama multi-turn chat ────────────────────────────
-    ollama_messages = [{"role": "system", "content": system_prompt}] + ai_messages
-    ollama_result = _try_ollama_chat(ollama_messages)
-    if ollama_result:
-        logger.info("[BinExplain] /chat: Ollama succeeded")
-        return {"response": ollama_result, "response_source": "ai"}
-
-    # ── Provider 6: Claude (last resort) ──────────────────────────────
-    claude_result = _try_claude(messages=ai_messages, system_prompt=system_prompt)
-    if claude_result:
-        logger.info("[BinExplain] /chat: Claude succeeded")
-        return {"response": claude_result, "response_source": "ai"}
-
-    raise HTTPException(
-        status_code=503,
-        detail="AI is taking a short break \u2014 please try again in 30 seconds.",
+    # Call AI with fallback
+    result = await call_ai_with_fallback(
+        system_prompt=system_prompt,
+        messages=ai_messages,
+        binary_context=binary_context,
+        tried_commands=tried_commands
     )
 
+    # Check if we should generate a new summary
+    # Check if history is non-empty and its length is a multiple of 10
+    should_summarize = len(history) > 0 and len(history) % 10 == 0
+
+    new_summary = summary
+    if should_summarize:
+        new_summary = await summarize_conversation(history, binary_context)
+        if not new_summary:
+            new_summary = summary  # keep old summary if new one failed
+
+    return {
+        "response": result,
+        "response_source": "ai",
+        "conversation_summary": new_summary,
+        "should_update_summary": should_summarize
+    }
 
 # ---------------------------------------------------------------------------
 # Command Explainer endpoint

@@ -348,6 +348,7 @@ export default function App() {
 
     /* -- Chat state (lives in React only  lost on refresh by design) -- */
     const [chatMessages, setChatMessages] = useState([]);
+    const [conversationSummary, setConversationSummary] = useState('');
     const [triedCommands, setTriedCommands] = useState([]);
     const [pastedImage, setPastedImage] = useState(null);
     const chatTextareaRef = useRef(null);
@@ -666,6 +667,7 @@ export default function App() {
         }
 
         /* Initialize chat with AI hints as first assistant message */
+        setConversationSummary('');
         const hints = resultData.ai_hints || resultData.hints || (data.results && data.results[0]?.ai_hints) || (data.results && data.results[0]?.hints);
         if (hints) {
             setChatMessages([{ role: 'assistant', content: hints }]);
@@ -933,7 +935,7 @@ export default function App() {
             content: text || (pastedImage ? ' [Screenshot attached]' : ''),
             image: pastedImage ? pastedImage.dataUrl : undefined 
         };
-        const updated = [...chatMessages, userMsg].slice(-MAX_CHAT_MESSAGES);
+        const updated = [...chatMessages, userMsg];
         setChatMessages(updated);
         setChatInput('');
         setChatLoading(true);
@@ -951,16 +953,21 @@ export default function App() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages: updated,
+                    message: text || (pastedImage ? ' [Screenshot attached]' : ''),
+                    conversation_history: chatMessages,
                     context: analysisContextRef.current,
                     binary_context: binaryContext,
                     tried_commands: triedCommands,
                     image_base64: imageBase64,
                     image_media_type: imageMediaType,
+                    conversation_summary: conversationSummary,
                 }),
             });
 
             const data = await res.json();
+            if (data.conversation_summary) {
+                setConversationSummary(data.conversation_summary);
+            }
 
             if (!res.ok) {
                 setChatMessages(prev => [
@@ -1053,6 +1060,8 @@ export default function App() {
             }
             const data = await resp.json();
             setSourceResult(data);
+            setConversationSummary('');
+            setSrcChatMessages([]);
 
             /* Build source code chat context — rich enough for line-specific answers */
             const srcCtx = [];
@@ -1092,7 +1101,7 @@ export default function App() {
         const text = srcChatInput.trim();
         if (!text || srcChatLoading) return;
         const userMsg = { role: 'user', content: text };
-        const updated = [...srcChatMessages, userMsg].slice(-MAX_CHAT_MESSAGES);
+        const updated = [...srcChatMessages, userMsg];
         setSrcChatMessages(updated);
         setSrcChatInput('');
         setSrcChatLoading(true);
@@ -1100,9 +1109,19 @@ export default function App() {
             const res = await fetch(`${BACKEND_URL}/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: updated, context: srcChatContextRef.current, ctf_category: srcChatCtfCategoryRef.current, tried_commands: triedCommands }),
+                body: JSON.stringify({
+                    message: text,
+                    conversation_history: srcChatMessages,
+                    context: srcChatContextRef.current,
+                    ctf_category: srcChatCtfCategoryRef.current,
+                    tried_commands: triedCommands,
+                    conversation_summary: conversationSummary,
+                }),
             });
             const data = await res.json();
+            if (data.conversation_summary) {
+                setConversationSummary(data.conversation_summary);
+            }
             if (!res.ok) {
                 setSrcChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${data.detail || 'Something went wrong.'}` }]);
                 return;
@@ -1759,6 +1778,16 @@ export default function App() {
                         {/* -- Chat (always visible) -- */}
                         <div className="bottom-section">
                             <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Follow-up Chat</h3></div>
+                            {conversationSummary && (
+                                <div style={{
+                                    fontSize: '11px', color: '#8b949e', padding: '4px 12px',
+                                    background: '#161b22', borderBottom: '1px solid #21262d',
+                                    display: 'flex', alignItems: 'center', gap: '6px'
+                                }}>
+                                    <span style={{color: '#3fb950'}}>●</span>
+                                    Session context preserved ({chatMessages.length} messages)
+                                </div>
+                            )}
                             <div className="chat-messages" id="chat-messages" style={{ padding: '16px', gap: '16px' }}>
                                 {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i} style={{ padding: '16px' }}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}{msg.role === 'assistant' && msg.response_source === 'cache' && (<span className="response-source-badge response-source-badge--cache" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(46, 160, 67, 0.15)', color: '#3fb950', border: '1px solid rgba(46, 160, 67, 0.4)', display: 'inline-flex', alignItems: 'center' }}>⚡ Instant</span>)}{msg.role === 'assistant' && msg.response_source === 'ai' && (<span className="response-source-badge response-source-badge--ai" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(56, 139, 253, 0.15)', color: '#58a6ff', border: '1px solid rgba(56, 139, 253, 0.4)', display: 'inline-flex', alignItems: 'center' }}>🤖 AI</span>)}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div></div>))}
                                 {chatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
@@ -2203,6 +2232,16 @@ export default function App() {
                         {/* -- Source Code Chat (always visible) -- */}
                         <div className="bottom-section">
                             <div className="bottom-section-header"><span className="bottom-section-icon"></span><h3 className="bottom-section-title">Source Code Chat</h3></div>
+                            {conversationSummary && (
+                                <div style={{
+                                    fontSize: '11px', color: '#8b949e', padding: '4px 12px',
+                                    background: '#161b22', borderBottom: '1px solid #21262d',
+                                    display: 'flex', alignItems: 'center', gap: '6px'
+                                }}>
+                                    <span style={{color: '#3fb950'}}>●</span>
+                                    Session context preserved ({srcChatMessages.length} messages)
+                                </div>
+                            )}
                             <div className="chat-messages" id="src-chat-messages" style={{ padding: '16px', gap: '16px' }}>
                                 {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i} style={{ padding: '16px' }}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}{msg.role === 'assistant' && msg.response_source === 'cache' && (<span className="response-source-badge response-source-badge--cache" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(46, 160, 67, 0.15)', color: '#3fb950', border: '1px solid rgba(46, 160, 67, 0.4)', display: 'inline-flex', alignItems: 'center' }}>⚡ Instant</span>)}{msg.role === 'assistant' && msg.response_source === 'ai' && (<span className="response-source-badge response-source-badge--ai" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(56, 139, 253, 0.15)', color: '#58a6ff', border: '1px solid rgba(56, 139, 253, 0.4)', display: 'inline-flex', alignItems: 'center' }}>🤖 AI</span>)}</span><div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div></div>))}
                                 {srcChatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}

@@ -332,7 +332,7 @@ class TestSecurityMechanisms:
         assert response.status_code in [400, 429]
 
     def test_chat_history_capped(self):
-        messages = [{"role": "user", "content": "hello"}] * 21
+        messages = [{"role": "user", "content": "hello"}] * 52
         payload = {"messages": messages, "context": ""}
         response = client.post("/chat", json=payload)
         if response.status_code != 429:
