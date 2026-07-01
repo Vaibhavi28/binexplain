@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -47,6 +48,21 @@ export default function Contact({ onNavigate }) {
 
     return (
         <div className="contact-container">
+            <Helmet>
+                <title>Contact — BinExplain</title>
+                <meta name="description" content="Get in touch with the creator of BinExplain for bug reports, feature requests, or general feedback." />
+                <link rel="canonical" href="https://binexplain.com/contact" />
+                <script type="application/ld+json">{`
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://binexplain.com"},
+    {"@type": "ListItem", "position": 2, "name": "Contact", "item": "https://binexplain.com/contact"}
+  ]
+}
+                `}</script>
+            </Helmet>
             {/* Back link */}
             <a href="#/" onClick={handleBackClick} className="contact-back-link">
                 &larr; Back to Analyzer

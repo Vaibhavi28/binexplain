@@ -63,6 +63,64 @@ export default function Docs({ onNavigate }) {
                 <title>Documentation — BinExplain</title>
                 <meta name="description" content="Learn how to use BinExplain. Supported file formats, how to interpret CTF category results, AI features, and troubleshooting guide." />
                 <link rel="canonical" href="https://binexplain.com/docs" />
+                <script type="application/ld+json">{`
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is BinExplain?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "BinExplain is a free, browser-based tool that analyzes binary files for CTF (Capture The Flag) challenges. It detects the CTF exploitation category, finds ROP gadgets, predicts buffer overflow offsets, and generates a pre-filled pwntools exploit template."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is BinExplain free to use?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, BinExplain is completely free for individual use. No account or installation required."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What file types does BinExplain support?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "BinExplain supports ELF binaries, PE executables, extensionless files, ZIP archives including password-protected ones, and source code in C, C++, Python, JavaScript, Rust, and Go."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does BinExplain execute uploaded binaries?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. BinExplain performs static analysis only and never executes uploaded files. Files are deleted immediately after analysis."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What CTF categories does BinExplain detect?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "BinExplain classifies binaries into six CTF exploitation categories: ret2win, ret2libc, format string, heap exploitation, ROP chain, and shellcode."
+      }
+    }
+  ]
+}
+                `}</script>
+                <script type="application/ld+json">{`
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://binexplain.com"},
+    {"@type": "ListItem", "position": 2, "name": "Documentation", "item": "https://binexplain.com/docs"}
+  ]
+}
+                `}</script>
             </Helmet>
             {/* Left Sidebar Navigation */}
             <aside className="docs-sidebar">

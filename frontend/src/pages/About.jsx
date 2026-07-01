@@ -17,6 +17,16 @@ export default function About({ onNavigate }) {
                 <title>About — BinExplain</title>
                 <meta name="description" content="BinExplain was built by a master's student who got tired of staring at binaries with no idea where to start. Learn the story behind the tool." />
                 <link rel="canonical" href="https://binexplain.com/about" />
+                <script type="application/ld+json">{`
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://binexplain.com"},
+    {"@type": "ListItem", "position": 2, "name": "About", "item": "https://binexplain.com/about"}
+  ]
+}
+                `}</script>
             </Helmet>
             {/* Back to main tool */}
             <a href="#/" onClick={handleBackClick} className="about-back-link">

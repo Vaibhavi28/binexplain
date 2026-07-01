@@ -1177,6 +1177,27 @@ export default function App() {
                 <meta name="twitter:title" content="BinExplain — Free CTF Binary Analysis" />
                 <meta name="twitter:description" content="AI-powered binary analysis for CTF beginners. Free, no install." />
                 <link rel="canonical" href="https://binexplain.com" />
+                <script type="application/ld+json">{`
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "BinExplain",
+  "applicationCategory": "SecurityApplication",
+  "operatingSystem": "Any (Web Browser)",
+  "description": "Free AI-powered binary analysis tool for CTF beginners. Upload a binary and get instant CTF category detection, ROP gadgets, pwntools template generation, and AI-powered exploitation hints.",
+  "url": "https://binexplain.com",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Vaibhavi Sanjay Kathepuri"
+  },
+  "keywords": "ctf binary analysis, pwntools template generator, binary exploitation tool, checksec online, rop gadgets finder, format string exploit, reverse engineering tool, ctf tool free"
+}
+                `}</script>
             </Helmet>
             <TopNav />
             <div className="content-wrapper" style={{ paddingTop: '72px' }}>

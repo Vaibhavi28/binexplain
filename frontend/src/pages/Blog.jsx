@@ -79,6 +79,16 @@ export default function Blog({ onNavigate }) {
                 <title>Blog — BinExplain</title>
                 <meta name="description" content="Articles about binary exploitation, CTF challenges, and cybersecurity education. Written by the creator of BinExplain." />
                 <link rel="canonical" href="https://binexplain.com/blog" />
+                <script type="application/ld+json">{`
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://binexplain.com"},
+    {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://binexplain.com/blog"}
+  ]
+}
+                `}</script>
             </Helmet>
             {/* Back link */}
             <a href="#/" onClick={handleBackClick} className="blog-back-link">
