@@ -1,10 +1,13 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import About from './pages/About.jsx';
-import Docs from './pages/Docs.jsx';
-import Blog from './pages/Blog.jsx';
-import Contact from './pages/Contact.jsx';
+
+const About = lazy(() => import('./pages/About.jsx'));
+const Docs = lazy(() => import('./pages/Docs.jsx'));
+const Blog = lazy(() => import('./pages/Blog.jsx'));
+const Contact = lazy(() => import('./pages/Contact.jsx'));
+const Privacy = lazy(() => import('./pages/Privacy.jsx'));
+
 import { buildBinaryContext } from './utils/buildBinaryContext';
 import CommandBlock from './components/CommandBlock';
 import { extractCommandsFromHistory, extractFailedCommands } from './utils/commandTracker';
@@ -1207,20 +1210,33 @@ export default function App() {
                     src="/banner.png"
                     alt="BinExplain — Free AI-Powered Binary Analysis for CTF Beginners"
                     className="homepage-banner-img"
+                    width="960"
+                    height="480"
+                    loading="eager"
                     onError={(e) => { e.target.style.display = 'none' }}
                   />
                 </div>
 
                 {route === 'about' ? (
-                    <About onNavigate={navigate} />
+                    <Suspense fallback={<div style={{padding: '40px', textAlign: 'center', color: '#8b949e'}}>Loading...</div>}>
+                        <About onNavigate={navigate} />
+                    </Suspense>
                 ) : route === 'docs' ? (
-                    <Docs onNavigate={navigate} />
+                    <Suspense fallback={<div style={{padding: '40px', textAlign: 'center', color: '#8b949e'}}>Loading...</div>}>
+                        <Docs onNavigate={navigate} />
+                    </Suspense>
                 ) : route === 'blog' ? (
-                    <Blog onNavigate={navigate} />
+                    <Suspense fallback={<div style={{padding: '40px', textAlign: 'center', color: '#8b949e'}}>Loading...</div>}>
+                        <Blog onNavigate={navigate} />
+                    </Suspense>
                 ) : route === 'contact' ? (
-                    <Contact onNavigate={navigate} />
+                    <Suspense fallback={<div style={{padding: '40px', textAlign: 'center', color: '#8b949e'}}>Loading...</div>}>
+                        <Contact onNavigate={navigate} />
+                    </Suspense>
                 ) : route === 'privacy' ? (
-                    <Privacy onNavigate={navigate} />
+                    <Suspense fallback={<div style={{padding: '40px', textAlign: 'center', color: '#8b949e'}}>Loading...</div>}>
+                        <Privacy onNavigate={navigate} />
+                    </Suspense>
                 ) : (
                     <>
                         {/* -- Title -- */}
