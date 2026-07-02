@@ -36,6 +36,8 @@ function formatBytes(bytes) {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+const cvssC = (s) => s === 'Critical' ? '#ef4444' : s === 'High' ? '#f97316' : s === 'Medium' ? '#eab308' : '#22c55e';
+
 function getExtension(name) {
     if (!name) return '';
     const dot = name.lastIndexOf('.');
@@ -1553,7 +1555,6 @@ export default function App() {
 
                 {/* *** Binary Results *** */}
                 {analysisMode === 'binary' && result && (() => {
-                    const cvssC = (s) => s === 'Critical' ? '#ef4444' : s === 'High' ? '#f97316' : s === 'Medium' ? '#eab308' : '#22c55e';
                     const om = (title, icon, accent, content) => openModal({ title, icon, accent, content });
                     return (
                     <>
