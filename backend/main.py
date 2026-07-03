@@ -264,6 +264,7 @@ SOURCE_CODE_EXTENSIONS: set[str] = {
 
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODELS = ["llama3.2", "qwen2.5-coder", "qwen2.5"]
+ENABLE_OLLAMA = os.environ.get("ENABLE_OLLAMA", "false").lower() == "true"
 
 # ---------------------------------------------------------------------------
 # Provider cooldown tracking (30-second window per provider after rate limit)
@@ -5686,42 +5687,81 @@ async def call_ai_with_fallback(
     binary_context: dict = None,
     tried_commands: list = None
 ) -> str:
-    # ── Provider 1: Groq (free, fast) ───────────────────────────────────
+    """
+    Call AI providers in a fallback chain.
+    Order: Groq → Nemotron → Gemini → OpenAI → Ollama (if enabled) → Claude (last resort)
+    """
+    # ── Pass 1: High-quality pass ─────────────────────────────────────
+    # We try each provider in order. If a provider returns a result that
+    # is NOT low quality (i.e. satisfies the quality gate), we return it.
+    # Otherwise, if it returns a response, we keep it as a fallback, but continue.
+    first_low_quality: tuple[str, str] = None  # (provider_name, response_text)
+
+    # 1. Groq
     groq_result = _try_groq(messages=messages, system_prompt=system_prompt)
     if groq_result:
-        logger.info("[BinExplain] call_ai_with_fallback: Groq succeeded")
-        return groq_result
+        if not is_low_quality_response(groq_result):
+            logger.info("[BinExplain] call_ai_with_fallback: Groq succeeded (quality pass)")
+            return groq_result
+        elif not first_low_quality:
+            first_low_quality = ("Groq", groq_result)
 
-    # ── Provider 2: Nemotron ──────────────────────────────────────────
+    # 2. Nemotron
     nemotron_result = _try_nemotron(prompt=messages, system=system_prompt)
     if nemotron_result:
-        logger.info("[BinExplain] call_ai_with_fallback: Nemotron succeeded")
-        return nemotron_result
+        if not is_low_quality_response(nemotron_result):
+            logger.info("[BinExplain] call_ai_with_fallback: Nemotron succeeded (quality pass)")
+            return nemotron_result
+        elif not first_low_quality:
+            first_low_quality = ("Nemotron", nemotron_result)
 
-    # ── Provider 3: Gemini ────────────────────────────────────────────
+    # 3. Gemini
     gemini_result = _try_gemini(messages=messages, system_prompt=system_prompt)
     if gemini_result:
-        logger.info("[BinExplain] call_ai_with_fallback: Gemini succeeded")
-        return gemini_result
+        if not is_low_quality_response(gemini_result):
+            logger.info("[BinExplain] call_ai_with_fallback: Gemini succeeded (quality pass)")
+            return gemini_result
+        elif not first_low_quality:
+            first_low_quality = ("Gemini", gemini_result)
 
-    # ── Provider 4: OpenAI GPT-4o-mini ────────────────────────────────
+    # 4. OpenAI
     openai_result = _try_openai(messages=messages, system_prompt=system_prompt)
     if openai_result:
-        logger.info("[BinExplain] call_ai_with_fallback: OpenAI succeeded")
-        return openai_result
+        if not is_low_quality_response(openai_result):
+            logger.info("[BinExplain] call_ai_with_fallback: OpenAI succeeded (quality pass)")
+            return openai_result
+        elif not first_low_quality:
+            first_low_quality = ("OpenAI", openai_result)
 
-    # ── Provider 5: Ollama multi-turn chat ────────────────────────────
-    ollama_messages = [{"role": "system", "content": system_prompt}] + messages
-    ollama_result = _try_ollama_chat(ollama_messages)
-    if ollama_result:
-        logger.info("[BinExplain] call_ai_with_fallback: Ollama succeeded")
-        return ollama_result
+    # 5. Ollama
+    if ENABLE_OLLAMA:
+        ollama_messages = [{"role": "system", "content": system_prompt}] + messages
+        ollama_result = _try_ollama_chat(ollama_messages)
+        if ollama_result:
+            if not is_low_quality_response(ollama_result):
+                logger.info("[BinExplain] call_ai_with_fallback: Ollama succeeded (quality pass)")
+                return ollama_result
+            elif not first_low_quality:
+                first_low_quality = ("Ollama", ollama_result)
+    else:
+        logger.debug("[BinExplain] Ollama skipped (ENABLE_OLLAMA=false)")
 
-    # ── Provider 6: Claude (last resort) ──────────────────────────────
+    # 6. Claude
     claude_result = _try_claude(messages=messages, system_prompt=system_prompt)
     if claude_result:
-        logger.info("[BinExplain] call_ai_with_fallback: Claude succeeded")
-        return claude_result
+        if not is_low_quality_response(claude_result):
+            logger.info("[BinExplain] call_ai_with_fallback: Claude succeeded (quality pass)")
+            return claude_result
+        elif not first_low_quality:
+            first_low_quality = ("Claude", claude_result)
+
+    # ── Pass 2: Degraded fallback ─────────────────────────────────────
+    # If we reached here, no provider returned a high-quality response.
+    # If we have a cached low-quality response, use it (all providers degraded).
+    if first_low_quality:
+        prov, res = first_low_quality
+        logger.info(f"[BinExplain] call_ai_with_fallback: {prov} succeeded (all providers degraded)")
+        return res
 
     raise HTTPException(
         status_code=503,
@@ -5748,8 +5788,9 @@ async def chat(request: Request, body: ChatRequest):
     Conversational follow-up endpoint.
 
     Accepts the full conversation history from the client (nothing is stored
-    server-side) plus the initial analysis context, forwards to Anthropic
-    Claude (with Ollama fallback), and returns a single AI response.
+    server-side) plus the initial analysis context, forwards to AI providers
+    in the order: Groq → Nemotron → Gemini → OpenAI → Ollama (if enabled) → Claude (last resort),
+    and returns a single AI response.
     """
     if body.image_base64:
         import base64
