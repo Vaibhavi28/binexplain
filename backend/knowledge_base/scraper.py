@@ -94,7 +94,7 @@ def calculate_writeup_quality(content: str) -> tuple:
             score += penalty
 
     score = min(max(score, 0.0), 1.0)
-    MINIMUM_SCORE = 0.20
+    MINIMUM_SCORE = 0.10
     is_quality = score >= MINIMUM_SCORE
     reason = f"Score {score:.2f}, signals: {', '.join(signals_found[:5])}"
     return is_quality, score, reason
@@ -1220,5 +1220,31 @@ QUALITY_SCORE: {quality_score:.2f}
 
 
 if __name__ == "__main__":
-    scraper = WriteupScraper()
-    scraper.run()
+    import time as _time
+    pass_number = 0
+    while True:
+        pass_number += 1
+        print(f"\n{'='*60}")
+        print(f"[Scraper] Starting pass #{pass_number}")
+        print(f"{'='*60}")
+        scraper = WriteupScraper()
+        total = scraper.get_current_total()
+        if total >= MAX_TOTAL_WRITEUPS:
+            print(f"[Scraper] KB complete: {total}/{MAX_TOTAL_WRITEUPS}. Exiting.")
+            break
+        scraper.run()
+        total_after = scraper.get_current_total()
+        print(f"\n[Scraper] Pass #{pass_number} complete.")
+        print(f"[Scraper] Total writeups: {total_after}/{MAX_TOTAL_WRITEUPS}")
+        if total_after >= MAX_TOTAL_WRITEUPS:
+            print(f"[Scraper] Global cap reached. Exiting.")
+            break
+        if total_after == total:
+            print(f"[Scraper] No new writeups found in this pass.")
+            print(f"[Scraper] All sources exhausted or all categories full.")
+            print(f"[Scraper] Sleeping 300s before retrying...")
+            _time.sleep(300)
+        else:
+            print(f"[Scraper] Added {total_after - total} writeups this pass.")
+            print(f"[Scraper] Sleeping 60s before next pass...")
+            _time.sleep(60)
