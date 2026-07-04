@@ -516,8 +516,25 @@ QUALITY_SCORE: {quality_score:.2f}
             category_clean = 'others'
 
         if category_clean == 'others':
-            print(f'[Scraper] Skipping: not related to defined categories')
-            return
+            # Check if content has at least 2 pwn signals before skipping
+            pwn_signals = [
+                'overflow', 'exploit', 'binary', 'pwn', 'rop',
+                'shellcode', 'payload', 'pwntools', 'gdb', 'checksec',
+                'buffer', 'stack', 'heap', 'libc', 'got', 'plt',
+                'segfault', 'address', 'memory', 'vulnerability', 'bypass'
+            ]
+            pwn_signal_count = sum(
+                1 for sig in pwn_signals if sig in text.lower()
+            )
+            if pwn_signal_count >= 2:
+                # Save into rop_chain as general pwn bucket
+                category_clean = 'rop_chain'
+                print(f'[Scraper] Reclassified to rop_chain '
+                      f'({pwn_signal_count} pwn signals found)')
+            else:
+                print(f'[Scraper] Skipping: not pwn related '
+                      f'({pwn_signal_count} pwn signals)')
+                return
 
         target_dir = os.path.join(self.walkthroughs_dir, category_clean)
         os.makedirs(target_dir, exist_ok=True)
@@ -938,7 +955,8 @@ QUALITY_SCORE: {quality_score:.2f}
             print("\nSTEP B: Scraping CTFtime.org...")
             ctftime_links = []
             page = 1
-            while len(ctftime_links) < 40 and page <= 5:
+            # ctftime_links < 150
+            while len(ctftime_links) < 150 and page <= 15:
                 url = f"https://ctftime.org/writeups?page={page}"
                 try:
                     time.sleep(SLEEP_WEB)
@@ -1226,25 +1244,26 @@ if __name__ == "__main__":
         pass_number += 1
         print(f"\n{'='*60}")
         print(f"[Scraper] Starting pass #{pass_number}")
-        print(f"{'='*60}")
+        print(f"{'='*60}\n")
         scraper = WriteupScraper()
-        total = scraper.get_current_total()
-        if total >= MAX_TOTAL_WRITEUPS:
-            print(f"[Scraper] KB complete: {total}/{MAX_TOTAL_WRITEUPS}. Exiting.")
+        total_before = scraper.get_current_total()
+        if total_before >= MAX_TOTAL_WRITEUPS:
+            print(f"[Scraper] KB complete: {total_before}/{MAX_TOTAL_WRITEUPS}. Exiting.")
             break
         scraper.run()
         total_after = scraper.get_current_total()
+        added = total_after - total_before
         print(f"\n[Scraper] Pass #{pass_number} complete.")
-        print(f"[Scraper] Total writeups: {total_after}/{MAX_TOTAL_WRITEUPS}")
+        print(f"[Scraper] Added: {added} writeups")
+        print(f"[Scraper] Total: {total_after}/{MAX_TOTAL_WRITEUPS}")
         if total_after >= MAX_TOTAL_WRITEUPS:
             print(f"[Scraper] Global cap reached. Exiting.")
             break
-        if total_after == total:
-            print(f"[Scraper] No new writeups found in this pass.")
-            print(f"[Scraper] All sources exhausted or all categories full.")
+        if added == 0:
+            print(f"[Scraper] No new writeups this pass.")
+            print(f"[Scraper] Sources may be exhausted or rate limiting.")
             print(f"[Scraper] Sleeping 300s before retrying...")
             _time.sleep(300)
         else:
-            print(f"[Scraper] Added {total_after - total} writeups this pass.")
             print(f"[Scraper] Sleeping 60s before next pass...")
             _time.sleep(60)
