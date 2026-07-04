@@ -647,7 +647,6 @@ export default function App() {
     const handleAnalysisResponse = (data) => {
         setRateLimitSeconds(0);
         setFeedbackGiven(null);
-        setExplainLog([]);
         setZipSourceBanner(null);
         
         let resultData;

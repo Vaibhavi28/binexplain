@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { GLOSSARY } from '../data/glossary';
 
 const GlossaryTooltip = ({ children, term }) => {
@@ -6,19 +6,37 @@ const GlossaryTooltip = ({ children, term }) => {
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef(null);
   const tooltipRef = useRef(null);
+
   const data = GLOSSARY[term.toLowerCase()];
   if (!data) return <>{children}</>;
 
-  const handleMouseEnter = () => {
+  const updatePosition = () => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    const scrollY = window.scrollY || document.documentElement.scrollTop;
-    const scrollX = window.scrollX || document.documentElement.scrollLeft;
+    const tooltipWidth = 360;
+    const tooltipEstimatedHeight = 220;
 
-    setPosition({
-      top: rect.bottom + scrollY + 8,
-      left: Math.max(8, rect.left + scrollX - 100),
-    });
+    // Use fixed positioning — escapes all overflow:hidden parents
+    let top = rect.bottom + 8;
+    let left = rect.left - 100;
+
+    // Clamp to viewport edges
+    if (left + tooltipWidth > window.innerWidth - 8) {
+      left = window.innerWidth - tooltipWidth - 8;
+    }
+    if (left < 8) left = 8;
+
+    // Flip above if it would go off screen bottom
+    if (top + tooltipEstimatedHeight > window.innerHeight - 8) {
+      top = rect.top - tooltipEstimatedHeight - 8;
+    }
+    if (top < 8) top = 8;
+
+    setPosition({ top, left });
+  };
+
+  const handleMouseEnter = () => {
+    updatePosition();
     setVisible(true);
   };
 
@@ -26,6 +44,14 @@ const GlossaryTooltip = ({ children, term }) => {
     if (tooltipRef.current && tooltipRef.current.contains(e.relatedTarget)) return;
     setVisible(false);
   };
+
+  // Hide on scroll so the tooltip doesn't drift
+  useEffect(() => {
+    if (!visible) return;
+    const hide = () => setVisible(false);
+    window.addEventListener('scroll', hide, true);
+    return () => window.removeEventListener('scroll', hide, true);
+  }, [visible]);
 
   return (
     <>
@@ -48,15 +74,15 @@ const GlossaryTooltip = ({ children, term }) => {
           ref={tooltipRef}
           onMouseLeave={() => setVisible(false)}
           style={{
-            position: 'absolute',
+            position: 'fixed',
             top: position.top,
             left: position.left,
-            zIndex: 9999,
+            zIndex: 99999,
             width: '360px',
             background: '#161b22',
             border: '1px solid #388bfd',
             borderRadius: '10px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
             padding: '16px',
             pointerEvents: 'auto',
           }}

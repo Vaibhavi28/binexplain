@@ -55,5 +55,8 @@ backend/logs/*.log
 cache/hints.db
 
 # Scraped walkthrough files — runtime-generated, never commit
-knowledge_base/walkthroughs/
-**/walkthroughs/*.txt
+backend/knowledge_base/walkthroughs/
+**/walkthroughs/
+
+# Content dedup hashes — machine specific
+backend/knowledge_base/content_hashes.json
