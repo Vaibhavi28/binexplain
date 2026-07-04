@@ -734,7 +734,28 @@ QUALITY_SCORE: {quality_score:.2f}
             return
 
         print("\n[Scraper] Searching GitHub for ctf-writeups and pwn-writeups...")
-        queries = ["ctf-writeups", "pwn-writeups", "ctf-pwn", "pwn-writeup", "binary-exploitation-writeups", "heap-exploitation-writeups", "how2heap", "pwnable-writeups", "pwnable-kr", "pwnable-tw", "protostar-writeups", "exploit-education", "buffer-overflow-writeups"]
+        queries = [
+            "ctf-writeups pwn",
+            "pwn-writeups binary exploitation",
+            "binary-exploitation-writeups",
+            "heap-exploitation-writeups",
+            "buffer-overflow-ctf writeup",
+            "format-string-exploit writeup",
+            "ret2libc writeup",
+            "rop-chain-writeup",
+            "pwntools ctf writeup",
+            "ctf pwn challenge writeup",
+            "pwnable writeup exploit",
+            "stack-overflow-exploit writeup",
+            "how2heap exploitation",
+            "tcache-poisoning writeup",
+            "use-after-free ctf",
+            "got-overwrite writeup",
+            "shellcode-injection ctf",
+            "canary-bypass writeup",
+            "pie-bypass exploit writeup",
+            "sigreturn-oriented-programming writeup",
+        ]
         for q in queries:
             if self.get_current_total() >= MAX_TOTAL_WRITEUPS:
                 print(f"[Scraper] Total cap reached. Stopping.")
@@ -746,7 +767,7 @@ QUALITY_SCORE: {quality_score:.2f}
                 if r.status_code != 200:
                     print(f"GitHub search failed: {r.status_code}")
                     continue
-                repos = r.json().get("items", [])[:25]
+                repos = r.json().get("items", [])[:15]
                 for repo_item in repos:
                     owner = repo_item["owner"]["login"]
                     repo_name = repo_item["name"]
@@ -1254,15 +1275,13 @@ if __name__ == "__main__":
         total_after = scraper.get_current_total()
         added = total_after - total_before
         print(f"\n[Scraper] Pass #{pass_number} complete.")
-        print(f"[Scraper] Added: {added} writeups")
+        print(f"[Scraper] Added: {added} writeups this pass")
         print(f"[Scraper] Total: {total_after}/{MAX_TOTAL_WRITEUPS}")
         if total_after >= MAX_TOTAL_WRITEUPS:
             print(f"[Scraper] Global cap reached. Exiting.")
             break
         if added == 0:
-            print(f"[Scraper] No new writeups this pass.")
-            print(f"[Scraper] Sources may be exhausted or rate limiting.")
-            print(f"[Scraper] Sleeping 300s before retrying...")
+            print(f"[Scraper] No new writeups. Sleeping 300s...")
             _time.sleep(300)
         else:
             print(f"[Scraper] Sleeping 60s before next pass...")
