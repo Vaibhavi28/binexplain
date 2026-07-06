@@ -28,22 +28,25 @@ def test_calculate_writeup_quality():
     assert score == 0.0
 
     # Long but low quality (no signals)
-    long_low_text = " ".join(["hello world"] * 160)
+    long_low_text = " ".join(["hello world"] * 200)
     is_q, score, reason = calculate_writeup_quality(long_low_text)
     assert not is_q
     assert score < 0.20
 
-    # High quality (contains signals and is long enough)
-    high_quality_text = " ".join(["exploit"] * 10) + " " + \
-                        " ".join(["pwntools"] * 10) + " " + \
-                        " ".join(["rop"] * 10) + " " + \
-                        " ".join(["gdb"] * 10) + " " + \
-                        " ".join(["payload"] * 10) + " " + \
-                        " ".join(["p64(0x400500)"] * 110)
-    
+    # High quality (contains signals and is long enough — >300 words)
+    high_quality_text = (
+        " ".join(["exploit"] * 20) + " " +
+        " ".join(["pwntools"] * 20) + " " +
+        " ".join(["rop"] * 20) + " " +
+        " ".join(["gdb"] * 20) + " " +
+        " ".join(["payload"] * 20) + " " +
+        " ".join(["p64(0x400500)"] * 210)
+    )
+
     is_q, score, reason = calculate_writeup_quality(high_quality_text)
     assert is_q
-    assert score >= 0.20
+    assert score >= 0.25
+
 
 def test_is_duplicate_content():
     with tempfile.TemporaryDirectory() as tmpdir:

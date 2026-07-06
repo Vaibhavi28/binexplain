@@ -53,26 +53,14 @@ class WriteupLiveSearch:
         return sanitized.strip("_").lower()
 
     def _detect_category(self, text: str) -> str:
-        """Mirror the category detection logic from scraper.py."""
-        t = text.lower()
-        if "ret2win" in t or "win function" in t or "flag function" in t:
-            return "ret2win"
-        if "ret2libc" in t or (
-            "system()" in t and "overflow" in t
-        ) or ("/bin/sh" in t and "overflow" in t):
-            return "ret2libc"
-        if "format string" in t or "%p" in t or "%n" in t or "printf exploit" in t:
-            return "format_string"
-        if (
-            "heap" in t or "tcache" in t or "uaf" in t
-            or "use after free" in t or "double free" in t
-        ):
-            return "heap_exploitation"
-        if "rop" in t or "rop chain" in t or "gadget" in t or "ropgadget" in t:
-            return "rop_chain"
-        if "shellcode" in t or "msfvenom" in t or "pwntools shellcraft" in t:
-            return "shellcode"
-        return "other"
+        """Use the shared scoring-based detector from scraper.py."""
+        try:
+            from knowledge_base.scraper import detect_category_from_text
+        except ImportError:
+            from scraper import detect_category_from_text
+        cat = detect_category_from_text(text)
+        # Map 'unknown' to 'rop_chain' as a safe generic pwn bucket
+        return cat if cat != 'unknown' else 'rop_chain'
 
     def _detect_difficulty(self, text: str) -> str:
         t = text.lower()
@@ -245,22 +233,41 @@ class WriteupLiveSearch:
                     continue
 
                 snippet = self._extract_best_snippet(page_text)
-                safe_url = self._sanitize_filename(url)[:80]
-                fname = f"{filename_prefix}_{safe_url}.txt"
-                fpath = os.path.join(self.walkthroughs_dir, fname)
-
-                # Skip if we already have this file
-                if os.path.exists(fpath):
-                    continue
-
                 challenge = item.get("title", binary_name) or binary_name
                 content = self._build_file_content(url, challenge, snippet)
+
+                # Derive the category from content so we can pick the right subfolder
+                category = self._detect_category(snippet)
+                KNOWN_CATEGORIES = [
+                    "ret2win", "ret2libc", "format_string", "rop_chain",
+                    "heap_exploitation", "shellcode", "ret2plt", "got_overwrite",
+                    "ret2csu", "srop", "fastbin_dup", "tcache_poisoning",
+                    "use_after_free", "one_gadget", "canary_bypass", "pie_bypass",
+                    "off_by_one", "stack_pivot", "integer_overflow", "seccomp_bypass",
+                    "house_of_force", "house_of_spirit", "house_of_orange",
+                    "unsorted_bin_attack",
+                ]
+                category_dir = category if category in KNOWN_CATEGORIES else "rop_chain"
+                save_dir = os.path.join(self.walkthroughs_dir, category_dir)
+                os.makedirs(save_dir, exist_ok=True)
+
+                safe_url = self._sanitize_filename(url)[:80]
+                fname = f"{filename_prefix}_{safe_url}.txt"
+                fpath = os.path.join(save_dir, fname)
+
+                # Skip if we already have this file (check new path)
+                if os.path.exists(fpath):
+                    continue
+                # Also skip if an old root-level copy exists (migration guard)
+                old_fpath = os.path.join(self.walkthroughs_dir, fname)
+                if os.path.exists(old_fpath):
+                    continue
 
                 try:
                     with open(fpath, "w", encoding="utf-8") as f:
                         f.write(content)
                     saved += 1
-                    print(f"[LiveSearch] Saved: {fname}")
+                    print(f"[LiveSearch] Saved: {category_dir}/{fname}")
                 except Exception as exc:
                     print(f"[LiveSearch] Could not write {fname}: {exc}")
 

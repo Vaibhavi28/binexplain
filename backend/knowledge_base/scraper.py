@@ -131,7 +131,10 @@ except ImportError:
         from backend.knowledge_base.technique_tags import extract_technique_tags
 
 # Reconfigure stdout to use UTF-8 on Windows to prevent encoding errors when printing to console
-sys.stdout.reconfigure(encoding='utf-8')
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except Exception:
+    pass
 
 import re as _re
 
