@@ -6,31 +6,40 @@
 
 [![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-binexplain.com-brightgreen?style=for-the-badge)](https://binexplain.com)
 [![License: CC BY-NC-ND 4.0](https://img.shields.io/badge/License-CC_BY--NC--ND_4.0-lightgrey?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-230+_passing-brightgreen?style=for-the-badge&logo=pytest&logoColor=white)](backend/tests)
+[![Tests](https://img.shields.io/badge/Tests-230%2B_passing-brightgreen?style=for-the-badge&logo=pytest&logoColor=white)](backend/tests)
 [![GitHub Stars](https://img.shields.io/github/stars/Vaibhavi28/binexplain?style=for-the-badge&logo=github&logoColor=white&color=yellow)](https://github.com/Vaibhavi28/binexplain/stargazers)
 [![Last Commit](https://img.shields.io/github/last-commit/Vaibhavi28/binexplain?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Vaibhavi28/binexplain/commits/master)
 
+---
+
 ### Tech Stack
-[![Python](https://img.shields.io/badge/Python_3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org)
-[![ChromaDB](https://img.shields.io/badge/ChromaDB-RAG_Pipeline-orange?style=for-the-badge)](https://trychroma.com)
-[![Google Cloud](https://img.shields.io/badge/GCP-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white)](https://cloud.google.com)
+
+![Python](https://img.shields.io/badge/Python_3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![ChromaDB](https://img.shields.io/badge/ChromaDB-RAG_Pipeline-orange?style=for-the-badge)
+![GCP](https://img.shields.io/badge/GCP-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white)
 
 ### AI Providers
-[![Groq](https://img.shields.io/badge/Groq-F55036?style=for-the-badge)](https://groq.com)
-[![NVIDIA](https://img.shields.io/badge/Nemotron_3_Ultra-76B900?style=for-the-badge&logo=nvidia&logoColor=white)](https://openrouter.ai)
-[![Gemini](https://img.shields.io/badge/Gemini_2.5_Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://aistudio.google.com)
-[![OpenAI](https://img.shields.io/badge/GPT--4o_mini-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com)
-[![Anthropic](https://img.shields.io/badge/Claude-D97757?style=for-the-badge&logo=anthropic&logoColor=white)](https://anthropic.com)
 
-**Upload a binary → Instant CTF category, disassembly, ROP gadgets,
-pwntools template, parallel AI hints, interactive glossary**
+![Groq](https://img.shields.io/badge/Groq-F55036?style=for-the-badge)
+![NVIDIA](https://img.shields.io/badge/Nemotron_Ultra-76B900?style=for-the-badge&logo=nvidia&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini_2.5_Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)
+![OpenAI](https://img.shields.io/badge/GPT--4o_mini-412991?style=for-the-badge&logo=openai&logoColor=white)
+![Anthropic](https://img.shields.io/badge/Claude-D97757?style=for-the-badge&logo=anthropic&logoColor=white)
+
+---
+
+**Upload a binary → Instant CTF category, disassembly, ROP gadgets, pwntools template, parallel AI hints**
 
 **No installation. No account. Always free for individual use.**
 
-> ⚠️ **License:** Source-available under CC BY-NC-ND 4.0.
-> Use the live tool freely. Cloning and redistribution are not permitted.
+[🚀 **Try it at binexplain.com**](https://binexplain.com) · [⭐ Star on GitHub](https://github.com/Vaibhavi28/binexplain) · [🐛 Report a Bug](https://github.com/Vaibhavi28/binexplain/issues)
+
+> ⚠️ **License Notice:** Source-available under CC BY-NC-ND 4.0.
+> You may use the live tool and view the code freely.
+> Cloning, forking, and redistribution are **not** permitted.
+> See [LICENSE](LICENSE) for full terms.
 
 </div>
 
@@ -38,78 +47,64 @@ pwntools template, parallel AI hints, interactive glossary**
 
 ## What Problem Does This Solve
 
-Every CTF beginner downloads their first binary and has no idea what to
-do next. Professional tools cost hundreds of dollars or assume you already
-know assembly. No free tool tells you what the analysis MEANS or what to
-do next.
+Every CTF beginner downloads their first binary and has no idea what to do next. Professional tools like Ghidra cost hundreds of dollars or assume expert knowledge. No free tool explains what the analysis **means** or tells you what to do next.
 
-BinExplain does something different. It acts like a senior CTF player
-sitting next to you. Upload a binary and within seconds you know what
-type of challenge it is, how hard it is, what ROP gadgets are available,
-and what to do next — with AI hints grounded in 5000+ real CTF writeups.
+**BinExplain acts like a senior CTF player sitting next to you.**
 
 ---
 
 ## Features
 
 ### Binary Analysis
-| Feature | Details |
-|---------|---------|
-| 🎯 CTF Category Detection | ret2win, ret2libc, heap, format string, ROP chain, shellcode — with confidence level |
-| 🎲 Difficulty Predictor | Easy / Medium / Hard based on active protections |
-| 🔒 Checksec Integration | NX, PIE, Canary, RELRO, Fortify — explained in plain English |
-| 🔗 ROP Gadget Finder | Real gadgets with addresses via Capstone disassembly |
-| ⚡ Pwntools Template | Auto-generated with offset, architecture, gadgets pre-filled |
-| 📐 Overflow Offset Predictor | Predicted from stack allocation instructions |
-| 📚 Libc Version Identifier | Identifies libc + direct link to libc database |
-| ⚠️ Format String Detector | Detects printf(buf) pattern |
-| 📊 CVSS 3.1 Scoring | Industry standard vulnerability scoring |
-| 🌊 Data Flow Analysis | Traces input → buffer → sink with addresses |
-| 📜 Function List | All functions from ELF symbol table |
-| 📥 Import/Export Table | Full dynamic symbol parsing |
-| 🔍 Real Disassembly | main() function via Capstone |
-| 🔐 Password ZIP Support | Analyze encrypted CTF archives |
-| 🚩 11 Flag Formats | picoCTF, HTB, THM, DUCTF, and more |
-| 📦 8+ File Formats | ELF, EXE, BIN, SO, DLL, ZIP + extensionless |
 
-### Source Code Analysis (Full Feature Parity)
 | Feature | Details |
 |---------|---------|
-| 🎯 CTF Category Detection | Same 6 archetypes, source-adapted |
-| 📐 Overflow Offset | From buffer declarations — more precise than binary |
-| 🌊 Data Flow Analysis | Line-level with actual variable names |
-| 💡 Exploit Template | Working pwntools script from source analysis |
-| 📋 Quick Commands | Compilation and testing commands for source |
+| 🎯 **CTF Category Detection** | ret2win, ret2libc, heap, format string, ROP chain, shellcode — with confidence level |
+| 🎲 **Difficulty Predictor** | Easy / Medium / Hard based on active protections |
+| 🔒 **Checksec Integration** | NX, PIE, Canary, RELRO, Fortify — explained in plain English |
+| 🔗 **ROP Gadget Finder** | Real gadgets with addresses via Capstone disassembly |
+| ⚡ **Pwntools Template** | Auto-generated with offset, architecture, and gadgets pre-filled |
+| 📐 **Overflow Offset Predictor** | Predicted from stack allocation instructions in disassembly |
+| 📚 **Libc Version Identifier** | Identifies libc version + direct link to libc database |
+| ⚠️ **Format String Detector** | Detects printf(buf) pattern |
+| 📊 **CVSS 3.1 Scoring** | Industry standard vulnerability scoring |
+| 🌊 **Data Flow Analysis** | Traces input → buffer → sink with addresses |
+| 📜 **Function List** | All functions from ELF symbol table |
+| 📥 **Import/Export Table** | Full dynamic symbol parsing |
+| 🔍 **Real Disassembly** | main() function via Capstone |
+| 🔐 **Password ZIP Support** | Analyze encrypted CTF archives |
+| 🚩 **11 Flag Formats** | picoCTF, HTB, THM, DUCTF, and more |
+| 📦 **8+ File Formats** | ELF, EXE, BIN, SO, DLL, ZIP and extensionless |
+
+### Source Code Analysis
+
+| Feature | Details |
+|---------|---------|
+| 🎯 **CTF Category Detection** | Same 6 archetypes, adapted for source code |
+| 📐 **Overflow Offset** | Read from buffer declarations — more precise than binary |
+| 🌊 **Data Flow Analysis** | Line-level with actual variable names |
+| 💡 **Exploit Template** | Working pwntools script from source analysis |
+| 📋 **Quick Commands** | Compilation and testing commands |
 
 ### AI System
-| Feature | Details |
-|---------|---------|
-| 🧠 Parallel AI Inference | Groq + Nemotron simultaneously, responses merged |
-| ✅ Quality Gate | Two-pass system ensures non-generic responses |
-| 🌐 RAG Knowledge Base | 5000+ real CTF writeups from 8 sources |
-| 🏷️ Technique Tagging | 24 technique tags for hybrid vector + semantic retrieval |
-| ⚡ CAG Caching | Expert-quality cached responses for common patterns |
-| 💬 AI Mentor Chat | Unlimited sessions with automatic summarization |
-| 📷 Screenshot Analysis | Upload GDB/terminal screenshots for visual guidance |
-| 🔧 Command Explainer | Visual word-by-word command breakdown diagram |
-| 🌐 Similar Writeups | RAG finds past challenges matching your binary |
-| 📖 Interactive Glossary | Hover over technical terms for plain English explanations |
 
-### UX
 | Feature | Details |
 |---------|---------|
-| ⌨️ Ctrl+V Screenshot Paste | Paste terminal screenshots directly into chat |
-| 📷 Camera Support | Take photo of screen for instant AI analysis |
-| ⎘ Per-Command Copy | Copy button on every individual command |
-| 💡 Install Detection | Shows install command when a tool is not present |
-| 📊 Exploit Progress Bar | Visual RECON→ANALYSIS→OFFSET→GADGETS→PAYLOAD→FLAG stages |
+| 🧠 **Parallel AI Inference** | Groq + Nemotron called simultaneously, responses merged |
+| ✅ **Quality Gate** | Filters generic responses, retries with next provider |
+| 🌐 **RAG Knowledge Base** | 5000+ real CTF writeups from 8 curated sources |
+| 🏷️ **Technique Tagging** | 24 technique tags for hybrid vector + semantic retrieval |
+| ⚡ **CAG Caching** | Common patterns served instantly without LLM calls |
+| 💬 **Unlimited Chat** | Auto-summarization keeps sessions going without token limits |
+| 📷 **Screenshot Analysis** | Paste terminal screenshots directly with Ctrl+V |
+| 🔧 **Visual Command Explainer** | Word-by-word command breakdown diagram |
+| 📖 **Interactive Glossary** | Hover over technical terms for plain English explanations |
 
 ---
 
 ## AI Architecture
 
 ### Parallel Inference
-
 Binary uploaded → Static analysis (2-3 seconds)
 ↓
 ┌─────────────────────┐    ┌──────────────────────────────┐
@@ -121,11 +116,9 @@ Quick hints shown            Enhanced hints ready
 immediately                        ↓
 ✅ Quality gate filters generic responses
 ↓
-Groq merges both responses
-
+Groq merges both into one answer
 
 ### Sequential Fallback Chain
-
 
 Groq (llama-3.3-70b)       — Free, fastest
 Nemotron 3 Ultra            — Free via OpenRouter, deepest reasoning
@@ -134,21 +127,16 @@ OpenAI GPT-4o-mini          — Paid fallback
 Claude                      — Last resort
 
 
-Note: Ollama is available for local development only (disabled on GCP).
-
 ### RAG Pipeline
-
-CTFtime.org ──────┐
-Nightmare ────────┤
-ir0nstone ────────┤──→ Scraper ──→ ChromaDB ──→ Hybrid Retrieval
-how2heap ─────────┤         ↑          ↑
-CTF-pwn-tips ─────┤    Technique   Vector +
-nobodyisnobody ───┤    Tagging     Tag Overlap
-GitHub writeups ──┘    (24 tags)   Scoring
+CTFtime ──────┐
+Nightmare ────┤
+ir0nstone ────┤──→ Scraper ──→ ChromaDB ──→ Hybrid Retrieval
+how2heap ─────┤         ↑          ↑
+CTF-pwn-tips ─┤    Technique   Vector +
+nobodyisnobody┤    Tagging     Tag Overlap
+GitHub repos ─┘    (24 tags)   Scoring
 ↓
 5000+ indexed writeups
-balanced across 24 categories
-
 
 ---
 
@@ -156,16 +144,16 @@ balanced across 24 categories
 
 | Property | Implementation |
 |----------|---------------|
-| **Zero binary execution** | Static analysis only — never executed |
+| **Zero binary execution** | Static analysis only — uploaded files never executed |
 | **3-layer file validation** | Extension + size + magic bytes |
 | **Immediate file deletion** | try/finally — deleted even on crash |
 | **No data storage** | Conversation lives only in browser |
 | **ZIP bomb protection** | Max 20 files, 10MB per archive |
 | **Rate limiting** | Per-IP limits on all expensive endpoints |
-| **Input validation** | Pydantic field validators, max lengths |
+| **Input validation** | Pydantic field validators with length caps |
 | **CORS restricted** | Configured domain only, never wildcard |
 | **Security headers** | X-Content-Type-Options, X-Frame-Options |
-| **230+ automated tests** | Unit, integration, CTF scenarios, chaos |
+| **230+ automated tests** | Unit, integration, CTF scenarios, chaos testing |
 
 ---
 
@@ -183,7 +171,7 @@ cd binexplain
 # Backend
 cd backend
 python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 # Add your API keys to .env
@@ -195,54 +183,52 @@ npm install
 echo "VITE_BACKEND_URL=http://localhost:8000" > .env
 npm run dev
 
-# Build knowledge base (first time only)
+# Build knowledge base (first time — takes 30-60 minutes)
 cd ../backend
 python knowledge_base/scraper.py
 ```
 
 ---
 
-## API Keys (All Free Tiers Available)
+## API Keys
 
 | Provider | Get Key | Used For | Cost |
 |----------|---------|---------|------|
 | **Groq** | [console.groq.com](https://console.groq.com) | Primary AI (parallel) | Free |
 | **OpenRouter** | [openrouter.ai](https://openrouter.ai) | Nemotron 3 Ultra | Free |
 | **Gemini** | [aistudio.google.com](https://aistudio.google.com) | Fallback + Vision | Free |
-| OpenAI | [platform.openai.com](https://platform.openai.com) | Fallback | Paid |
+| OpenAI | [platform.openai.com](https://platform.openai.com) | Paid fallback | Paid |
 | VirusTotal | [virustotal.com](https://virustotal.com) | Optional scan | Free |
 | Anthropic | [console.anthropic.com](https://console.anthropic.com) | Last resort | Paid |
 
----
-
-## Roadmap
-
-v1  ✅  Web app — live at binexplain.com
-v2  🔄  CLI tool (pip install binexplain)
-v2  🔄  Dynamic analysis sandbox (strace, ltrace, GDB automation)
-v3  📋  MCP server for AI assistant integration
-v3  📋  Browser extension for CTFtime/HackTheBox
-v4  📋  Automated exploit generation via symbolic execution
-
+> Full functionality available with only free-tier keys (Groq + OpenRouter + Gemini).
 
 ---
 
 ## Project Stats
-
-Backend:        Python 3.11, FastAPI, 5000+ lines
-Frontend:       React 18, Vite, 3000+ lines
-Tests:          230+ passing (unit + integration + CTF scenarios + chaos)
+Backend:        Python 3.11, FastAPI
+Frontend:       React 18, Vite
+Tests:          230+ passing
 Knowledge Base: 5000+ real CTF writeups across 24 technique categories
 AI Providers:   5 providers, parallel inference, quality gate, RAG + CAG
 Development:    Months of active development and iteration
 
+---
+
+## Roadmap
+v1  ✅  Web app — live at binexplain.com
+v2  🔄  CLI tool (pip install binexplain)
+v2  🔄  Dynamic analysis sandbox
+v3  📋  MCP server for AI assistant integration
+v3  📋  Browser extension for CTFtime and HackTheBox
 
 ---
 
 ## Contributing
 
-Source-available under CC BY-NC-ND 4.0. See [CONTRIBUTING.md](CONTRIBUTING.md).
-Bug reports and feature requests welcome via GitHub Issues.
+Source-available under CC BY-NC-ND 4.0.
+Bug reports and feature requests welcome via [GitHub Issues](https://github.com/Vaibhavi28/binexplain/issues).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ---
 
@@ -270,6 +256,6 @@ Built with ❤️ for the CTF community
 
 ⭐ **If BinExplain helped you solve a challenge, please star this repo!** ⭐
 
-[binexplain.com](https://binexplain.com) · [GitHub](https://github.com/Vaibhavi28/binexplain)
+[binexplain.com](https://binexplain.com) · [GitHub Issues](https://github.com/Vaibhavi28/binexplain/issues) · [hello@binexplain.com](mailto:hello@binexplain.com)
 
 </div>
