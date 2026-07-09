@@ -1198,8 +1198,8 @@ export default function App() {
         <div className="app-wrapper">
             <Helmet>
                 <title>BinExplain — Free AI Binary Analysis for CTF Beginners</title>
-                <meta name="description" content="Upload a binary or source code and get instant CTF category detection, ROP gadgets, pwntools template, and AI-powered hints. Free, no installation, no account required." />
-                <meta name="keywords" content="ctf binary analysis, pwntools template generator, checksec, rop gadgets, buffer overflow, format string, ret2libc, heap exploitation, binary exploitation tool, elf analysis online, ctf tool free" />
+                <meta name="description" content="Upload a binary and get instant CTF category detection, 2200+ writeup-powered AI hints, ROP gadgets, pwntools template, interactive glossary, and visual command breakdowns. Free, no install, no account." />
+                <meta name="keywords" content="ctf binary analysis, pwntools template generator, checksec online, rop gadgets finder, format string exploit, heap exploitation tool, tcache poisoning, ret2libc tutorial, binary exploitation ai, ctf tool free, interactive glossary cybersecurity" />
                 <meta property="og:title" content="BinExplain — Free AI Binary Analysis for CTF" />
                 <meta property="og:description" content="Upload a binary, get instant CTF category detection, ROP gadgets, and AI mentor hints. Free." />
                 <meta property="og:url" content="https://binexplain.com" />

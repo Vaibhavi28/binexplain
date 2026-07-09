@@ -8,7 +8,7 @@ export default function Blog({ onNavigate }) {
             title: "I Built a Free AI Tool for CTF Binary Analysis — Here's What I Learned",
             date: "Coming Soon",
             category: "Tool Reveal",
-            excerpt: "After 40 hours struggling with my first binary exploitation challenge, I built the tool I wished existed. Here's the full story of building BinExplain and what I discovered along the way.",
+            excerpt: "After months of evenings building, I shipped the tool I wished existed when I started CTF. Here is the full story.",
             tag: "Featured",
             tagClass: "blog-tag--featured"
         },
@@ -48,7 +48,7 @@ export default function Blog({ onNavigate }) {
             title: "How I Built a RAG System Over Real CTF Writeups",
             date: "Coming Soon",
             category: "Technical Deep Dive",
-            excerpt: "BinExplain uses a Retrieval Augmented Generation pipeline indexed over hundreds of real CTF writeups. Here's exactly how it works and why it makes AI hints dramatically better.",
+            excerpt: "BinExplain uses a Retrieval Augmented Generation pipeline with 2200+ real CTF writeups from 13 sources, 24 technique tags for hybrid retrieval, and automatic conversation summarization. Here is exactly how it works.",
             tag: "Technical",
             tagClass: "blog-tag--technical"
         }
