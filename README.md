@@ -45,6 +45,19 @@
 
 ---
 
+## Detection Accuracy
+
+Category detection is evaluated automatically on every commit against
+labeled binaries compiled from [shellphish/how2heap](https://github.com/shellphish/how2heap).
+
+See [full evaluation report](backend/evaluation/results/evaluation_report.md).
+
+<!-- METRICS_BADGE_START -->
+*Run CI to generate live metrics*
+<!-- METRICS_BADGE_END -->
+
+---
+
 ## What Problem Does This Solve
 
 Every CTF beginner downloads their first binary and has no idea what to do next. Professional tools like Ghidra cost hundreds of dollars or assume expert knowledge. No free tool explains what the analysis **means** or tells you what to do next.
@@ -92,7 +105,7 @@ Every CTF beginner downloads their first binary and has no idea what to do next.
 |---------|---------|
 | 🧠 **Parallel AI Inference** | Groq + Nemotron called simultaneously, responses merged |
 | ✅ **Quality Gate** | Filters generic responses, retries with next provider |
-| 🌐 **RAG Knowledge Base** | 2200+ real CTF writeups from 8 curated sources |
+| 🌐 **RAG Knowledge Base** | 2200+ real CTF writeups from 13 curated sources |
 | 🏷️ **Technique Tagging** | 24 technique tags for hybrid vector + semantic retrieval |
 | ⚡ **CAG Caching** | Common patterns served instantly without LLM calls |
 | 💬 **Unlimited Chat** | Auto-summarization keeps sessions going without token limits |

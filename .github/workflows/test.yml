@@ -78,3 +78,64 @@ jobs:
               print('✅ No security issues found.')
           "
           fi
+
+  evaluate:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          sudo apt-get install -y gcc binutils
+
+      - name: Set test environment
+        run: echo "TESTING=true" >> $GITHUB_ENV
+
+      - name: Build ground truth binaries
+        working-directory: backend
+        run: python evaluation/ground_truth_builder.py
+
+      - name: Run evaluation
+        working-directory: backend
+        run: python evaluation/evaluator.py
+        env:
+          TESTING: "true"
+          ENVIRONMENT: "test"
+          GROQ_API_KEY: "test-key-not-real"
+          GEMINI_API_KEY: "test-key-not-real"
+          OPENAI_API_KEY: "test-key-not-real"
+          ANTHROPIC_API_KEY: "test-key-not-real"
+          OPENROUTER_API_KEY: "test-key-not-real"
+          KB_PERSISTENT: "false"
+
+      - name: Generate badges
+        working-directory: backend
+        run: python evaluation/badge_generator.py
+
+      - name: Upload evaluation results
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-results
+          path: backend/evaluation/results/
+
+      - name: Enforce minimum accuracy
+        working-directory: backend
+        run: |
+          python -c "
+          import json
+          from pathlib import Path
+          report = json.loads(Path('evaluation/results/evaluation_report.json').read_text())
+          accuracy = report['metrics']['_overall']['accuracy']
+          print(f'Accuracy: {accuracy*100:.1f}%')
+          assert accuracy >= 0.60, f'Accuracy {accuracy*100:.1f}% below 60% threshold'
+          print('PASS: Above minimum threshold')
+          "
+
