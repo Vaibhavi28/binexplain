@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 import json
 from pathlib import Path
 
-CHECKPOINT_FILE = Path("backend/knowledge_base/scraper_checkpoint.json")
+CHECKPOINT_FILE = Path(os.path.dirname(os.path.abspath(__file__))) / "scraper_checkpoint.json"
 
 def load_checkpoint() -> dict:
     if CHECKPOINT_FILE.exists():
@@ -127,30 +127,30 @@ STRONG_PWN_SIGNALS = [
 # Per-category targeted GitHub search queries.
 # Used by scrape_targeted_by_category() to hunt for specific missing content.
 CATEGORY_SEARCH_QUERIES = {
-    "ret2win":           ["ctf pwn ret2win binary exploit", "ret2win pwntools writeup", "ctf binary ret2win flag function"],
-    "ret2libc":          ["ctf pwn ret2libc writeup pwntools", "ret2libc libc leak binary exploit", "system /bin/sh ret2libc ctf"],
-    "format_string":     ["ctf pwn format string exploit writeup", "printf format string pwntools ctf", "fmtstr_payload got overwrite writeup"],
-    "heap_exploitation": ["ctf pwn heap exploitation writeup", "heap exploit malloc free tcache", "glibc heap ctf challenge writeup"],
-    "rop_chain":         ["ctf pwn rop chain gadget writeup", "ROPgadget binary exploit ctf", "return oriented programming pwntools"],
-    "shellcode":         ["ctf pwn shellcode injection writeup", "shellcode mprotect nx bypass ctf", "shellcraft pwntools ctf exploit"],
-    "ret2plt":           ["ctf pwn ret2plt plt stub writeup", "return to plt ctf binary exploit", "ret2plt got leak pwntools"],
-    "got_overwrite":     ["ctf pwn got overwrite exploit writeup", "global offset table hijack ctf", "got overwrite format string pwntools"],
-    "ret2csu":           ["ctf pwn ret2csu exploit writeup", "__libc_csu_init gadget ctf", "ret2csu universal gadget binary exploit"],
-    "srop":              ["ctf pwn srop sigreturn exploit", "sigreturn oriented programming writeup", "sigreturn frame pwntools ctf"],
-    "fastbin_dup":       ["ctf pwn fastbin dup exploit writeup", "fastbin duplicate attack ctf", "fastbin corruption heap exploit"],
-    "tcache_poisoning":  ["ctf pwn tcache poisoning exploit", "tcache dup attack writeup", "tcache corruption pwntools ctf"],
-    "use_after_free":    ["ctf pwn use after free exploit", "uaf vulnerability binary exploit writeup", "use after free heap ctf pwntools"],
-    "one_gadget":        ["ctf pwn one_gadget exploit writeup", "one gadget libc binary exploit", "execve one gadget pwntools ctf"],
-    "canary_bypass":     ["ctf pwn stack canary bypass writeup", "canary leak binary exploit pwntools", "stack cookie bypass ctf"],
-    "pie_bypass":        ["ctf pwn pie bypass aslr writeup", "pie base leak binary exploit ctf", "aslr pie bypass pwntools"],
-    "off_by_one":        ["ctf pwn off by one exploit writeup", "null byte overflow heap exploit", "off by one heap binary exploit ctf"],
-    "stack_pivot":       ["ctf pwn stack pivot exploit writeup", "leave ret stack migration ctf", "stack pivot rop binary exploit"],
-    "integer_overflow":  ["ctf pwn integer overflow exploit writeup", "signed integer overflow binary ctf", "int overflow vulnerability exploit"],
-    "seccomp_bypass":    ["ctf pwn seccomp bypass exploit writeup", "syscall filter bypass ctf binary", "seccomp sandbox escape exploit"],
-    "house_of_force":    ["ctf pwn house of force exploit writeup", "top chunk overflow heap ctf", "house of force wilderness exploit"],
-    "house_of_spirit":   ["ctf pwn house of spirit exploit writeup", "fake chunk heap exploit ctf", "house of spirit fastbin attack"],
-    "house_of_orange":   ["ctf pwn house of orange exploit writeup", "unsorted bin house of orange ctf", "house of orange heap ctf exploit"],
-    "unsorted_bin_attack": ["ctf pwn unsorted bin attack exploit", "unsortedbin attack heap ctf", "unsorted bin corruption writeup"],
+    "ret2win":           ["ctf pwn ret2win binary exploit", "ret2win pwntools writeup", "ctf binary ret2win flag function", "ret2win buffer overflow solution", "ret2win exploit walkthrough", "ret2win ctf challenge solution"],
+    "ret2libc":          ["ctf pwn ret2libc writeup pwntools", "ret2libc libc leak binary exploit", "system /bin/sh ret2libc ctf", "ret2libc puts leak exploit", "ret2libc printf leak writeup", "return to libc exploit tutorial"],
+    "format_string":     ["ctf pwn format string exploit writeup", "printf format string pwntools ctf", "fmtstr_payload got overwrite writeup", "format string arbitrary write exploit", "printf vulnerability ctf solution", "format string leak stack ctf"],
+    "heap_exploitation": ["ctf pwn heap exploitation writeup", "heap exploit malloc free tcache", "glibc heap ctf challenge writeup", "heap overflow exploit writeup", "heap feng shui ctf exploit", "heap metadata corruption exploit"],
+    "rop_chain":         ["ctf pwn rop chain gadget writeup", "ROPgadget binary exploit ctf", "return oriented programming pwntools", "rop chain exploit tutorial binary", "rop gadget chain ctf solution", "ropper rop exploit writeup"],
+    "shellcode":         ["ctf pwn shellcode injection writeup", "shellcode mprotect nx bypass ctf", "shellcraft pwntools ctf exploit", "custom shellcode exploit ctf", "shellcode encoder ctf writeup", "alphanumeric shellcode exploit"],
+    "ret2plt":           ["ctf pwn ret2plt plt stub writeup", "return to plt ctf binary exploit", "ret2plt got leak pwntools", "plt stub exploit binary ctf", "calling plt functions exploit", "ret2plt binary exploitation"],
+    "got_overwrite":     ["ctf pwn got overwrite exploit writeup", "global offset table hijack ctf", "got overwrite format string pwntools", "got hijack binary exploit ctf", "overwriting got entry exploit", "got table corruption ctf"],
+    "ret2csu":           ["ctf pwn ret2csu exploit writeup", "__libc_csu_init gadget ctf", "ret2csu universal gadget binary exploit", "csu init gadgets exploit", "universal rop gadget csu", "ret2csu rop exploit tutorial"],
+    "srop":              ["ctf pwn srop sigreturn exploit", "sigreturn oriented programming writeup", "sigreturn frame pwntools ctf", "srop exploit tutorial binary", "sigreturn syscall exploit ctf", "srop frame crafting exploit"],
+    "fastbin_dup":       ["ctf pwn fastbin dup exploit writeup", "fastbin duplicate attack ctf", "fastbin corruption heap exploit", "fastbin double free exploit", "fastbin attack heap ctf", "glibc fastbin dup writeup"],
+    "tcache_poisoning":  ["ctf pwn tcache poisoning exploit", "tcache dup attack writeup", "tcache corruption pwntools ctf", "tcache bin poisoning exploit", "glibc tcache attack ctf", "tcache double free exploit"],
+    "use_after_free":    ["ctf pwn use after free exploit", "uaf vulnerability binary exploit writeup", "use after free heap ctf pwntools", "uaf exploit heap corruption", "dangling pointer exploit ctf", "use after free binary exploitation"],
+    "one_gadget":        ["ctf pwn one_gadget exploit writeup", "one gadget libc binary exploit", "execve one gadget pwntools ctf", "one gadget rce exploit ctf", "magic gadget libc exploit", "one shot gadget exploit"],
+    "canary_bypass":     ["ctf pwn stack canary bypass writeup", "canary leak binary exploit pwntools", "stack cookie bypass ctf", "brute force canary exploit", "canary leak format string ctf", "stack guard bypass exploit"],
+    "pie_bypass":        ["ctf pwn pie bypass aslr writeup", "pie base leak binary exploit ctf", "aslr pie bypass pwntools", "position independent code leak", "pie leak exploit binary", "aslr bypass leak ctf"],
+    "off_by_one":        ["ctf pwn off by one exploit writeup", "null byte overflow heap exploit", "off by one heap binary exploit ctf", "off by one null byte poison", "obo heap exploit ctf", "single byte overflow exploit"],
+    "stack_pivot":       ["ctf pwn stack pivot exploit writeup", "leave ret stack migration ctf", "stack pivot rop binary exploit", "xchg rsp gadget exploit", "stack migration exploit ctf", "pivot stack rop chain"],
+    "integer_overflow":  ["ctf pwn integer overflow exploit writeup", "signed integer overflow binary ctf", "int overflow vulnerability exploit", "integer wraparound exploit ctf", "arithmetic overflow binary exploit", "size_t overflow exploit"],
+    "seccomp_bypass":    ["ctf pwn seccomp bypass exploit writeup", "syscall filter bypass ctf binary", "seccomp sandbox escape exploit", "seccomp bpf bypass exploit", "orw open read write exploit ctf", "sandbox escape binary exploit"],
+    "house_of_force":    ["ctf pwn house of force exploit writeup", "top chunk overflow heap ctf", "house of force wilderness exploit", "top chunk size overwrite", "house of force heap exploit", "wilderness overwrite exploit"],
+    "house_of_spirit":   ["ctf pwn house of spirit exploit writeup", "fake chunk heap exploit ctf", "house of spirit fastbin attack", "crafting fake chunk exploit", "house of spirit heap ctf", "fake free chunk exploit"],
+    "house_of_orange":   ["ctf pwn house of orange exploit writeup", "unsorted bin house of orange ctf", "house of orange heap ctf exploit", "file stream oriented exploit", "house of orange io exploit", "house of orange vtable"],
+    "unsorted_bin_attack": ["ctf pwn unsorted bin attack exploit", "unsortedbin attack heap ctf", "unsorted bin corruption writeup", "unsorted bin leak exploit", "unsorted bin attack libc leak", "main arena leak exploit"],
 }
 
 try:
@@ -363,6 +363,22 @@ def scrape_github_search_bulk(checkpoint: dict) -> int:
         "ctf writeup shellcode injection mprotect",
         "binary exploitation writeup picoctf pwn",
         "hackthebox pwn writeup binary exploitation",
+        "pwn challenge writeup pwntools exploit",
+        "buffer overflow ctf writeup solution",
+        "binary exploitation tutorial pwn walkthrough",
+        "ctf pwn writeup 2024 binary",
+        "ctf pwn writeup 2023 exploit",
+        "ctf pwn writeup 2022 pwntools",
+        "gdb exploit development ctf writeup",
+        "libc exploit ctf writeup solution",
+        "stack overflow binary ctf writeup",
+        "heap challenge ctf writeup solution",
+        "elf binary analysis exploit writeup",
+        "pwntools exploit script ctf writeup",
+        "return oriented programming ctf writeup",
+        "format string vulnerability ctf writeup",
+        "use after free ctf writeup exploit",
+        "binary reverse engineering exploit writeup",
     ]
     
     saved = 0
@@ -788,6 +804,27 @@ def scrape_ctf_writeup_repos(checkpoint: dict) -> int:
         ("writeups", "kileak"),
         ("ctf-writeups", "hyperreality"),
         ("CTFwriteups", "zst01"),
+        # Wave 2 — additional high-quality CTF writeup repos
+        ("nightmare", "guyinatuxedo"),
+        ("ctf-writeups", "smokeleeteveryday"),
+        ("CTF", "str0nkus"),
+        ("CTFs", "m3ssap0"),
+        ("ctf-writeups", "sixstars"),
+        ("ctf-write-ups", "sajjadium"),
+        ("ctf-writeups", "Dvd848"),
+        ("CTF-Writeups", "0xM4hm0ud"),
+        ("pwn-notes", "ir0nstone"),
+        ("ctf-writeups", "p4-team"),
+        ("ctf-solutions", "Tecnicas-pwn"),
+        ("pwndbg", "pwndbg"),
+        ("ctf", "r3kapig"),
+        ("CTF-Writeups", "nobodyisnobody"),
+        ("writeups", "nusgreyhats"),
+        ("ctf-writeups", "nnamon"),
+        ("ctf-writeups", "kylma"),
+        ("heap-exploitation", "dhavalkapil"),
+        ("ctf-writeups", "pwning"),
+        ("ctf-solutions", "flawwan"),
     ]
     
     GITHUB_HEADERS = {
@@ -1984,7 +2021,7 @@ def main():
     print(f"[Scraper] Starting. Current total: {total}/{MAX_TOTAL_WRITEUPS}")
     print_category_progress(current_counts)
     
-    MAX_OUTER_LOOPS = 5
+    MAX_OUTER_LOOPS = 10
     outer_loop = 0
     
     while total < MAX_TOTAL_WRITEUPS and outer_loop < MAX_OUTER_LOOPS:
