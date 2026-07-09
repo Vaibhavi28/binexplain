@@ -269,8 +269,8 @@ CATEGORY_TARGETS = {
     "ret2win":            300,
     "ret2libc":           300,
     "format_string":      250,
-    "rop_chain":          400,
-    "heap_exploitation":  600,
+    "rop_chain":          500,
+    "heap_exploitation":  800,
     "shellcode":          150,
     "ret2plt":            200,
     "got_overwrite":      200,
@@ -290,10 +290,11 @@ CATEGORY_TARGETS = {
     "house_of_spirit":     80,
     "house_of_orange":     80,
     "unsorted_bin_attack": 80,
-    "unknown":            300,
+    "unknown":            400,
 }
 
 MAX_TOTAL_WRITEUPS = 5200
+
 
 def get_current_category_counts(walkthrough_dir: str) -> dict:
     counts = {cat: 0 for cat in CATEGORY_TARGETS}
