@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-REPORT_PATH = Path("backend/evaluation/results/evaluation_report.json")
-OUTPUT_PATH = Path("backend/evaluation/results/badge_summary.md")
+REPORT_PATH = Path(__file__).parent / "results/evaluation_report.json"
+OUTPUT_PATH = Path(__file__).parent / "results/badge_summary.md"
 
 def get_color(value: float) -> str:
     if value >= 0.90: return "brightgreen"

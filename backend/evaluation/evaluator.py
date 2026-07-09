@@ -8,9 +8,9 @@ from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-LABEL_FILE = Path("backend/evaluation/ground_truth/labels.json")
-BINARY_DIR = Path("backend/evaluation/ground_truth/binaries")
-RESULTS_DIR = Path("backend/evaluation/results")
+LABEL_FILE = Path(__file__).parent / "ground_truth/labels.json"
+BINARY_DIR = Path(__file__).parent / "ground_truth/binaries"
+RESULTS_DIR = Path(__file__).parent / "results"
 
 def load_labels() -> dict:
     if not LABEL_FILE.exists():

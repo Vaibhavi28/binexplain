@@ -1,18 +1,16 @@
 import os
 import json
 import subprocess
-import requests
+import shutil
 import time
 from pathlib import Path
 
-GITHUB_API = "https://api.github.com/repos/shellphish/how2heap/contents/"
-RAW_BASE = "https://raw.githubusercontent.com/shellphish/how2heap/master/"
-
-OUTPUT_DIR = Path("backend/evaluation/ground_truth")
+OUTPUT_DIR = Path(__file__).parent / "ground_truth"
 BINARY_DIR = OUTPUT_DIR / "binaries"
 LABEL_FILE = OUTPUT_DIR / "labels.json"
 BUILD_REPORT = OUTPUT_DIR / "build_report.txt"
 SOURCE_DIR = OUTPUT_DIR / "sources"
+TEMP_DIR = Path(__file__).parent / "temp_how2heap"
 
 FILENAME_TO_CATEGORY = {
     "tcache_poisoning": "tcache_poisoning",
@@ -40,16 +38,34 @@ FILENAME_TO_CATEGORY = {
 }
 
 def fetch_how2heap_files() -> list:
-    print("[GT Builder] Fetching how2heap file list...")
+    print("[GT Builder] Fetching how2heap via git clone (avoids API rate limits)...")
+    if TEMP_DIR.exists():
+        try:
+            shutil.rmtree(TEMP_DIR)
+        except Exception:
+            pass
     try:
-        resp = requests.get(GITHUB_API, timeout=30)
-        resp.raise_for_status()
-        files = resp.json()
-        c_files = [f for f in files if isinstance(f, dict) and f.get("name", "").endswith(".c")]
-        print(f"[GT Builder] Found {len(c_files)} .c files")
+        result = subprocess.run(
+            ["git", "clone", "--depth", "1", "https://github.com/shellphish/how2heap.git", str(TEMP_DIR)],
+            capture_output=True, text=True, timeout=60
+        )
+        if result.returncode != 0:
+            print(f"[GT Builder] Git clone failed: {result.stderr}")
+            return []
+        
+        c_files = []
+        for root, dirs, files in os.walk(TEMP_DIR):
+            for fname in files:
+                if fname.endswith(".c"):
+                    fpath = Path(root) / fname
+                    c_files.append({
+                        "name": fname,
+                        "local_path": fpath
+                    })
+        print(f"[GT Builder] Found {len(c_files)} .c files in repository")
         return c_files
     except Exception as e:
-        print(f"[GT Builder] Failed to fetch file list: {e}")
+        print(f"[GT Builder] Failed to clone repo: {e}")
         return []
 
 def compile_binary(source_path: Path, output_path: Path) -> bool:
@@ -70,7 +86,7 @@ def build_ground_truth():
 
     c_files = fetch_how2heap_files()
     if not c_files:
-        print("[GT Builder] No files fetched. Check GitHub API connectivity.")
+        print("[GT Builder] No files retrieved. Compilation aborted.")
         return {}
 
     labels = {}
@@ -85,19 +101,15 @@ def build_ground_truth():
             build_results.append(f"SKIPPED (no mapping): {filename}")
             continue
 
-        raw_url = RAW_BASE + filename
-        print(f"[GT Builder] Downloading {filename}...")
+        print(f"[GT Builder] Reading {filename}...")
         try:
-            resp = requests.get(raw_url, timeout=30)
-            if resp.status_code != 200:
-                build_results.append(f"DOWNLOAD FAILED: {filename}")
-                continue
+            content = file_info["local_path"].read_text(encoding="utf-8", errors="ignore")
         except Exception as e:
-            build_results.append(f"DOWNLOAD ERROR: {filename} - {e}")
+            build_results.append(f"READ ERROR: {filename} - {e}")
             continue
 
         source_path = SOURCE_DIR / filename
-        source_path.write_text(resp.text, encoding="utf-8")
+        source_path.write_text(content, encoding="utf-8")
 
         binary_path = BINARY_DIR / stem
         print(f"[GT Builder] Compiling {filename}...")
@@ -115,10 +127,15 @@ def build_ground_truth():
             build_results.append(f"COMPILE FAILED: {filename}")
             print(f"[GT Builder] Compile failed: {filename}")
 
-        time.sleep(0.5)
-
     LABEL_FILE.write_text(json.dumps(labels, indent=2), encoding="utf-8")
     BUILD_REPORT.write_text("\n".join(build_results), encoding="utf-8")
+
+    # Cleanup local checkout
+    if TEMP_DIR.exists():
+        try:
+            shutil.rmtree(TEMP_DIR)
+        except Exception:
+            pass
 
     print(f"\n[GT Builder] Built {len(labels)} labeled binaries")
     print(f"[GT Builder] Labels: {LABEL_FILE}")
