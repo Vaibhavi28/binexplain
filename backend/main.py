@@ -6030,27 +6030,28 @@ async def explain_command_endpoint(request: Request, body: dict = Body(...)):
     category = binary_context.get("ctf_category", "binary exploitation")
 
     system = """You are a CTF command explainer for beginners.
-Explain the command given in 3-5 sentences.
-Structure your explanation as:
-1. What the command does in plain English
-2. What each important flag or argument means
-3. What output to expect
-4. What to look for in the output that matters for CTF
-Be specific. Reference the actual binary filename and CTF category if provided.
-Never be vague. Maximum 100 words total."""
+Explain the command in exactly this structure:
+1. What it does in plain English (1 sentence)
+2. What each flag/argument means (1 line each)
+3. What output to expect (1 sentence)
+4. Why it matters for this CTF challenge (1 sentence)
+Maximum 80 words total. Be specific and direct."""
 
-    user_msg = f"""Explain this command in CTF context:
+    user_msg = f"""Explain this command for a CTF beginner:
 Command: {command}
 Binary: {filename}
 CTF Category: {category}
-Architecture: {binary_context.get('architecture', 'unknown')}
 
-Give a focused 3-5 sentence explanation following the structure above."""
+Give a focused explanation following the 4-point structure above."""
 
-    # Call the fastest available AI — Groq preferred for speed
-    result = _try_groq(user_msg, system)
+    messages = [{"role": "user", "content": user_msg}]
+
+    result = _try_groq(messages, system)
     if not result:
-        result = _try_gemini(user_msg, system)
+        result = _try_gemini(messages, system)
+    if not result:
+        result = _try_nemotron(messages, system)
+
     if not result:
         result = "Could not generate explanation. Try again."
 
