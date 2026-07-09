@@ -17,9 +17,7 @@ def load_checkpoint() -> dict:
     if CHECKPOINT_FILE.exists():
         try:
             data = json.loads(CHECKPOINT_FILE.read_text(encoding="utf-8"))
-            # Step 5 requirement: Reset the github_queries_done checkpoint so GitHub bulk search runs fresh
-            data["github_queries_done"] = []
-            print(f"[Checkpoint] Resuming from: {data}")
+            print(f"[Checkpoint] Resuming from checkpoint")
             return data
         except Exception:
             pass
@@ -268,31 +266,31 @@ WALKTHROUGHS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wal
 WALKTHROUGH_DIR = WALKTHROUGHS_DIR
 
 CATEGORY_TARGETS = {
-    "ret2win":            300,
-    "ret2libc":           300,
-    "format_string":      250,
-    "rop_chain":          500,
+    "ret2win":            400,
+    "ret2libc":           500,
+    "format_string":      400,
+    "rop_chain":          700,
     "heap_exploitation":  800,
-    "shellcode":          150,
-    "ret2plt":            200,
-    "got_overwrite":      200,
-    "ret2csu":            150,
-    "srop":               100,
-    "fastbin_dup":        150,
-    "tcache_poisoning":   200,
-    "use_after_free":     200,
-    "one_gadget":         150,
-    "canary_bypass":      100,
-    "pie_bypass":         150,
-    "off_by_one":         150,
-    "stack_pivot":        100,
-    "integer_overflow":   100,
-    "seccomp_bypass":      80,
-    "house_of_force":      80,
-    "house_of_spirit":     80,
-    "house_of_orange":     80,
-    "unsorted_bin_attack": 80,
-    "unknown":            400,
+    "shellcode":          300,
+    "ret2plt":             50,
+    "got_overwrite":       50,
+    "ret2csu":             50,
+    "srop":                30,
+    "fastbin_dup":         30,
+    "tcache_poisoning":    50,
+    "use_after_free":      80,
+    "one_gadget":          50,
+    "canary_bypass":       30,
+    "pie_bypass":          30,
+    "off_by_one":          30,
+    "stack_pivot":         30,
+    "integer_overflow":    30,
+    "seccomp_bypass":      30,
+    "house_of_force":      20,
+    "house_of_spirit":     30,
+    "house_of_orange":     20,
+    "unsorted_bin_attack": 20,
+    "unknown":           1340,
 }
 
 MAX_TOTAL_WRITEUPS = 5200
@@ -434,7 +432,7 @@ def scrape_github_search_bulk(checkpoint: dict) -> int:
                         slug = repo['full_name'].replace('/', '_')[:50]
                         filename = f"github_bulk_{detected_cat}_{slug}.txt"
                         save_path = os.path.join(
-                            WALKTHROUGH_DIR, "github", filename
+                            WALKTHROUGH_DIR, detected_cat, filename
                         )
                         os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
@@ -730,7 +728,7 @@ def scrape_medium_ctf_writeups(checkpoint: dict) -> int:
                     safe_title = safe_title.replace(" ", "_").lower()
                     filename = f"medium_{safe_title}_{url_hash}.txt"
                     
-                    save_dir = os.path.join(WALKTHROUGH_DIR, "medium")
+                    save_dir = os.path.join(WALKTHROUGH_DIR, detected_cat)
                     os.makedirs(save_dir, exist_ok=True)
                     save_path = os.path.join(save_dir, filename)
                     
@@ -874,7 +872,7 @@ def scrape_ctf_writeup_repos(checkpoint: dict) -> int:
                     safe_path = file_info["path"].replace("/", "_")[:40]
                     filename = f"gitrepo_{owner}_{safe_path}_{url_hash}.txt"
                     
-                    save_dir = os.path.join(WALKTHROUGH_DIR, "github_repos")
+                    save_dir = os.path.join(WALKTHROUGH_DIR, detected_cat)
                     os.makedirs(save_dir, exist_ok=True)
                     save_path = os.path.join(save_dir, filename)
                     
@@ -911,145 +909,118 @@ QUALITY_SCORE: {score:.2f}
     return saved
 
 
-def scrape_targeted_heap():
-    import requests, time, os, hashlib
+def scrape_by_category(checkpoint: dict) -> int:
+    """Uses CATEGORY_SEARCH_QUERIES to target every underfilled category via GitHub search."""
+    import hashlib
     
+    queries_done = checkpoint.get("category_queries_done", [])
     current_counts = get_current_category_counts(WALKTHROUGH_DIR)
     saved = 0
     
-    # Targeted heap exploitation sources
-    heap_sources = [
-        # CTFtime pwn writeups filtered by keyword
-        "https://ctftime.org/writeups/?task_type=pwn&page={page}",
-        # GitHub search specifically for heap techniques
-    ]
-    
-    # GitHub search queries targeting underfilled heap subcategories
-    GITHUB_HEADERS = {
-        "Authorization": f"token {os.getenv('GITHUB_TOKEN', '') or os.getenv('GITHUB_Token', '')}",
-        "Accept": "application/vnd.github.v3+json",
-    }
-    
-    heap_queries = [
-        "tcache poisoning ctf writeup exploit",
-        "fastbin dup ctf writeup heap",
-        "use after free ctf exploit writeup",
-        "house of force ctf writeup exploit",
-        "off by one heap ctf writeup",
-        "double free heap ctf pwntools",
-        "heap overflow ctf writeup binary",
-        "unsorted bin attack ctf exploit",
-        "ret2plt got overwrite ctf writeup",
-        "pie bypass aslr leak ctf writeup",
-        "canary bypass ctf writeup stack",
-        "srop sigreturn ctf writeup exploit",
-        "ret2csu rop chain ctf writeup",
-        "one gadget ctf writeup libc",
-        "stack pivot ctf writeup exploit",
-        "integer overflow ctf writeup pwn",
-        "seccomp bypass ctf writeup sandbox",
-    ]
-    
-    for query in heap_queries:
-        if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
-            break
-            
-        # Detect which category this query targets
-        query_lower = query.lower()
-        target_cat = detect_category_from_text(query_lower)
-        
-        if target_cat != "unknown" and not category_needs_more(target_cat, current_counts):
-            print(f"[Targeted] Category {target_cat} is full, skipping: {query[:40]}")
+    for category, queries in CATEGORY_SEARCH_QUERIES.items():
+        if not category_needs_more(category, current_counts):
             continue
-        
-        print(f"[Targeted] Searching: {query[:50]}")
-        
-        for page in range(1, 4):
-            url = "https://api.github.com/search/repositories"
-            params = {
-                "q": query,
-                "sort": "stars",
-                "order": "desc",
-                "per_page": 20,
-                "page": page,
-            }
-            try:
-                resp = requests.get(url, headers=GITHUB_HEADERS,
-                                   params=params, timeout=15)
-                if resp.status_code == 403:
-                    print("[Targeted] Rate limited. Sleeping 60s...")
-                    time.sleep(60)
-                    break
-                if resp.status_code != 200:
-                    break
-                    
-                repos = resp.json().get("items", [])
-                if not repos:
-                    break
+            
+        for query in queries:
+            if query in queries_done:
+                continue
                 
-                for repo in repos:
-                    if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
-                        return saved
+            if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
+                return saved
+            
+            print(f"[ByCategory] {category}: {query[:50]}")
+            
+            for page in range(1, 6):
+                url = "https://api.github.com/search/repositories"
+                params = {
+                    "q": query,
+                    "sort": "stars",
+                    "order": "desc",
+                    "per_page": 30,
+                    "page": page,
+                }
+                try:
+                    resp = requests.get(url, headers=GITHUB_HEADERS,
+                                       params=params, timeout=15)
+                    if resp.status_code == 403:
+                        print("[ByCategory] Rate limited. Sleeping 60s...")
+                        time.sleep(60)
+                        break
+                    if resp.status_code != 200:
+                        break
+                        
+                    repos = resp.json().get("items", [])
+                    if not repos:
+                        break
                     
-                    raw_url = (
-                        f"https://raw.githubusercontent.com/"
-                        f"{repo['full_name']}/"
-                        f"{repo.get('default_branch', 'main')}/README.md"
-                    )
-                    try:
-                        readme = requests.get(raw_url, timeout=10)
-                        if readme.status_code != 200 or len(readme.text) < 300:
-                            continue
+                    for repo in repos:
+                        if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
+                            return saved
                         
-                        content = readme.text
-                        if contains_credentials(content):
-                            continue
-                        
-                        is_quality, score, _ = calculate_writeup_quality(content)
-                        if not is_quality:
-                            continue
-                        
-                        if is_duplicate_content(content, WALKTHROUGH_DIR):
-                            continue
-                        
-                        detected_cat = detect_category_from_text(content)
-                        if not category_needs_more(detected_cat, current_counts):
-                            continue
-                        
-                        url_hash = hashlib.md5(raw_url.encode()).hexdigest()[:8]
-                        slug = repo['name'][:30]
-                        filename = f"targeted_{detected_cat}_{slug}_{url_hash}.txt"
-                        save_dir = os.path.join(WALKTHROUGH_DIR, "targeted")
-                        os.makedirs(save_dir, exist_ok=True)
-                        
-                        header = f"""SOURCE: targeted_github
+                        # Try README
+                        raw_url = (
+                            f"https://raw.githubusercontent.com/"
+                            f"{repo['full_name']}/"
+                            f"{repo.get('default_branch', 'main')}/README.md"
+                        )
+                        try:
+                            readme = requests.get(raw_url, timeout=10)
+                            if readme.status_code != 200 or len(readme.text) < 300:
+                                continue
+                            
+                            content = readme.text
+                            if contains_credentials(content):
+                                continue
+                            
+                            is_quality, score, _ = calculate_writeup_quality(content)
+                            if not is_quality:
+                                continue
+                            
+                            if is_duplicate_content(content, WALKTHROUGH_DIR):
+                                continue
+                            
+                            detected_cat = detect_category_from_text(content)
+                            if not category_needs_more(detected_cat, current_counts):
+                                continue
+                            
+                            url_hash = hashlib.md5(raw_url.encode()).hexdigest()[:8]
+                            slug = repo['name'][:30]
+                            filename = f"catquery_{detected_cat}_{slug}_{url_hash}.txt"
+                            save_dir = os.path.join(WALKTHROUGH_DIR, detected_cat)
+                            os.makedirs(save_dir, exist_ok=True)
+                            
+                            header = f"""SOURCE: category_search
 URL: {repo['html_url']}
 CHALLENGE: {repo['name']}
 CATEGORY: {detected_cat}
 QUALITY_SCORE: {score:.2f}
 ---
 """
-                        with open(os.path.join(save_dir, filename),
-                                 "w", encoding="utf-8") as f:
-                            f.write(header + content[:4000])
-                        
-                        current_counts[detected_cat] = (
-                            current_counts.get(detected_cat, 0) + 1
-                        )
-                        saved += 1
-                        print(f"[Targeted] Saved: {filename} ({detected_cat})")
-                        
-                    except Exception:
-                        pass
-                    time.sleep(0.3)
-                
-                time.sleep(1)
-                
-            except Exception as e:
-                print(f"[Targeted] Error: {e}")
-                time.sleep(3)
+                            with open(os.path.join(save_dir, filename),
+                                     "w", encoding="utf-8") as f:
+                                f.write(header + content[:4000])
+                            
+                            current_counts[detected_cat] = (
+                                current_counts.get(detected_cat, 0) + 1
+                            )
+                            saved += 1
+                            print(f"[ByCategory] Saved: {filename} ({detected_cat})")
+                            
+                        except Exception:
+                            pass
+                        time.sleep(0.3)
+                    
+                    time.sleep(1)
+                    
+                except Exception as e:
+                    print(f"[ByCategory] Error: {e}")
+                    time.sleep(3)
+            
+            queries_done.append(query)
+            checkpoint["category_queries_done"] = queries_done
+            save_checkpoint(checkpoint)
     
-    print(f"[Targeted] Done. Saved {saved} files.")
+    print(f"[ByCategory] Done. Saved {saved} files.")
     return saved
 
 
@@ -2001,11 +1972,11 @@ def reclassify_unknowns(walkthrough_dir: str):
 def main():
     checkpoint = load_checkpoint()
     
-    # Skip CTFtime — it has been exhausted
-    # All remaining content comes from GitHub and targeted sources
+    # Mark CTFtime as permanently exhausted — it returns empty pages
+    checkpoint["ctftime_exhausted"] = True
     if "ctftime" not in checkpoint.get("sources_completed", []):
         checkpoint.setdefault("sources_completed", []).append("ctftime")
-        save_checkpoint(checkpoint)
+    save_checkpoint(checkpoint)
         
     current_counts = get_current_category_counts(WALKTHROUGH_DIR)
     total = sum(current_counts.values())
@@ -2021,24 +1992,15 @@ def main():
         print(f"\n[Scraper] === Outer loop {outer_loop}/{MAX_OUTER_LOOPS} ===")
         print(f"[Scraper] Current total: {total}/{MAX_TOTAL_WRITEUPS}")
         
-        # CTFtime - always try (uses pagination checkpoint internally)
-        if "ctftime_exhausted" not in checkpoint:
-            result = scrape_ctftime(checkpoint)
-            if result == 0:
-                # CTFtime returned nothing - mark as exhausted
-                checkpoint["ctftime_exhausted"] = True
-                save_checkpoint(checkpoint)
-                print("[Scraper] CTFtime exhausted - will not retry")
-        
         # One-time sources - only run if not completed
         one_time_sources = {
-            "how2heap": scrape_how2heap,
-            "ir0nstone": scrape_ir0nstone_extended,
-            "ctf_pwn_tips": scrape_ctf_pwn_tips,
-            "ropemporium": scrape_ropemporium,
-            "exploit_education": scrape_exploit_education,
-            "nobodyisnobody": scrape_nobodyisnobody,
-            "pwnable_kr": scrape_pwnable_kr_writeups,
+            "how2heap": lambda: scrape_how2heap(),
+            "ir0nstone": lambda: scrape_ir0nstone_extended(),
+            "ctf_pwn_tips": lambda: scrape_ctf_pwn_tips(),
+            "ropemporium": lambda: scrape_ropemporium(),
+            "exploit_education": lambda: scrape_exploit_education(),
+            "nobodyisnobody": lambda: scrape_nobodyisnobody(checkpoint),
+            "pwnable_kr": lambda: scrape_pwnable_kr_writeups(),
         }
         
         for source_name, source_fn in one_time_sources.items():
@@ -2054,7 +2016,7 @@ def main():
         scrape_github_search_bulk(checkpoint)
         scrape_ctf_writeup_repos(checkpoint)
         scrape_medium_ctf_writeups(checkpoint)
-        scrape_targeted_heap()
+        scrape_by_category(checkpoint)
         
         # Reclassify unknowns after each loop
         reclassify_unknowns(WALKTHROUGH_DIR)
