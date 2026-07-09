@@ -825,6 +825,14 @@ def scrape_ctf_writeup_repos(checkpoint: dict) -> int:
         ("heap-exploitation", "dhavalkapil"),
         ("ctf-writeups", "pwning"),
         ("ctf-solutions", "flawwan"),
+        # Wave 3 — pwn-specialist teams + curricula
+        ("ctf_writeup", "balsn"),
+        ("writeups", "DiceGang"),
+        ("ctf-writeups", "splitline"),
+        ("MBE", "RPISEC"),
+        ("CTF-Wiki", "CTF-Wiki"),
+        ("ctf-writeups", "Water-Paddler"),
+        ("pwn-writeups", "theoremoon"),
     ]
     
     GITHUB_HEADERS = {
@@ -1061,6 +1069,90 @@ QUALITY_SCORE: {score:.2f}
     return saved
 
 
+def scrape_github_topics(checkpoint: dict) -> int:
+    """Search GitHub by topic tags instead of keyword queries — surfaces
+    repos tagged but not matched by scrape_github_search_bulk()."""
+    import hashlib
+    topics_done = checkpoint.get("github_topics_done", [])
+    topics = [
+        "pwn", "binary-exploitation", "ctf-writeups", "heap-exploitation",
+        "rop-chain", "format-string", "reverse-engineering", "exploit-development",
+    ]
+    saved = 0
+    current_counts = get_current_category_counts(WALKTHROUGH_DIR)
+
+    for topic in topics:
+        if topic in topics_done:
+            print(f"[Topics] Skipping already-done topic: {topic}")
+            continue
+        print(f"[Topics] Searching topic:{topic}")
+        for page in range(1, 6):
+            if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
+                return saved
+            url = "https://api.github.com/search/repositories"
+            params = {"q": f"topic:{topic}", "sort": "stars", "order": "desc",
+                      "per_page": 30, "page": page}
+            try:
+                resp = requests.get(url, headers=GITHUB_HEADERS, params=params, timeout=15)
+                if resp.status_code == 403:
+                    print("[Topics] Rate limited. Sleeping 60s...")
+                    time.sleep(60)
+                    continue
+                if resp.status_code != 200:
+                    break
+                repos = resp.json().get("items", [])
+                if not repos:
+                    break
+                for repo in repos:
+                    if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
+                        return saved
+                    raw_url = (f"https://raw.githubusercontent.com/{repo['full_name']}/"
+                               f"{repo.get('default_branch','main')}/README.md")
+                    try:
+                        readme = requests.get(raw_url, timeout=10)
+                        if readme.status_code != 200 or len(readme.text) < 300:
+                            continue
+                        content = readme.text
+                        if contains_credentials(content):
+                            continue
+                        is_quality, score, _ = calculate_writeup_quality(content)
+                        if not is_quality:
+                            continue
+                        detected_cat = detect_category_from_text(content)
+                        if not category_needs_more(detected_cat, current_counts):
+                            continue
+                        if is_duplicate_content(content, WALKTHROUGH_DIR):
+                            continue
+                        url_hash = hashlib.md5(raw_url.encode()).hexdigest()[:8]
+                        slug = repo['full_name'].replace('/', '_')[:40]
+                        filename = f"topic_{detected_cat}_{slug}_{url_hash}.txt"
+                        save_dir = os.path.join(WALKTHROUGH_DIR, detected_cat)
+                        os.makedirs(save_dir, exist_ok=True)
+                        header = f"""SOURCE: github_topic
+URL: {repo['html_url']}
+CHALLENGE: {repo['name']}
+CATEGORY: {detected_cat}
+QUALITY_SCORE: {score:.2f}
+---
+"""
+                        with open(os.path.join(save_dir, filename), 'w', encoding='utf-8') as f:
+                            f.write(header + content[:3000])
+                        current_counts[detected_cat] = current_counts.get(detected_cat, 0) + 1
+                        saved += 1
+                        print(f"[Topics] Saved: {filename} ({detected_cat})")
+                    except Exception:
+                        pass
+                    time.sleep(0.2)
+                time.sleep(1)
+            except Exception as e:
+                print(f"[Topics] Error: {e}")
+                time.sleep(5)
+        topics_done.append(topic)
+        checkpoint["github_topics_done"] = topics_done
+        save_checkpoint(checkpoint)
+    return saved
+
+
 def scrape_pwnable_kr_writeups() -> int:
     import requests, time, os
     print("\n[Scraper] Scraping pwnable.kr writeups from GitHub...")
@@ -1144,6 +1236,176 @@ QUALITY_SCORE: {score:.2f}
                         print(f"[pwnable.kr] Saved: {filename} ({detected_cat})")
     except Exception as e:
         print(f"[pwnable.kr] Error: {e}")
+    return saved
+
+
+def scrape_pwnable_tw() -> int:
+    import requests, time, os
+    print("\n[Scraper] Scraping pwnable.tw writeups from GitHub...")
+    query = "pwnable.tw writeup exploit"
+    url = "https://api.github.com/search/repositories"
+    params = {
+        "q": query,
+        "sort": "stars",
+        "order": "desc",
+        "per_page": 10,
+    }
+    saved = 0
+    scraper = get_scraper()
+    
+    try:
+        resp = requests.get(url, headers=GITHUB_HEADERS, params=params, timeout=15)
+        if resp.status_code != 200:
+            print(f"[pwnable.tw] GitHub search failed: {resp.status_code}")
+            return 0
+        repos = resp.json().get("items", [])
+        for repo in repos:
+            owner = repo["owner"]["login"]
+            repo_name = repo["name"]
+            branch = repo.get("default_branch", "master")
+            
+            print(f"[pwnable.tw] Scraping repository: {owner}/{repo_name}...")
+            tree_url = f"https://api.github.com/repos/{owner}/{repo_name}/git/trees/{branch}?recursive=1"
+            time.sleep(1)
+            tree_resp = requests.get(tree_url, headers=GITHUB_HEADERS, timeout=15)
+            if tree_resp.status_code != 200:
+                continue
+            tree = tree_resp.json().get("tree", [])
+            for item in tree:
+                path = item.get("path", "")
+                if item.get("type") == "blob" and (path.endswith(".md") or path.endswith(".txt")):
+                    filename_lower = os.path.basename(path).lower()
+                    if any(x in filename_lower for x in ["readme", "license", "summary"]):
+                        continue
+                    
+                    raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/{branch}/{path}"
+                    if raw_url in scraper.scraped_urls:
+                        continue
+                    
+                    time.sleep(0.5)
+                    raw_r = requests.get(raw_url, headers=scraper.headers, timeout=10)
+                    if raw_r.status_code == 200:
+                        scraper.scraped_urls.add(raw_url)
+                        scraper._save_scraped_urls()
+                        content = raw_r.text
+                        
+                        if len(content) < 150 or contains_credentials(content):
+                            continue
+                        
+                        is_quality, score, _ = calculate_writeup_quality(content)
+                        if not is_quality:
+                            continue
+                            
+                        if is_duplicate_content(content, WALKTHROUGH_DIR):
+                            continue
+                        
+                        detected_cat = detect_category_from_text(content)
+                        
+                        slug = f"{owner}_{repo_name}_{os.path.splitext(os.path.basename(path))[0]}"
+                        safe_slug = "".join(c for c in slug if c.isalnum() or c in "_-").lower()
+                        filename = f"pwnabletw_{safe_slug}.txt"
+                        save_dir = os.path.join(WALKTHROUGH_DIR, "pwnabletw")
+                        os.makedirs(save_dir, exist_ok=True)
+                        save_path = os.path.join(save_dir, filename)
+                        
+                        header = f"""SOURCE: pwnable_tw
+URL: {raw_url}
+CHALLENGE: {os.path.basename(path)}
+CATEGORY: {detected_cat}
+QUALITY_SCORE: {score:.2f}
+---
+"""
+                        with open(save_path, "w", encoding="utf-8") as f:
+                            f.write(header + content[:4000])
+                        
+                        saved += 1
+                        print(f"[pwnable.tw] Saved: {filename} ({detected_cat})")
+    except Exception as e:
+        print(f"[pwnable.tw] Error: {e}")
+    return saved
+
+
+def scrape_pwn_ctf_archives(checkpoint: dict) -> int:
+    """Targets writeups from pwn-dense competitions specifically."""
+    import hashlib
+    queries_done = checkpoint.get("pwn_archive_queries_done", [])
+    queries = [
+        "hxp ctf writeup pwn exploit",
+        "corctf writeup pwn binary exploit",
+        "0ctf tctf writeup pwn exploit",
+        "real world ctf writeup pwn kernel heap",
+        "seccon writeup pwn binary exploit",
+        "zer0pts ctf writeup pwn exploit",
+        "tokyowesterns ctf writeup pwn exploit",
+    ]
+    saved = 0
+    current_counts = get_current_category_counts(WALKTHROUGH_DIR)
+    for query in queries:
+        if query in queries_done:
+            continue
+        print(f"[PwnArchives] Query: {query}")
+        for page in range(1, 4):
+            if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
+                return saved
+            url = "https://api.github.com/search/repositories"
+            params = {"q": query, "sort": "stars", "order": "desc", "per_page": 30, "page": page}
+            try:
+                resp = requests.get(url, headers=GITHUB_HEADERS, params=params, timeout=15)
+                if resp.status_code == 403:
+                    time.sleep(60)
+                    continue
+                if resp.status_code != 200:
+                    break
+                repos = resp.json().get("items", [])
+                if not repos:
+                    break
+                for repo in repos:
+                    if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
+                        return saved
+                    raw_url = (f"https://raw.githubusercontent.com/{repo['full_name']}/"
+                               f"{repo.get('default_branch','main')}/README.md")
+                    try:
+                        readme = requests.get(raw_url, timeout=10)
+                        if readme.status_code != 200 or len(readme.text) < 300:
+                            continue
+                        content = readme.text
+                        if contains_credentials(content):
+                            continue
+                        is_quality, score, _ = calculate_writeup_quality(content)
+                        if not is_quality:
+                            continue
+                        detected_cat = detect_category_from_text(content)
+                        if not category_needs_more(detected_cat, current_counts):
+                            continue
+                        if is_duplicate_content(content, WALKTHROUGH_DIR):
+                            continue
+                        url_hash = hashlib.md5(raw_url.encode()).hexdigest()[:8]
+                        slug = repo['full_name'].replace('/', '_')[:40]
+                        filename = f"pwnarchive_{detected_cat}_{slug}_{url_hash}.txt"
+                        save_dir = os.path.join(WALKTHROUGH_DIR, detected_cat)
+                        os.makedirs(save_dir, exist_ok=True)
+                        header = f"""SOURCE: pwn_archive
+URL: {repo['html_url']}
+CHALLENGE: {repo['name']}
+CATEGORY: {detected_cat}
+QUALITY_SCORE: {score:.2f}
+---
+"""
+                        with open(os.path.join(save_dir, filename), 'w', encoding='utf-8') as f:
+                            f.write(header + content[:3000])
+                        current_counts[detected_cat] = current_counts.get(detected_cat, 0) + 1
+                        saved += 1
+                        print(f"[PwnArchives] Saved: {filename} ({detected_cat})")
+                    except Exception:
+                        pass
+                    time.sleep(0.2)
+                time.sleep(1)
+            except Exception as e:
+                print(f"[PwnArchives] Error: {e}")
+                time.sleep(5)
+        queries_done.append(query)
+        checkpoint["pwn_archive_queries_done"] = queries_done
+        save_checkpoint(checkpoint)
     return saved
 
 
@@ -2021,12 +2283,11 @@ def main():
     print(f"[Scraper] Starting. Current total: {total}/{MAX_TOTAL_WRITEUPS}")
     print_category_progress(current_counts)
     
-    MAX_OUTER_LOOPS = 10
     outer_loop = 0
     
-    while total < MAX_TOTAL_WRITEUPS and outer_loop < MAX_OUTER_LOOPS:
+    while total < MAX_TOTAL_WRITEUPS:
         outer_loop += 1
-        print(f"\n[Scraper] === Outer loop {outer_loop}/{MAX_OUTER_LOOPS} ===")
+        print(f"\n[Scraper] === Outer loop {outer_loop} (no cap — running until {MAX_TOTAL_WRITEUPS} reached) ===")
         print(f"[Scraper] Current total: {total}/{MAX_TOTAL_WRITEUPS}")
         
         # One-time sources - only run if not completed
@@ -2038,6 +2299,7 @@ def main():
             "exploit_education": lambda: scrape_exploit_education(),
             "nobodyisnobody": lambda: scrape_nobodyisnobody(checkpoint),
             "pwnable_kr": lambda: scrape_pwnable_kr_writeups(),
+            "pwnable_tw": lambda: scrape_pwnable_tw(),
         }
         
         for source_name, source_fn in one_time_sources.items():
@@ -2054,6 +2316,8 @@ def main():
         scrape_ctf_writeup_repos(checkpoint)
         scrape_medium_ctf_writeups(checkpoint)
         scrape_by_category(checkpoint)
+        scrape_github_topics(checkpoint)
+        scrape_pwn_ctf_archives(checkpoint)
         
         # Reclassify unknowns after each loop
         reclassify_unknowns(WALKTHROUGH_DIR)
