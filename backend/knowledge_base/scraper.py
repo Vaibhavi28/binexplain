@@ -17,6 +17,8 @@ def load_checkpoint() -> dict:
     if CHECKPOINT_FILE.exists():
         try:
             data = json.loads(CHECKPOINT_FILE.read_text(encoding="utf-8"))
+            # Step 5 requirement: Reset the github_queries_done checkpoint so GitHub bulk search runs fresh
+            data["github_queries_done"] = []
             print(f"[Checkpoint] Resuming from: {data}")
             return data
         except Exception:
@@ -488,7 +490,7 @@ def scrape_ctftime(checkpoint: dict) -> int:
     current_counts = get_current_category_counts(WALKTHROUGH_DIR)
     scraper = get_scraper()
     
-    for page in range(start_page + 1, 500):
+    for page in range(start_page + 1, 1000):
         if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
             break
             
@@ -497,8 +499,8 @@ def scrape_ctftime(checkpoint: dict) -> int:
             resp = requests.get(url, headers=SCRAPER_HEADERS, timeout=15)
             if resp.status_code != 200:
                 consecutive_empty += 1
-                if consecutive_empty >= 3:
-                    print(f"[CTFtime] 3 consecutive failures at page {page}. Stopping.")
+                if consecutive_empty >= 10:
+                    print(f"[CTFtime] 10 consecutive failures at page {page}. Stopping.")
                     break
                 continue
             
@@ -565,8 +567,8 @@ def scrape_ctftime(checkpoint: dict) -> int:
             
             if writeups_found == 0:
                 consecutive_empty += 1
-                if consecutive_empty >= 3:
-                    print(f"[CTFtime] No content at pages {page-2}-{page}. Stopping.")
+                if consecutive_empty >= 10:
+                    print(f"[CTFtime] No content at pages {page-9}-{page}. Stopping.")
                     break
             else:
                 consecutive_empty = 0
@@ -583,7 +585,9 @@ def scrape_ctftime(checkpoint: dict) -> int:
         except Exception as e:
             print(f"[CTFtime] Error at page {page}: {e}")
             consecutive_empty += 1
-    
+            if consecutive_empty >= 10:
+                print(f"[CTFtime] 10 consecutive errors/failures. Stopping.")
+                break
     checkpoint["ctftime_last_page"] = page
     save_checkpoint(checkpoint)
     return saved
@@ -745,6 +749,150 @@ QUALITY_SCORE: {score:.2f}
             pages_done.append(feed_url)
     
     print(f"[Medium] Done. Saved {saved} articles.")
+    return saved
+
+
+def scrape_ctf_writeup_repos(checkpoint: dict) -> int:
+    import requests, time, os, hashlib
+    
+    repos_done = checkpoint.get("ctf_repos_done", [])
+    
+    # These are well-known CTF writeup mega-repositories on GitHub
+    # Each contains dozens to hundreds of individual writeup files
+    mega_repos = [
+        ("ctfs", "firmianay"),
+        ("CTF-Writeups", "csivitu"),
+        ("ctf-writeups", "perfectblue"),
+        ("writeups", "ret2basic"),
+        ("CTF", "VoidHack"),
+        ("ctf-writeups", "Naetw"),
+        ("CTF-writeups", "bigpick1976"),
+        ("pwntools-tutorial", "Gallopsled"),
+        ("how2heap", "shellphish"),
+        ("CTF-Pwn-Solutions", "0x4ndy"),
+        ("pwn-challs", "guyinatuxedo"),
+        ("ctf", "osirislab"),
+        ("writeups", "kileak"),
+        ("ctf-writeups", "hyperreality"),
+        ("CTFwriteups", "zst01"),
+    ]
+    
+    GITHUB_HEADERS = {
+        "Authorization": f"token {os.getenv('GITHUB_TOKEN', '') or os.getenv('GITHUB_Token', '')}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+    
+    saved = 0
+    current_counts = get_current_category_counts(WALKTHROUGH_DIR)
+    
+    for repo_name, owner in mega_repos:
+        repo_key = f"{owner}/{repo_name}"
+        if repo_key in repos_done:
+            print(f"[RepoScraper] Skipping already-done: {repo_key}")
+            continue
+            
+        if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
+            break
+        
+        print(f"[RepoScraper] Scraping {repo_key}...")
+        
+        # Get all .md files recursively from the repo
+        api_url = f"https://api.github.com/repos/{owner}/{repo_name}/git/trees/HEAD?recursive=1"
+        try:
+            resp = requests.get(api_url, headers=GITHUB_HEADERS, timeout=20)
+            if resp.status_code == 404:
+                repos_done.append(repo_key)
+                continue
+            if resp.status_code == 403:
+                print("[RepoScraper] Rate limited. Sleeping 60s...")
+                time.sleep(60)
+                continue
+            if resp.status_code != 200:
+                repos_done.append(repo_key)
+                continue
+                
+            tree = resp.json().get("tree", [])
+            md_files = [
+                f for f in tree
+                if f.get("type") == "blob" and
+                f.get("path", "").endswith(".md") and
+                any(kw in f.get("path", "").lower() for kw in
+                    ["pwn", "bin", "exploit", "overflow", "rop",
+                     "heap", "format", "shellcode", "ret2"])
+            ]
+            
+            print(f"[RepoScraper] Found {len(md_files)} relevant .md files in {repo_key}")
+            
+            for file_info in md_files[:50]:  # Max 50 files per repo
+                if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
+                    break
+                    
+                raw_url = (
+                    f"https://raw.githubusercontent.com/"
+                    f"{owner}/{repo_name}/HEAD/{file_info['path']}"
+                )
+                try:
+                    content_resp = requests.get(raw_url, timeout=15)
+                    if content_resp.status_code != 200:
+                        continue
+                    
+                    content = content_resp.text
+                    
+                    if len(content) < 200:
+                        continue
+                    if contains_credentials(content):
+                        continue
+                    
+                    is_quality, score, _ = calculate_writeup_quality(content)
+                    if not is_quality:
+                        continue
+                    
+                    if is_duplicate_content(content, WALKTHROUGH_DIR):
+                        continue
+                    
+                    detected_cat = detect_category_from_text(content)
+                    
+                    if not category_needs_more(detected_cat, current_counts):
+                        continue
+                    
+                    url_hash = hashlib.md5(raw_url.encode()).hexdigest()[:8]
+                    safe_path = file_info["path"].replace("/", "_")[:40]
+                    filename = f"gitrepo_{owner}_{safe_path}_{url_hash}.txt"
+                    
+                    save_dir = os.path.join(WALKTHROUGH_DIR, "github_repos")
+                    os.makedirs(save_dir, exist_ok=True)
+                    save_path = os.path.join(save_dir, filename)
+                    
+                    header = f"""SOURCE: github_repo
+URL: https://github.com/{owner}/{repo_name}/blob/HEAD/{file_info['path']}
+CHALLENGE: {file_info['path'].split('/')[-1].replace('.md', '')}
+CATEGORY: {detected_cat}
+QUALITY_SCORE: {score:.2f}
+---
+"""
+                    with open(save_path, "w", encoding="utf-8") as f:
+                        f.write(header + content[:4000])
+                    
+                    current_counts[detected_cat] = current_counts.get(detected_cat, 0) + 1
+                    saved += 1
+                    print(f"[RepoScraper] Saved: {filename} ({detected_cat})")
+                    time.sleep(0.2)
+                    
+                except Exception as e:
+                    print(f"[RepoScraper] File error: {e}")
+                    continue
+            
+            repos_done.append(repo_key)
+            checkpoint["ctf_repos_done"] = repos_done
+            save_checkpoint(checkpoint)
+            time.sleep(1)
+            
+        except Exception as e:
+            print(f"[RepoScraper] Repo error {repo_key}: {e}")
+            repos_done.append(repo_key)
+            time.sleep(2)
+    
+    print(f"[RepoScraper] Done. Saved {saved} files.")
     return saved
 
 
@@ -1629,59 +1777,72 @@ def reclassify_unknowns(walkthrough_dir: str):
 
 def main():
     checkpoint = load_checkpoint()
-    
-    print("[Scraper] Starting with category coverage:")
     current_counts = get_current_category_counts(WALKTHROUGH_DIR)
+    total = sum(current_counts.values())
+    
+    print(f"[Scraper] Starting. Current total: {total}/{MAX_TOTAL_WRITEUPS}")
     print_category_progress(current_counts)
     
-    if "ctftime" not in checkpoint.get("sources_completed", []):
-        scrape_ctftime(checkpoint)
-        checkpoint.setdefault("sources_completed", []).append("ctftime")
-        save_checkpoint(checkpoint)
-    else:
-        print("[Scraper] CTFtime already completed — skipping")
+    MAX_OUTER_LOOPS = 5
+    outer_loop = 0
     
-    if "how2heap" not in checkpoint.get("sources_completed", []):
-        scrape_how2heap()
-        checkpoint.setdefault("sources_completed", []).append("how2heap")
-        save_checkpoint(checkpoint)
+    while total < MAX_TOTAL_WRITEUPS and outer_loop < MAX_OUTER_LOOPS:
+        outer_loop += 1
+        print(f"\n[Scraper] === Outer loop {outer_loop}/{MAX_OUTER_LOOPS} ===")
+        print(f"[Scraper] Current total: {total}/{MAX_TOTAL_WRITEUPS}")
+        
+        # CTFtime - always try (uses pagination checkpoint internally)
+        if "ctftime_exhausted" not in checkpoint:
+            result = scrape_ctftime(checkpoint)
+            if result == 0:
+                # CTFtime returned nothing - mark as exhausted
+                checkpoint["ctftime_exhausted"] = True
+                save_checkpoint(checkpoint)
+                print("[Scraper] CTFtime exhausted - will not retry")
+        
+        # One-time sources - only run if not completed
+        one_time_sources = {
+            "how2heap": scrape_how2heap,
+            "ir0nstone": scrape_ir0nstone_extended,
+            "ctf_pwn_tips": scrape_ctf_pwn_tips,
+            "ropemporium": scrape_ropemporium,
+            "exploit_education": scrape_exploit_education,
+            "nobodyisnobody": scrape_nobodyisnobody,
+            "pwnable_kr": scrape_pwnable_kr_writeups,
+        }
+        
+        for source_name, source_fn in one_time_sources.items():
+            if source_name not in checkpoint.get("sources_completed", []):
+                try:
+                    source_fn()
+                    checkpoint.setdefault("sources_completed", []).append(source_name)
+                    save_checkpoint(checkpoint)
+                except Exception as e:
+                    print(f"[Scraper] {source_name} error: {e}")
+        
+        # High-volume sources - always retry until target reached
+        scrape_github_search_bulk(checkpoint)
+        scrape_ctf_writeup_repos(checkpoint)
+        scrape_medium_ctf_writeups(checkpoint)
+        
+        # Reclassify unknowns after each loop
+        reclassify_unknowns(WALKTHROUGH_DIR)
+        
+        current_counts = get_current_category_counts(WALKTHROUGH_DIR)
+        total = sum(current_counts.values())
+        print(f"\n[Scraper] After loop {outer_loop}: {total}/{MAX_TOTAL_WRITEUPS}")
+        print_category_progress(current_counts)
+        
+        if total >= MAX_TOTAL_WRITEUPS:
+            print("[Scraper] Target reached!")
+            break
+        
+        remaining = MAX_TOTAL_WRITEUPS - total
+        print(f"[Scraper] Still need {remaining} more writeups. Continuing...")
+        time.sleep(2)
     
-    if "ir0nstone" not in checkpoint.get("sources_completed", []):
-        scrape_ir0nstone_extended()
-        checkpoint.setdefault("sources_completed", []).append("ir0nstone")
-        save_checkpoint(checkpoint)
-    
-    if "ctf_pwn_tips" not in checkpoint.get("sources_completed", []):
-        scrape_ctf_pwn_tips()
-        checkpoint.setdefault("sources_completed", []).append("ctf_pwn_tips")
-        save_checkpoint(checkpoint)
-    
-    if "ropemporium" not in checkpoint.get("sources_completed", []):
-        scrape_ropemporium()
-        checkpoint.setdefault("sources_completed", []).append("ropemporium")
-        save_checkpoint(checkpoint)
-    
-    if "exploit_education" not in checkpoint.get("sources_completed", []):
-        scrape_exploit_education()
-        checkpoint.setdefault("sources_completed", []).append("exploit_education")
-        save_checkpoint(checkpoint)
-
-    if "pwnable_kr" not in checkpoint.get("sources_completed", []):
-        scrape_pwnable_kr_writeups()
-        checkpoint.setdefault("sources_completed", []).append("pwnable_kr")
-        save_checkpoint(checkpoint)
-    
-    scrape_github_search_bulk(checkpoint)
-    scrape_medium_ctf_writeups(checkpoint)
-    scrape_nobodyisnobody(checkpoint)
-    
-    # Reclassify any unknowns with improved keyword detection
-    reclassify_unknowns(WALKTHROUGH_DIR)
-    
-    final_counts = get_current_category_counts(WALKTHROUGH_DIR)
-    print("\n[Scraper] FINAL RESULTS:")
-    print_category_progress(final_counts)
-    print(f"Total: {sum(final_counts.values())} writeups")
+    print(f"\n[Scraper] FINAL TOTAL: {sum(get_current_category_counts(WALKTHROUGH_DIR).values())}")
+    print_category_progress(get_current_category_counts(WALKTHROUGH_DIR))
 
 
 if __name__ == "__main__":
