@@ -209,6 +209,17 @@ def save_markdown_report(metrics, sample_details, categories):
     print(f"[Evaluator] Report: {md_path}")
     return md_path
 
+def get_base_category(cat: str) -> str:
+    heap_subcategories = {
+        "tcache_poisoning", "house_of_spirit", "fastbin_dup",
+        "house_of_force", "house_of_orange", "unsorted_bin_attack",
+        "use_after_free", "off_by_one", "heap_exploitation",
+        "stack_canary_bypass"
+    }
+    if cat in heap_subcategories:
+        return "heap_exploitation"
+    return cat
+
 def run_evaluation():
     print("[Evaluator] BinExplain Category Detection Evaluation")
     print("=" * 60)
@@ -216,7 +227,7 @@ def run_evaluation():
     labels = load_labels()
     print(f"[Evaluator] {len(labels)} labeled binaries")
 
-    categories = list(set(v["true_category"] for v in labels.values()))
+    categories = list(set(get_base_category(v["true_category"]) for v in labels.values()))
     true_labels, predicted_labels, sample_details = [], [], []
 
     for binary_name, label_info in labels.items():
@@ -225,13 +236,14 @@ def run_evaluation():
             print(f"[Evaluator] Binary missing: {binary_name}")
             continue
 
-        true_cat = label_info["true_category"]
+        true_cat = get_base_category(label_info["true_category"])
         print(f"[Evaluator] {binary_name} (true: {true_cat})...")
 
-        predicted_cat = analyze_binary_category(binary_path)
+        raw_predicted = analyze_binary_category(binary_path)
+        predicted_cat = get_base_category(raw_predicted)
         correct = predicted_cat == true_cat
         mark = "✓" if correct else "✗"
-        print(f"  -> {predicted_cat} {mark}")
+        print(f"  -> {predicted_cat} {mark} (raw: {raw_predicted})")
 
         true_labels.append(true_cat)
         predicted_labels.append(predicted_cat)

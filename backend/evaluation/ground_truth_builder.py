@@ -72,7 +72,7 @@ def compile_binary(source_path: Path, output_path: Path) -> bool:
     try:
         result = subprocess.run(
             ["gcc", "-o", str(output_path), str(source_path),
-             "-no-pie", "-fno-stack-protector", "-w", "-lpthread"],
+             "-fno-stack-protector", "-w", "-lpthread"],
             capture_output=True, text=True, timeout=30
         )
         return result.returncode == 0
