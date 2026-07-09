@@ -37,3 +37,7 @@ backend/cache/*.db-journal
 backend/knowledge_base/walkthroughs/
 backend/knowledge_base/scraper_checkpoint.json
 .env
+
+# Category feedback accuracy logs
+backend/logs/category_accuracy.log
+logs/category_accuracy.log

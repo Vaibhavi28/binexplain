@@ -343,6 +343,7 @@ export default function App() {
     const [loading, setLoading] = useState(false);
     const [loadingMsg, setLoadingMsg] = useState('');
     const [result, setResult] = useState(null);
+    const [categoryFeedbackSent, setCategoryFeedbackSent] = useState(false);
     const [binaryContext, setBinaryContext] = useState(null);
     const [error, setError] = useState('');
     const inputRef = useRef(null);
@@ -593,6 +594,7 @@ export default function App() {
     const stageFile = useCallback((f) => {
         setError('');
         setResult(null);
+        setCategoryFeedbackSent(false);
 
         if (!f || !f.name) {
             setError(' Invalid file. Please select a valid binary.');
@@ -721,12 +723,34 @@ export default function App() {
         analysisContextRef.current = ctxParts.join('\n');
     };
 
+    const handleCategoryFeedback = async (isCorrect) => {
+        if (categoryFeedbackSent) return;
+        setCategoryFeedbackSent(true);
+        try {
+            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+            await fetch(`${backendUrl}/category-feedback`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filename: result?.filename || 'unknown',
+                    predicted_category: result?.ctf_category?.category || 'unknown',
+                    is_correct: isCorrect,
+                    confidence: result?.ctf_category?.confidence || 'unknown',
+                    difficulty: result?.difficulty || 'unknown',
+                })
+            });
+        } catch (err) {
+            console.error('Category feedback failed:', err);
+        }
+    };
+
     /* Upload & analyse */
     const upload = async () => {
         if (!file) return;
         setLoading(true);
         setError('');
         setResult(null);
+        setCategoryFeedbackSent(false);
 
         try {
             const form = new FormData();
@@ -1050,6 +1074,7 @@ export default function App() {
         setSourceLoading(true);
         setSourceError('');
         setSourceResult(null);
+        setCategoryFeedbackSent(false);
         try {
             const resp = await fetch(`${BACKEND_URL}/analyze-code`, {
                 method: 'POST',
@@ -1583,6 +1608,42 @@ export default function App() {
                                         <span className={`ctf-confidence-badge ctf-confidence-badge--${result.ctf_category.confidence.toLowerCase()}`}>{result.ctf_category.confidence}</span>
                                     </div>
                                     <p className="hero-card-desc"><GlossaryText text={result.ctf_category.explanation} /></p>
+                                    {result && result.ctf_category && (
+                                      <div style={{
+                                        marginTop: '12px', padding: '8px 12px',
+                                        background: '#161b22', borderRadius: '6px',
+                                        border: '1px solid #21262d', fontSize: '12px'
+                                      }}>
+                                        <span style={{color: '#8b949e', marginRight: '8px'}}>
+                                          Was this classification correct?
+                                        </span>
+                                        <button
+                                          onClick={() => handleCategoryFeedback(true)}
+                                          style={{
+                                            background: '#1a3a1a', border: '1px solid #3fb950',
+                                            color: '#7ee787', borderRadius: '4px',
+                                            padding: '3px 10px', fontSize: '11px',
+                                            cursor: 'pointer', marginRight: '6px'
+                                          }}>
+                                          ✓ Yes
+                                        </button>
+                                        <button
+                                          onClick={() => handleCategoryFeedback(false)}
+                                          style={{
+                                            background: '#3a1a1a', border: '1px solid #f85149',
+                                            color: '#ffa198', borderRadius: '4px',
+                                            padding: '3px 10px', fontSize: '11px',
+                                            cursor: 'pointer'
+                                          }}>
+                                          ✗ No
+                                        </button>
+                                        {categoryFeedbackSent && (
+                                          <span style={{color: '#8b949e', marginLeft: '8px', fontStyle: 'italic'}}>
+                                            Thanks for the feedback
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
                                 </div>
                             )}
                             {result.difficulty && (

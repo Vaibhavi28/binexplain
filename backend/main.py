@@ -5426,6 +5426,27 @@ async def submit_feedback(request: Request, body: FeedbackRequest):
     return {"status": "ok", "message": "Thanks for your feedback!"}
 
 
+@app.post("/category-feedback")
+async def category_feedback(request: dict):
+    import datetime
+    os.makedirs("logs", exist_ok=True)
+    filename = request.get("filename", "unknown")
+    predicted = request.get("predicted_category", "unknown")
+    is_correct = request.get("is_correct", None)
+    confidence = request.get("confidence", "unknown")
+    difficulty = request.get("difficulty", "unknown")
+
+    with open("logs/category_accuracy.log", "a", encoding="utf-8") as f:
+        f.write(
+            f"{datetime.datetime.now().isoformat()} | "
+            f"{filename} | {predicted} | "
+            f"{'CORRECT' if is_correct else 'WRONG'} | "
+            f"confidence={confidence} | difficulty={difficulty}\n"
+        )
+
+    return {"status": "recorded"}
+
+
 def build_chat_system_prompt(binary_context: dict, tried_commands: list = None) -> str:
     if not binary_context:
         return "You are a CTF binary exploitation mentor. Give specific, actionable hints."
