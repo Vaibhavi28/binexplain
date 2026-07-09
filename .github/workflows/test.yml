@@ -132,7 +132,12 @@ jobs:
           python -c "
           import json
           from pathlib import Path
-          report = json.loads(Path('evaluation/results/evaluation_report.json').read_text())
+          p1 = Path('evaluation/results/evaluation_report.json')
+          p2 = Path('backend/evaluation/results/evaluation_report.json')
+          report_file = p1 if p1.exists() else p2
+          if not report_file.exists():
+              raise FileNotFoundError(f'Could not find evaluation report JSON in {p1} or {p2}')
+          report = json.loads(report_file.read_text())
           accuracy = report['metrics']['_overall']['accuracy']
           print(f'Accuracy: {accuracy*100:.1f}%')
           assert accuracy >= 0.60, f'Accuracy {accuracy*100:.1f}% below 60% threshold'
