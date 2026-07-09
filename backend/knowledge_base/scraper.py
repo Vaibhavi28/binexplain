@@ -2000,6 +2000,13 @@ def reclassify_unknowns(walkthrough_dir: str):
 
 def main():
     checkpoint = load_checkpoint()
+    
+    # Skip CTFtime — it has been exhausted
+    # All remaining content comes from GitHub and targeted sources
+    if "ctftime" not in checkpoint.get("sources_completed", []):
+        checkpoint.setdefault("sources_completed", []).append("ctftime")
+        save_checkpoint(checkpoint)
+        
     current_counts = get_current_category_counts(WALKTHROUGH_DIR)
     total = sum(current_counts.values())
     
