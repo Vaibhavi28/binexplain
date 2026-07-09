@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
+import GlossaryText from '../components/GlossaryText';
 
 export default function Docs({ onNavigate }) {
     const sections = [
@@ -24,7 +25,6 @@ export default function Docs({ onNavigate }) {
                 const el = document.getElementById(section.id);
                 if (el) {
                     const rect = el.getBoundingClientRect();
-                    // Offset check so it triggers when section reaches top of viewport
                     if (rect.top <= 120) {
                         current = section.id;
                     }
@@ -34,7 +34,6 @@ export default function Docs({ onNavigate }) {
         };
 
         window.addEventListener('scroll', handleScroll);
-        // Initial run
         handleScroll();
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
@@ -150,20 +149,30 @@ export default function Docs({ onNavigate }) {
                 </a>
                 <h1 className="docs-title">BinExplain Documentation</h1>
 
+                <div style={{fontSize:'12px',color:'#8b949e',padding:'12px 16px',
+                    background:'#161b22',borderRadius:'6px',marginBottom:'20px',
+                    border:'1px solid #21262d'}}>
+                  💡 <strong style={{color:'#79c0ff'}}>Tip:</strong> Hover over{' '}
+                  <span style={{borderBottom:'1px dashed #388bfd',color:'#79c0ff'}}>
+                    highlighted terms
+                  </span>{' '}anywhere in this documentation for plain English explanations
+                  with real-world examples.
+                </div>
+
                 {/* Section 1 — Getting Started */}
                 <section id="getting-started" className="docs-section">
                     <h2>1. Getting Started</h2>
                     <h3>What is BinExplain</h3>
                     <p>
-                        BinExplain is a modern, web-based static analysis platform designed to help beginners and experienced security researchers analyze binary executables and source code. It combines traditional static analysis tools with advanced AI models to translate low-level output into understandable, context-rich explanations and actionable guidance. BinExplain was built to lower the barrier to entry for CTF beginners. <Link to="/about">Read the full story</Link> of why this tool exists.
+                        <GlossaryText text="BinExplain is a modern, web-based static analysis platform designed to help beginners and experienced security researchers analyze binary executables and source code. It combines traditional static analysis tools with advanced AI models to translate low-level output into understandable, context-rich explanations and actionable guidance. BinExplain was built to lower the barrier to entry for CTF beginners." /> <Link to="/about">Read the full story</Link> of why this tool exists.
                     </p>
                     <h3>No Installation Required</h3>
                     <p>
-                        There are no command-line tools to download, no compilers or dependencies to configure, and no account setup required. BinExplain runs entirely in your web browser, communicating with a backend analysis service to parse file characteristics in real time.
+                        <GlossaryText text="There are no command-line tools to download, no compilers or dependencies to configure, and no account setup required. BinExplain runs entirely in your web browser, communicating with a backend analysis service to parse file characteristics in real time." />
                     </p>
                     <h3>Supported Browsers</h3>
                     <p>
-                        BinExplain is compatible with and optimized for all modern web browsers:
+                        <GlossaryText text="BinExplain is compatible with and optimized for all modern web browsers:" />
                     </p>
                     <ul>
                         <li><strong>Google Chrome</strong> (and chromium-based browsers)</li>
@@ -177,7 +186,7 @@ export default function Docs({ onNavigate }) {
                 <section id="uploading-files" className="docs-section">
                     <h2>2. Uploading Files</h2>
                     <p>
-                        You can drag and drop your files directly into the analyzer dropzone, or browse files from your local system.
+                        <GlossaryText text="You can drag and drop your files directly into the analyzer dropzone, or browse files from your local system." />
                     </p>
                     <ul>
                         <li>
@@ -193,7 +202,7 @@ export default function Docs({ onNavigate }) {
                             <strong>Maximum File Size:</strong> 5MB per individual file.
                         </li>
                         <li>
-                            <strong>Privacy &amp; Security:</strong> Files are strictly parsed using static analysis only. They are deleted immediately after the analysis finishes — nothing is stored on our servers.
+                            <strong>Privacy &amp; Security:</strong> <GlossaryText text="Files are strictly parsed using static analysis only. They are deleted immediately after the analysis finishes — nothing is stored on our servers." />
                         </li>
                     </ul>
                 </section>
@@ -208,22 +217,22 @@ export default function Docs({ onNavigate }) {
                     </p>
                     <ul>
                         <li>
-                            <strong>ret2win:</strong> A classic buffer overflow scenario. The binary contains a developer-written "win" function (e.g., <code className="docs-code">win()</code>, <code className="docs-code">flag()</code>, or <code className="docs-code">secret()</code>) that is not normally called. The goal is to overflow the stack buffer and overwrite the return address with the address of the win function.
+                            <strong>ret2win:</strong> <GlossaryText text="A classic buffer overflow scenario. The binary contains a developer-written `win()` function (e.g., `win()`, `flag()`, or `secret()`) that is not normally called. The goal is to overflow the stack buffer and overwrite the return address with the address of the win function." />
                         </li>
                         <li>
-                            <strong>ret2libc:</strong> NX (No-Execute) is enabled, meaning you cannot execute shellcode on the stack, and there is no win function. The goal is to overflow the buffer and redirect code execution to library functions in <code className="docs-code">libc</code>, commonly targeting <code className="docs-code">system()</code> with the argument string <code className="docs-code">"/bin/sh"</code>.
+                            <strong>ret2libc:</strong> <GlossaryText text="NX (No-Execute) is enabled, meaning you cannot execute shellcode on the stack, and there is no win function. The goal is to overflow the buffer and redirect code execution to library functions in `libc`, commonly targeting `system()` with the argument string '/bin/sh'." />
                         </li>
                         <li>
-                            <strong>format_string:</strong> Occurs when user input is passed directly to output formatting functions (like <code className="docs-code">printf(buf)</code>) without a format specifier. Attackers can supply format modifiers like <code className="docs-code">%p</code> to leak stack values (canaries, pointers) or <code className="docs-code">%n</code> to write arbitrary values to arbitrary memory.
+                            <strong>format_string:</strong> <GlossaryText text="Occurs when user input is passed directly to output formatting functions (like `printf(buf)`) without a format specifier. Attackers can supply format modifiers like `%p` to leak stack values (canaries, pointers) or `%n` to write arbitrary values to arbitrary memory." />
                         </li>
                         <li>
-                            <strong>heap_exploitation:</strong> Involves memory safety violations within dynamically allocated heap chunks. Common vulnerability patterns include Use-After-Free (UAF), double-freeing pointers, heap overflows, or fastbin/tcache poisoning to bypass allocator metadata.
+                            <strong>heap_exploitation:</strong> <GlossaryText text="Involves memory safety violations within dynamically allocated heap chunks. Common vulnerability patterns include Use-After-Free (UAF), double-freeing pointers, heap overflows, or fastbin/tcache poisoning to bypass allocator metadata." />
                         </li>
                         <li>
-                            <strong>rop_chain:</strong> NX is enabled and PIE is often enabled, requiring code reuse. The goal is to chain small assembly instruction snippets (gadgets) ending in <code className="docs-code">ret</code> to bypass protections, typically call functions, or pivot the stack.
+                            <strong>rop_chain:</strong> <GlossaryText text="NX is enabled and PIE is often enabled, requiring code reuse. The goal is to chain small assembly instruction snippets (gadgets) ending in `ret` to bypass protections, typically call functions, or pivot the stack." />
                         </li>
                         <li>
-                            <strong>shellcode:</strong> NX is disabled. You can inject custom machine code (shellcode) into a buffer on the stack or heap and overwrite the return address to jump directly to the buffer's address to execute the payload.
+                            <strong>shellcode:</strong> <GlossaryText text="NX is disabled. You can inject custom machine code (shellcode) into a buffer on the stack or heap and overwrite the return address to jump directly to the buffer's address to execute the payload." />
                         </li>
                     </ul>
 
@@ -267,21 +276,21 @@ export default function Docs({ onNavigate }) {
                         Security mitigations compiled into the binary are explained in plain English:
                     </p>
                     <ul>
-                        <li><strong>NX (No-Execute):</strong> Prevents code execution on the stack/heap.</li>
-                        <li><strong>PIE (Position Independent Executable):</strong> Randomizes the binary's code section base address in memory.</li>
-                        <li><strong>Stack Canary:</strong> A guard value placed on the stack to detect buffer overflows before returning.</li>
-                        <li><strong>RELRO (RELocation Read-Only):</strong> Hardens the Global Offset Table (GOT) against overwriting.</li>
-                        <li><strong>Fortify:</strong> Replaces buffer-bound functions with bounds-checked variants (e.g. <code className="docs-code">__printf_chk</code>).</li>
+                        <li><strong>NX (No-Execute):</strong> <GlossaryText text="Prevents code execution on the stack/heap." /></li>
+                        <li><strong>PIE (Position Independent Executable):</strong> <GlossaryText text="Randomizes the binary's code section base address in memory." /></li>
+                        <li><strong>Stack Canary:</strong> <GlossaryText text="A guard value placed on the stack to detect buffer overflows before returning." /></li>
+                        <li><strong>RELRO (RELocation Read-Only):</strong> <GlossaryText text="Hardens the Global Offset Table (GOT) against overwriting." /></li>
+                        <li><strong>Fortify:</strong> <GlossaryText text="Replaces buffer-bound functions with bounds-checked variants (e.g. `__printf_chk`)." /></li>
                     </ul>
 
                     <h3>ROP Gadgets</h3>
                     <p>
-                        Lists discovered assembly code sequences followed by a return instruction (<code className="docs-code">ret</code>) and their virtual memory addresses. These addresses are key ingredients for building custom ROP chains.
+                        <GlossaryText text="Lists discovered assembly code sequences followed by a return instruction (`ret`) and their virtual memory addresses. These addresses are key ingredients for building custom ROP chains." />
                     </p>
 
                     <h3>Overflow Offset Prediction</h3>
                     <p>
-                        Predicts the exact number of bytes required to fill a local stack buffer and reach the saved frame pointer (EBP/RBP) or return address (EIP/RIP).
+                        <GlossaryText text="Predicts the exact number of bytes required to fill a local stack buffer and reach the saved frame pointer (EBP/RBP) or return address (EIP/RIP)." />
                     </p>
                 </section>
 
@@ -293,34 +302,34 @@ export default function Docs({ onNavigate }) {
                     </p>
                     <ul>
                         <li>
-                            <strong>AI Mentor Hints:</strong> The system reads the results of checksec, file metadata, and strings to generate binary-specific hints. This goes beyond static documentation to explain the vulnerabilities present in the actual uploaded file.
+                            <strong>AI Mentor Hints:</strong> <GlossaryText text="The system reads the results of checksec, file metadata, and strings to generate binary-specific hints. This goes beyond static documentation to explain the vulnerabilities present in the actual uploaded file." />
                         </li>
                         <li>
-                            <strong>Parallel AI Inference:</strong> To produce high-quality hints, BinExplain sends requests to Groq (which returns a fast, structured initial analysis) and Nemotron (which processes deep, conceptual advice) simultaneously, merging the best of both outputs.
+                            <strong>Parallel AI Inference:</strong> <GlossaryText text="To produce high-quality hints, BinExplain sends requests to Groq (which returns a fast, structured initial analysis) and Nemotron (which processes deep, conceptual advice) simultaneously, merging the best of both outputs." />
                         </li>
                         <li>
-                            <strong>Quality Gate:</strong> BinExplain uses a two-pass quality system. If an AI provider returns a generic or too-short response, it automatically tries the next provider instead of showing you a useless answer. You always get a substantive hint.
+                            <strong>Quality Gate:</strong> <GlossaryText text="BinExplain uses a two-pass quality system. If an AI provider returns a generic or too-short response, it automatically tries the next provider instead of showing you a useless answer. You always get a substantive hint." />
                         </li>
                         <li>
-                            <strong>Conversation Summarization:</strong> Conversations never hit a hard limit. Every 10 messages, BinExplain automatically summarizes the session so far and continues with full context. You can have unlimited length sessions without losing context or starting over.
+                            <strong>Conversation Summarization:</strong> <GlossaryText text="Conversations never hit a hard limit. Every 10 messages, BinExplain automatically summarizes the session so far and continues with full context. You can have unlimited length sessions without losing context or starting over." />
                         </li>
                         <li>
-                            <strong>AI Knowledge Base:</strong> 2200+ real CTF writeups from 13 curated sources, categorized across 24 exploitation technique tags including tcache poisoning, ret2csu, SROP, GOT overwrite, and more.
+                            <strong>AI Knowledge Base:</strong> <GlossaryText text="2200+ real CTF writeups from 13 curated sources, categorized across 24 exploitation technique tags including tcache poisoning, ret2csu, SROP, GOT overwrite, and more." />
                         </li>
                         <li>
-                            <strong>Enhanced Badge:</strong> An <span className="docs-badge">Enhanced</span> badge appears in the UI when the Nemotron model is active and its deep analysis has been successfully merged into the final output.
+                            <strong>Enhanced Badge:</strong> <GlossaryText text="An Enhanced badge appears in the UI when the Nemotron model is active and its deep analysis has been successfully merged into the final output." />
                         </li>
                         <li>
-                            <strong>Follow-up Chat:</strong> Use the interactive AI chatbot beneath your results to ask follow-up questions. Press <kbd>Shift</kbd>+<kbd>Enter</kbd> to insert a newline.
+                            <strong>Follow-up Chat:</strong> <GlossaryText text="Use the interactive AI chatbot beneath your results to ask follow-up questions. Press Shift+Enter to insert a newline." />
                         </li>
                         <li>
-                            <strong>Screenshot Analysis:</strong> If you are stuck in GDB or are encountering a specific terminal error, take a screenshot and upload it to the chatbot. The vision model will analyze it and provide contextual debug advice.
+                            <strong>Screenshot Analysis:</strong> <GlossaryText text="If you are stuck in GDB or are encountering a specific terminal error, take a screenshot and upload it to the chatbot. The vision model will analyze it and provide contextual debug advice." />
                         </li>
                         <li>
-                            <strong>Command Explainer:</strong> Every time the AI suggests a terminal command, a <code className="docs-code">?</code> helper icon is displayed next to it. Clicking the icon returns a visual breakdown of exactly what the command parameters do.
+                            <strong>Command Explainer:</strong> <GlossaryText text="Every time the AI suggests a terminal command, a ? helper icon is displayed next to it. Clicking the icon returns a visual breakdown of exactly what the command parameters do." />
                         </li>
                         <li>
-                            <strong>Interactive Glossary:</strong> Hover over any highlighted technical term in the analysis results to see a plain English explanation with a real-world attack example. Terms covered include: buffer overflow, ROP, NX, PIE, canary, tcache, UAF, format string, and 30+ more.
+                            <strong>Interactive Glossary:</strong> <GlossaryText text="Hover over any highlighted technical term in the analysis results to see a plain English explanation with a real-world attack example. Terms covered include: buffer overflow, ROP, NX, PIE, canary, tcache, UAF, format string, and 30+ more." />
                         </li>
                     </ul>
                 </section>
@@ -353,10 +362,10 @@ export default function Docs({ onNavigate }) {
                             <strong>Pasted Code or Uploads:</strong> You can paste source code directly into the editor box or upload a source code file.
                         </li>
                         <li>
-                            <strong>Precise Buffer Calculation:</strong> In source code mode, the analyzer reads variable declarations directly (e.g., <code className="docs-code">char buf[64];</code>) to provide more precise overflow offset predictions.
+                            <strong>Precise Buffer Calculation:</strong> <GlossaryText text="In source code mode, the analyzer reads variable declarations directly (e.g., `char buf[64];`) to provide more precise overflow offset predictions." />
                         </li>
                         <li>
-                            <strong>Compilation Helper:</strong> The quick commands panel in source code mode automatically generates compilations commands (e.g. <code className="docs-code">gcc -fno-stack-protector -z execstack</code>) showing you how to compile the source code to enable or disable specific mitigations for practice.
+                            <strong>Compilation Helper:</strong> <GlossaryText text="The quick commands panel in source code mode automatically generates compilations commands (e.g. `gcc -fno-stack-protector -z execstack`) showing you how to compile the source code to enable or disable specific mitigations for practice." />
                         </li>
                     </ul>
                 </section>
@@ -372,7 +381,7 @@ export default function Docs({ onNavigate }) {
                             <strong>Disabled by Default:</strong> This feature is completely opt-in. Files are never submitted to VirusTotal unless you check the box prior to upload.
                         </li>
                         <li>
-                            <strong>Warning:</strong> Any files uploaded to VirusTotal are stored permanently in public threat-intelligence archives. Do not submit corporate binaries, private university assignments, or sensitive personal data.
+                            <strong>Warning:</strong> <GlossaryText text="Any files uploaded to VirusTotal are stored permanently in public threat-intelligence archives. Do not submit corporate binaries, private university assignments, or sensitive personal data." />
                         </li>
                     </ul>
                 </section>
@@ -440,16 +449,16 @@ export default function Docs({ onNavigate }) {
                     <h2>9. Troubleshooting</h2>
                     <ul>
                         <li>
-                            <strong>"Cannot connect to backend":</strong> Check that the backend server is running (defaults to <code className="docs-code">http://localhost:8000</code>). Refresh the page and try again.
+                            <strong>"Cannot connect to backend":</strong> <GlossaryText text="Check that the backend server is running (defaults to `http://localhost:8000`). Refresh the page and try again." />
                         </li>
                         <li>
-                            <strong>"All AI providers failed":</strong> Groq or Gemini API endpoints may be rate-limited. Wait 30 seconds and click analyze again.
+                            <strong>"All AI providers failed":</strong> <GlossaryText text="Groq or Gemini API endpoints may be rate-limited. Wait 30 seconds and click analyze again." />
                         </li>
                         <li>
-                            <strong>"File rejected":</strong> Ensure the uploaded file size is under the 5MB limit and uses a supported extension or is a valid extensionless binary file.
+                            <strong>"File rejected":</strong> <GlossaryText text="Ensure the uploaded file size is under the 5MB limit and uses a supported extension or is a valid extensionless binary file." />
                         </li>
                         <li>
-                            <strong>"AI hints are generic":</strong> This happens occasionally if the binary contains zero strings or readable tables. Ask a specific question in the follow-up chat (e.g., "what does the main function do?") to seed the conversational memory.
+                            <strong>"AI hints are generic":</strong> <GlossaryText text="This happens occasionally if the binary contains zero strings or readable tables. Ask a specific question in the follow-up chat (e.g., 'what does the main function do?') to seed the conversational memory." />
                         </li>
                     </ul>
                 </section>

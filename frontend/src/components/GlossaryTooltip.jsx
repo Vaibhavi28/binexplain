@@ -30,7 +30,9 @@ const GlossaryTooltip = ({ children, term }) => {
     if (top + tooltipEstimatedHeight > window.innerHeight - 8) {
       top = rect.top - tooltipEstimatedHeight - 8;
     }
-    if (top < 8) top = 8;
+    
+    // Clamp to avoid disappearing behind the top fixed nav bar (72px height + padding)
+    top = Math.max(top, 80);
 
     setPosition({ top, left });
   };

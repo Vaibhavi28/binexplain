@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
+import GlossaryText from '../components/GlossaryText';
 
 export default function Blog({ onNavigate }) {
     const articles = [
@@ -137,7 +138,9 @@ export default function Blog({ onNavigate }) {
                                 {art.title}
                             </Link>
                         </h2>
-                        <p className="blog-card-excerpt">{art.excerpt}</p>
+                        <p className="blog-card-excerpt">
+                            <GlossaryText text={art.excerpt} />
+                        </p>
                         <div className="blog-card-footer" style={{ marginTop: 'auto' }}>
                             <span className="blog-card-date">{art.date}</span>
                             <Link to="/" className="blog-card-readmore" style={{ textDecoration: 'none' }}>
@@ -152,7 +155,7 @@ export default function Blog({ onNavigate }) {
             <div className="blog-discover-callout" style={{ marginTop: '48px', padding: '32px', backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center' }}>
                 <h3 style={{ fontSize: '20px', marginBottom: '12px', color: 'var(--primary)' }}>Ready to Exploit CTF Challenges?</h3>
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                    BinExplain is a free, web-based CTF binary static analyzer that finds ROP gadgets and generates python exploit templates.
+                    <GlossaryText text="BinExplain is a free, web-based CTF binary static analyzer that finds ROP gadgets and generates python exploit templates." />
                 </p>
                 <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
                     <Link to="/" className="blog-subscribe-btn" style={{ textDecoration: 'none', padding: '10px 20px', borderRadius: '6px' }}>
@@ -162,6 +165,12 @@ export default function Blog({ onNavigate }) {
                         Read the Docs &rarr;
                     </Link>
                 </div>
+            </div>
+
+            <div style={{fontSize:'11px',color:'#484f58',padding:'8px 16px',
+                textAlign:'center',marginTop:'24px'}}>
+              💡 Hover over <span style={{borderBottom:'1px dashed #388bfd',
+                color:'#79c0ff'}}>highlighted terms</span> for plain English explanations
             </div>
         </div>
     );
