@@ -227,6 +227,31 @@ export default function Docs({ onNavigate }) {
                         </li>
                     </ul>
 
+                    <h4>Extended Techniques Detected (via RAG and technique tagging)</h4>
+                    <p>
+                        BinExplain also detects and indexes advanced binary exploitation and bypass techniques:
+                    </p>
+                    <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px', paddingLeft: '20px' }}>
+                        <li><code className="docs-code">ret2plt</code></li>
+                        <li><code className="docs-code">got_overwrite</code></li>
+                        <li><code className="docs-code">ret2csu</code></li>
+                        <li><code className="docs-code">srop</code></li>
+                        <li><code className="docs-code">fastbin_dup</code></li>
+                        <li><code className="docs-code">tcache_poisoning</code></li>
+                        <li><code className="docs-code">use_after_free</code></li>
+                        <li><code className="docs-code">one_gadget</code></li>
+                        <li><code className="docs-code">canary_bypass</code></li>
+                        <li><code className="docs-code">pie_bypass</code></li>
+                        <li><code className="docs-code">off_by_one</code></li>
+                        <li><code className="docs-code">stack_pivot</code></li>
+                        <li><code className="docs-code">integer_overflow</code></li>
+                        <li><code className="docs-code">seccomp_bypass</code></li>
+                        <li><code className="docs-code">house_of_force</code></li>
+                        <li><code className="docs-code">house_of_spirit</code></li>
+                        <li><code className="docs-code">house_of_orange</code></li>
+                        <li><code className="docs-code">unsorted_bin_attack</code></li>
+                    </ul>
+
                     <h3>Difficulty Assessment</h3>
                     <p>
                         The analyzer classifies difficulty as <strong>Easy</strong>, <strong>Medium</strong>, or <strong>Hard</strong>. This rating is dynamically calculated based on the active security mitigations (e.g. checksec flags) present in the executable.
@@ -274,6 +299,15 @@ export default function Docs({ onNavigate }) {
                             <strong>Parallel AI Inference:</strong> To produce high-quality hints, BinExplain sends requests to Groq (which returns a fast, structured initial analysis) and Nemotron (which processes deep, conceptual advice) simultaneously, merging the best of both outputs.
                         </li>
                         <li>
+                            <strong>Quality Gate:</strong> BinExplain uses a two-pass quality system. If an AI provider returns a generic or too-short response, it automatically tries the next provider instead of showing you a useless answer. You always get a substantive hint.
+                        </li>
+                        <li>
+                            <strong>Conversation Summarization:</strong> Conversations never hit a hard limit. Every 10 messages, BinExplain automatically summarizes the session so far and continues with full context. You can have unlimited length sessions without losing context or starting over.
+                        </li>
+                        <li>
+                            <strong>AI Knowledge Base:</strong> 2200+ real CTF writeups from 13 curated sources, categorized across 24 exploitation technique tags including tcache poisoning, ret2csu, SROP, GOT overwrite, and more.
+                        </li>
+                        <li>
                             <strong>Enhanced Badge:</strong> An <span className="docs-badge">Enhanced</span> badge appears in the UI when the Nemotron model is active and its deep analysis has been successfully merged into the final output.
                         </li>
                         <li>
@@ -284,6 +318,9 @@ export default function Docs({ onNavigate }) {
                         </li>
                         <li>
                             <strong>Command Explainer:</strong> Every time the AI suggests a terminal command, a <code className="docs-code">?</code> helper icon is displayed next to it. Clicking the icon returns a visual breakdown of exactly what the command parameters do.
+                        </li>
+                        <li>
+                            <strong>Interactive Glossary:</strong> Hover over any highlighted technical term in the analysis results to see a plain English explanation with a real-world attack example. Terms covered include: buffer overflow, ROP, NX, PIE, canary, tcache, UAF, format string, and 30+ more.
                         </li>
                     </ul>
                 </section>
@@ -296,10 +333,11 @@ export default function Docs({ onNavigate }) {
                     </p>
                     <ul>
                         <li>
-                            <strong>Copy to Clipboard:</strong> Click the copy icon next to any command to instantly copy it.
-                        </li>
-                        <li>
-                            <strong>AI Explainer:</strong> Click the <code className="docs-code">?</code> icon next to a command to trigger a pop-up explanation of the utility, arguments, and expected output.
+                            <strong>Each command has two buttons:</strong>
+                            <ul>
+                                <li><strong>⎘ Copy</strong> — copies the exact command with your binary name pre-filled</li>
+                                <li><strong>? Explain</strong> — shows a visual word-by-word breakdown of what each flag and argument does, with expected output and CTF relevance</li>
+                            </ul>
                         </li>
                     </ul>
                 </section>
