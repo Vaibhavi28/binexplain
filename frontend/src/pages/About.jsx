@@ -65,7 +65,7 @@ export default function About({ onNavigate }) {
                             <h3 className="about-card-title">CTF Category Detection</h3>
                         </div>
                         <p className="about-card-desc">
-                            Classifies your binary into one of six exploitation archetypes with a confidence level and explanation.
+                            Classifies your binary into one of six exploitation archetypes with a confidence level, explanation, and difficulty prediction
                         </p>
                     </div>
 
@@ -75,7 +75,7 @@ export default function About({ onNavigate }) {
                             <h3 className="about-card-title">Parallel AI Inference</h3>
                         </div>
                         <p className="about-card-desc">
-                            Calls Groq and Nemotron simultaneously, merges the best of both responses.
+                            Calls Groq and Nemotron 3 Ultra simultaneously. A quality gate filters generic responses. Both answers merge into one expert-level hint
                         </p>
                     </div>
 
@@ -85,17 +85,17 @@ export default function About({ onNavigate }) {
                             <h3 className="about-card-title">RAG-Powered Hints</h3>
                         </div>
                         <p className="about-card-desc">
-                            Finds similar past CTF challenges from a knowledge base of real writeups.
+                            2200+ real CTF writeups from 13 sources indexed with 24 technique tags. Hybrid vector + tag overlap retrieval finds genuinely similar past challenges
                         </p>
                     </div>
 
                     <div className="about-card">
                         <div className="about-card-header">
                             <span className="about-card-icon">⚡</span>
-                            <h3 className="about-card-title">Instant Results</h3>
+                            <h3 className="about-card-title">Interactive Glossary</h3>
                         </div>
                         <p className="about-card-desc">
-                            No installation, no account, results in seconds.
+                            Hover over any technical term — NX, PIE, ROP, tcache — for a plain English explanation with a real-world attack example
                         </p>
                     </div>
 
@@ -105,7 +105,7 @@ export default function About({ onNavigate }) {
                             <h3 className="about-card-title">Source Code Analysis</h3>
                         </div>
                         <p className="about-card-desc">
-                            Full feature parity between binary and source code analysis flows.
+                            Full feature parity between binary file and source code analysis. Overflow offset read directly from buffer declarations — more precise than binary disassembly
                         </p>
                     </div>
 
@@ -115,7 +115,7 @@ export default function About({ onNavigate }) {
                             <h3 className="about-card-title">Security First</h3>
                         </div>
                         <p className="about-card-desc">
-                            Static analysis only, files deleted immediately, nothing stored.
+                            Static analysis only. Files deleted immediately. Zero binary execution. Rate limited. Input validated. Never stored.
                         </p>
                     </div>
                 </div>
@@ -130,9 +130,14 @@ export default function About({ onNavigate }) {
                 <p>
                     BinExplain was built by Vaibhavi Sanjay Kathepuri, a master's
                     student at Pennsylvania State University studying cybersecurity and AI.
-                    After spending 40+ hours struggling to understand her first binary
-                    exploitation challenges, she decided to build the tool she wished had
-                    existed.
+                    After spending months of evenings and weekends struggling to understand her
+                    first binary exploitation challenges, she decided to build the tool she
+                    wished had existed.
+                </p>
+                <p>
+                    BinExplain began as a personal frustration with existing tools and grew
+                    into a full-featured platform over months of active development. The
+                    project explores AI-assisted scaffolding for binary exploitation education.
                 </p>
             </section>
 
