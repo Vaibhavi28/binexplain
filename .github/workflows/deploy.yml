@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # ── Frontend → GitHub Pages ────────────────────────────────────────
+  # ── Frontend → GCP e2-micro ────────────────────────────────────────
   deploy-frontend:
     runs-on: ubuntu-latest
     environment:
@@ -39,7 +39,7 @@ jobs:
         working-directory: frontend
         run: npm run build
         env:
-          VITE_BACKEND_URL: ${{ vars.BACKEND_URL || 'https://binexplain-api.onrender.com' }}
+          VITE_BACKEND_URL: ${{ vars.BACKEND_URL || 'https://api.binexplain.com' }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -49,7 +49,7 @@ jobs:
         with:
           path: frontend/dist
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy to GCP e2-micro
         id: deployment
         uses: actions/deploy-pages@v4
 
