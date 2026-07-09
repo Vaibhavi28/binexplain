@@ -266,34 +266,34 @@ WALKTHROUGHS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wal
 WALKTHROUGH_DIR = WALKTHROUGHS_DIR
 
 CATEGORY_TARGETS = {
-    "ret2win":            400,
-    "ret2libc":           500,
-    "format_string":      400,
-    "rop_chain":          700,
-    "heap_exploitation":  800,
-    "shellcode":          300,
-    "ret2plt":             50,
-    "got_overwrite":       50,
-    "ret2csu":             50,
-    "srop":                30,
-    "fastbin_dup":         30,
-    "tcache_poisoning":    50,
-    "use_after_free":      80,
-    "one_gadget":          50,
-    "canary_bypass":       30,
-    "pie_bypass":          30,
-    "off_by_one":          30,
-    "stack_pivot":         30,
-    "integer_overflow":    30,
-    "seccomp_bypass":      30,
-    "house_of_force":      20,
-    "house_of_spirit":     30,
-    "house_of_orange":     20,
-    "unsorted_bin_attack": 20,
-    "unknown":           1340,
+    "ret2win":            141,
+    "ret2libc":           354,
+    "format_string":      258,
+    "rop_chain":          172,
+    "heap_exploitation":  441,
+    "shellcode":           98,
+    "ret2plt":              0,
+    "got_overwrite":        7,
+    "ret2csu":             20,
+    "srop":                 5,
+    "fastbin_dup":          5,
+    "tcache_poisoning":     8,
+    "use_after_free":      19,
+    "one_gadget":          14,
+    "canary_bypass":        3,
+    "pie_bypass":           4,
+    "off_by_one":           2,
+    "stack_pivot":          8,
+    "integer_overflow":     8,
+    "seccomp_bypass":       6,
+    "house_of_force":       2,
+    "house_of_spirit":     15,
+    "house_of_orange":      3,
+    "unsorted_bin_attack":  4,
+    "unknown":            632,
 }
 
-MAX_TOTAL_WRITEUPS = 5200
+MAX_TOTAL_WRITEUPS = 2229
 
 
 def get_current_category_counts(walkthrough_dir: str) -> dict:
@@ -490,136 +490,7 @@ QUALITY_SCORE: {score:.2f}
         
         time.sleep(1)
     
-    return saved
-
-
-
-def scrape_ctftime(checkpoint: dict) -> int:
-    CTFTIME_PWN_URLS = [
-        "https://ctftime.org/writeups/?task_type=pwn&page={page}",
-        "https://ctftime.org/writeups/?task_type=binary&page={page}",
-        "https://ctftime.org/writeups/?task_type=exploitation&page={page}",
-    ]
-    
-    last_pages = checkpoint.setdefault("ctftime_last_pages_by_index", {})
-    saved = 0
-    current_counts = get_current_category_counts(WALKTHROUGH_DIR)
-    scraper = get_scraper()
-    
-    for idx, url_pattern in enumerate(CTFTIME_PWN_URLS):
-        start_page = last_pages.get(str(idx), 0)
-        print(f"[CTFtime] Scraping pattern {url_pattern.format(page=start_page+1)} (resuming from page {start_page + 1})")
-        
-        consecutive_empty = 0
-        
-        for page in range(start_page + 1, 1000):
-            if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
-                break
-                
-            url = url_pattern.format(page=page)
-            try:
-                resp = requests.get(url, headers=SCRAPER_HEADERS, timeout=15)
-                if resp.status_code != 200:
-                    consecutive_empty += 1
-                    if consecutive_empty >= 5:
-                        print(f"[CTFtime] 5 consecutive failures for pattern index {idx} at page {page}. Stopping this pattern.")
-                        break
-                    continue
-                
-                # Parse writeup links from the page
-                soup = BeautifulSoup(resp.text, 'lxml')
-                ctftime_links = []
-                for a in soup.find_all('a', href=True):
-                    href = a['href']
-                    if '/writeup/' in href:
-                        full_url = urllib.parse.urljoin("https://ctftime.org", href)
-                        if full_url not in ctftime_links:
-                            ctftime_links.append(full_url)
-                
-                writeups_found = 0
-                for link in ctftime_links:
-                    if link in scraper.scraped_urls:
-                        continue
-                    if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
-                        break
-                    
-                    # Fetch individual writeup page
-                    try:
-                        time.sleep(0.3)
-                        r = requests.get(link, headers=SCRAPER_HEADERS, timeout=10)
-                        if r.status_code == 200:
-                            sub_soup = BeautifulSoup(r.text, 'lxml')
-                            parts = [p.strip() for p in sub_soup.title.text.split('/')]
-                            if len(parts) >= 3:
-                                event_name = parts[1]
-                                challenge_name = parts[2]
-                            else:
-                                h2 = sub_soup.find('h2')
-                                challenge_name = h2.text.strip() if h2 else "Unknown Challenge"
-                                event_name = "Unknown Event"
-
-                            team_name = "Unknown Team"
-                            for a in sub_soup.find_all('a', href=True):
-                                if '/team/' in a['href']:
-                                    team_name = a.text.strip()
-                                    break
-                                    
-                            writeup_text = scraper.extract_page_content(sub_soup, 'ctftime')
-                            if not writeup_text:
-                                continue
-                                
-                            keywords = ["overflow", "format string", "heap", "ROP", "shellcode", "pwntools", "pwn", "binary", "exploit", "gets(", "printf(", "malloc(", "free("]
-                            if any(kw in writeup_text for kw in keywords):
-                                cat = detect_category_from_text(writeup_text)
-                                if not category_needs_more(cat, current_counts):
-                                    continue
-                                scraper.save_writeup(
-                                    source="ctftime",
-                                    url=link,
-                                    challenge=challenge_name,
-                                    event=event_name,
-                                    team=team_name,
-                                    text=writeup_text
-                                )
-                                cat_clean = cat if cat in current_counts else 'others'
-                                current_counts[cat_clean] = current_counts.get(cat_clean, 0) + 1
-                                writeups_found += 1
-                    except Exception as e:
-                        print(f"[CTFtime] Error scraping writeup at {link}: {e}")
-                
-                if writeups_found == 0:
-                    consecutive_empty += 1
-                    if consecutive_empty >= 5:
-                        print(f"[CTFtime] No content at pages {page-4}-{page} for pattern index {idx}. Stopping this pattern.")
-                        break
-                else:
-                    consecutive_empty = 0
-                    saved += writeups_found
-                
-                # Save checkpoint every 5 pages
-                if page % 5 == 0:
-                    last_pages[str(idx)] = page
-                    checkpoint["ctftime_last_pages_by_index"] = last_pages
-                    checkpoint["ctftime_last_page"] = page
-                    save_checkpoint(checkpoint)
-                    print(f"[CTFtime] Checkpoint saved for pattern {idx} at page {page}. Total saved: {saved}")
-                
-                time.sleep(0.3)
-                
-            except Exception as e:
-                print(f"[CTFtime] Error at page {page} for pattern {idx}: {e}")
-                consecutive_empty += 1
-                if consecutive_empty >= 5:
-                    print(f"[CTFtime] 5 consecutive errors/failures for pattern {idx}. Stopping this pattern.")
-                    break
-        
-        # Save checkpoint at end of pattern
-        last_pages[str(idx)] = page
-        checkpoint["ctftime_last_pages_by_index"] = last_pages
-        checkpoint["ctftime_last_page"] = page
-        save_checkpoint(checkpoint)
-        
-    return saved
+    return  saved
 
 
 def scrape_medium_ctf_writeups(checkpoint: dict) -> int:

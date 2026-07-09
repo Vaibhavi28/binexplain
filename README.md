@@ -92,7 +92,7 @@ Every CTF beginner downloads their first binary and has no idea what to do next.
 |---------|---------|
 | 🧠 **Parallel AI Inference** | Groq + Nemotron called simultaneously, responses merged |
 | ✅ **Quality Gate** | Filters generic responses, retries with next provider |
-| 🌐 **RAG Knowledge Base** | 5000+ real CTF writeups from 8 curated sources |
+| 🌐 **RAG Knowledge Base** | 2200+ real CTF writeups from 8 curated sources |
 | 🏷️ **Technique Tagging** | 24 technique tags for hybrid vector + semantic retrieval |
 | ⚡ **CAG Caching** | Common patterns served instantly without LLM calls |
 | 💬 **Unlimited Chat** | Auto-summarization keeps sessions going without token limits |
@@ -136,7 +136,7 @@ CTF-pwn-tips ─┤    Technique   Vector +
 nobodyisnobody┤    Tagging     Tag Overlap
 GitHub repos ─┘    (24 tags)   Scoring
 ↓
-5000+ indexed writeups
+2200+ indexed writeups
 
 ---
 
@@ -209,7 +209,7 @@ python knowledge_base/scraper.py
 Backend:        Python 3.11, FastAPI
 Frontend:       React 18, Vite
 Tests:          230+ passing
-Knowledge Base: 5000+ real CTF writeups across 24 technique categories
+Knowledge Base: 2200+ real CTF writeups across 24 technique categories
 AI Providers:   5 providers, parallel inference, quality gate, RAG + CAG
 Development:    Months of active development and iteration
 
