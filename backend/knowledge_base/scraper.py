@@ -8,6 +8,30 @@ import random
 import glob
 from collections import Counter
 from bs4 import BeautifulSoup
+import json
+from pathlib import Path
+
+CHECKPOINT_FILE = Path("backend/knowledge_base/scraper_checkpoint.json")
+
+def load_checkpoint() -> dict:
+    if CHECKPOINT_FILE.exists():
+        try:
+            data = json.loads(CHECKPOINT_FILE.read_text(encoding="utf-8"))
+            print(f"[Checkpoint] Resuming from: {data}")
+            return data
+        except Exception:
+            pass
+    return {
+        "ctftime_last_page": 0,
+        "github_queries_done": [],
+        "medium_pages_done": [],
+        "sources_completed": [],
+    }
+
+def save_checkpoint(data: dict):
+    CHECKPOINT_FILE.write_text(
+        json.dumps(data, indent=2), encoding="utf-8"
+    )
 
 SLEEP_GITHUB = 1.0   # Keep GitHub API sleeps at 1 second between pages (to avoid rate limits)
 SLEEP_WEB    = 0.3   # Regular websites, no API — be polite
@@ -27,58 +51,65 @@ GITHUB_HEADERS = {
     "Accept": "application/vnd.github.v3+json",
 }
 
+SCRAPER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; research scraper)",
+    "Authorization": f"token {os.getenv('GITHUB_TOKEN', '') or os.getenv('GITHUB_Token', '')}",
+}
+
+
 files_saved_this_run = 0
 
 CATEGORY_KEYWORDS = {
     "ret2win": [
         "ret2win", "win function", "win()", "flag()", "print_flag",
         "backdoor", "hidden function", "jump to win", "call win",
-        "win address", "gets win", "overflow to win"
+        "win address", "overflow to win function"
     ],
     "ret2libc": [
         "ret2libc", "return to libc", "system(", "/bin/sh",
         "libc base", "libc leak", "puts leak", "printf leak",
-        "libc offset", "one_gadget", "execve", "/bin/bash",
-        "ret2plt", "plt stub", "got leak"
+        "libc offset", "execve", "/bin/bash", "ret2plt",
+        "plt stub", "got leak", "got overwrite"
     ],
     "format_string": [
-        "format string", "printf(", "%p", "%n", "%x",
-        "fmtstr_payload", "format string bug", "printf bug",
-        "stack leak", "format string exploit", "arbitrary write",
-        "got overwrite format", "%s%s", "format specifier"
+        "format string", "fmtstr_payload", "format string bug",
+        "printf bug", "format string exploit", "arbitrary write printf",
+        "format specifier", "printf vulnerability", "%p leak",
+        "printf(buf)", "printf(user"
     ],
     "heap_exploitation": [
-        "heap", "malloc", "free(", "tcache", "fastbin",
-        "use after free", "uaf", "double free", "heap overflow",
-        "house of", "chunk", "bin attack", "heap exploit",
-        "heap vulnerability", "heap spray", "glibc heap",
-        "unsorted bin", "large bin", "small bin", "top chunk"
-    ],
-    "rop_chain": [
-        "rop chain", "rop gadget", "return oriented",
-        "gadget", "pop rdi", "pop rsi", "ret2csu",
-        "rop exploit", "chain gadgets", "gadget finder",
-        "ropper", "ROPgadget", "binary ninja rop",
-        "sigreturn", "srop", "stack pivot"
+        "heap overflow", "use after free", "use-after-free", "uaf",
+        "double free", "double-free", "tcache poison", "tcache dup",
+        "fastbin dup", "house of", "heap spray", "chunk overlap",
+        "unsorted bin", "off by one heap", "null byte poison",
+        "heap vulnerability", "malloc hook", "free hook"
     ],
     "shellcode": [
-        "shellcode", "mprotect", "nx bypass", "execute shellcode",
-        "inject shellcode", "shellcode injection", "asm(", "pwntools asm",
-        "execve shellcode", "x86 shellcode", "x64 shellcode",
-        "shellcraft", "run shellcode"
+        "shellcode injection", "execute shellcode", "inject shellcode",
+        "mprotect exploit", "nx bypass shellcode", "shellcraft",
+        "asm shellcode", "jmp esp", "jmp rsp", "shellcode execution"
+    ],
+    "rop_chain": [
+        "rop chain", "return oriented programming", "gadget chain",
+        "pop rdi ret", "pop rsi ret", "ret2csu", "stack pivot",
+        "rop gadget", "ropper", "ROPgadget tool", "sigreturn rop",
+        "srop exploit", "one gadget", "rop exploit"
     ],
 }
+
+MINIMUM_KEYWORD_MATCHES = 2
 
 def detect_category_from_text(text: str) -> str:
     text_lower = text.lower()
     scores = {}
     for category, keywords in CATEGORY_KEYWORDS.items():
         score = sum(1 for kw in keywords if kw.lower() in text_lower)
-        if score > 0:
+        if score >= MINIMUM_KEYWORD_MATCHES:
             scores[category] = score
     if not scores:
         return "unknown"
     return max(scores, key=scores.get)
+
 
 # Hard pwn-specific signals — at least ONE must be present to save a writeup.
 # These do NOT appear in web/crypto/misc CTF writeups.
@@ -136,8 +167,6 @@ try:
 except Exception:
     pass
 
-import re as _re
-
 def contains_credentials(text: str) -> bool:
     patterns = [
         r'AKIA[0-9A-Z]{16}',
@@ -145,7 +174,7 @@ def contains_credentials(text: str) -> bool:
         r'(?i)secret[_-]?access[_-]?key["\']?\s*[:=]\s*["\']?[A-Za-z0-9/+=]{20,}',
         r'(?i)aws_session_token\s*=\s*[A-Za-z0-9/+=]{100,}',
     ]
-    return any(_re.search(p, text) for p in patterns)
+    return any(re.search(p, text) for p in patterns)
 
 quality_stats = {
     "accepted": 0,
@@ -321,30 +350,28 @@ def print_category_progress(current_counts: dict):
     total_target = sum(CATEGORY_TARGETS.values())
     print(f'\nTotal: {total} / {total_target}')
 
-def scrape_github_search_bulk():
-    import requests, time, os
-    from pathlib import Path
-
-    GITHUB_HEADERS = {
-        "Authorization": f"token {os.getenv('GITHUB_TOKEN', '') or os.getenv('GITHUB_Token', '')}",
-        "Accept": "application/vnd.github.v3+json",
-    }
-
+def scrape_github_search_bulk(checkpoint: dict) -> int:
+    queries_done = checkpoint.get("github_queries_done", [])
+    
     search_queries = [
-        "ctf writeup pwn buffer overflow pwntools",
-        "ctf writeup format string printf exploit",
-        "ctf writeup heap exploitation malloc free",
-        "ctf writeup rop chain gadget ret2libc",
-        "ctf writeup ret2win binary exploitation",
-        "ctf writeup tcache poisoning heap",
-        "ctf writeup got overwrite binary",
-        "ctf writeup shellcode injection nx bypass",
+        "ctf writeup pwn ret2win binary exploitation site:github.com",
+        "ctf writeup format string printf exploit pwntools",
+        "ctf writeup heap exploitation malloc tcache",
+        "ctf writeup rop chain gadget binary pwn",
+        "ctf writeup buffer overflow ret2libc shell",
+        "ctf writeup shellcode injection mprotect",
+        "binary exploitation writeup picoctf pwn",
+        "hackthebox pwn writeup binary exploitation",
     ]
-
-    current_counts = get_current_category_counts(WALKTHROUGH_DIR)
+    
     saved = 0
-
+    current_counts = get_current_category_counts(WALKTHROUGH_DIR)
+    
     for query in search_queries:
+        if query in queries_done:
+            print(f"[GitHub] Skipping already-done query: {query[:40]}")
+            continue
+        
         print(f"[GitHub Search] Query: {query[:50]}...")
         for page in range(1, 6):  # 5 pages per query = 250 results max per query
             url = "https://api.github.com/search/repositories"
@@ -438,8 +465,717 @@ QUALITY_SCORE: {score:.2f}
             except Exception as e:
                 print(f"[GitHub Search] Error: {e}")
                 time.sleep(5)
+        
+        queries_done.append(query)
+        checkpoint["github_queries_done"] = queries_done
+        save_checkpoint(checkpoint)
+        print(f"[GitHub] Query done. Checkpoint saved.")
+        
+        time.sleep(1)
+    
+    return saved
 
-    print(f"[GitHub Search] Done. Saved {saved} files.")
+
+
+def scrape_ctftime(checkpoint: dict) -> int:
+    start_page = checkpoint.get("ctftime_last_page", 1)
+    if start_page > 0:
+        print(f"[CTFtime] Resuming from page {start_page + 1}")
+    
+    saved = 0
+    consecutive_empty = 0
+    current_counts = get_current_category_counts(WALKTHROUGH_DIR)
+    scraper = get_scraper()
+    
+    for page in range(start_page + 1, 500):
+        if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
+            break
+            
+        url = f"https://ctftime.org/writeups/?page={page}"
+        try:
+            resp = requests.get(url, headers=SCRAPER_HEADERS, timeout=15)
+            if resp.status_code != 200:
+                consecutive_empty += 1
+                if consecutive_empty >= 3:
+                    print(f"[CTFtime] 3 consecutive failures at page {page}. Stopping.")
+                    break
+                continue
+            
+            # Parse writeup links from the page
+            soup = BeautifulSoup(resp.text, 'lxml')
+            ctftime_links = []
+            for a in soup.find_all('a', href=True):
+                href = a['href']
+                if '/writeup/' in href:
+                    full_url = urllib.parse.urljoin("https://ctftime.org", href)
+                    if full_url not in ctftime_links:
+                        ctftime_links.append(full_url)
+            
+            writeups_found = 0
+            for link in ctftime_links:
+                if link in scraper.scraped_urls:
+                    continue
+                if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
+                    break
+                
+                # Fetch individual writeup page
+                try:
+                    time.sleep(0.3)
+                    r = requests.get(link, headers=SCRAPER_HEADERS, timeout=10)
+                    if r.status_code == 200:
+                        sub_soup = BeautifulSoup(r.text, 'lxml')
+                        parts = [p.strip() for p in sub_soup.title.text.split('/')]
+                        if len(parts) >= 3:
+                            event_name = parts[1]
+                            challenge_name = parts[2]
+                        else:
+                            h2 = sub_soup.find('h2')
+                            challenge_name = h2.text.strip() if h2 else "Unknown Challenge"
+                            event_name = "Unknown Event"
+
+                        team_name = "Unknown Team"
+                        for a in sub_soup.find_all('a', href=True):
+                            if '/team/' in a['href']:
+                                team_name = a.text.strip()
+                                break
+                                
+                        writeup_text = scraper.extract_page_content(sub_soup, 'ctftime')
+                        if not writeup_text:
+                            continue
+                            
+                        keywords = ["overflow", "format string", "heap", "ROP", "shellcode", "pwntools", "pwn", "binary", "exploit", "gets(", "printf(", "malloc(", "free("]
+                        if any(kw in writeup_text for kw in keywords):
+                            cat = detect_category_from_text(writeup_text)
+                            if not category_needs_more(cat, current_counts):
+                                continue
+                            scraper.save_writeup(
+                                source="ctftime",
+                                url=link,
+                                challenge=challenge_name,
+                                event=event_name,
+                                team=team_name,
+                                text=writeup_text
+                            )
+                            cat_clean = cat if cat in current_counts else 'others'
+                            current_counts[cat_clean] = current_counts.get(cat_clean, 0) + 1
+                            writeups_found += 1
+                except Exception as e:
+                    print(f"[CTFtime] Error scraping writeup at {link}: {e}")
+            
+            if writeups_found == 0:
+                consecutive_empty += 1
+                if consecutive_empty >= 3:
+                    print(f"[CTFtime] No content at pages {page-2}-{page}. Stopping.")
+                    break
+            else:
+                consecutive_empty = 0
+                saved += writeups_found
+            
+            # Save checkpoint every 5 pages
+            if page % 5 == 0:
+                checkpoint["ctftime_last_page"] = page
+                save_checkpoint(checkpoint)
+                print(f"[CTFtime] Checkpoint saved at page {page}. Total saved: {saved}")
+            
+            time.sleep(0.3)
+            
+        except Exception as e:
+            print(f"[CTFtime] Error at page {page}: {e}")
+            consecutive_empty += 1
+    
+    checkpoint["ctftime_last_page"] = page
+    save_checkpoint(checkpoint)
+    return saved
+
+
+def scrape_medium_ctf_writeups(checkpoint: dict) -> int:
+    import requests, time, os
+    from pathlib import Path
+
+    pages_done = checkpoint.get("medium_pages_done", [])
+    
+    medium_feeds = [
+        "https://medium.com/feed/tag/ctf",
+        "https://medium.com/feed/tag/binary-exploitation",
+        "https://medium.com/feed/tag/cybersecurity",
+        "https://medium.com/feed/tag/reverse-engineering",
+        "https://medium.com/feed/tag/penetration-testing",
+    ]
+    
+    saved = 0
+    current_counts = get_current_category_counts(WALKTHROUGH_DIR)
+    scraper = get_scraper()
+    
+    for feed_url in medium_feeds:
+        if feed_url in pages_done:
+            continue
+        try:
+            print(f"[Medium] Fetching RSS: {feed_url}")
+            resp = requests.get(feed_url, timeout=20, headers={
+                "User-Agent": "Mozilla/5.0 (compatible; research scraper)"
+            })
+            if resp.status_code != 200:
+                print(f"[Medium] RSS failed: {resp.status_code}")
+                pages_done.append(feed_url)
+                continue
+            
+            import xml.etree.ElementTree as ET
+            root = ET.fromstring(resp.text)
+            channel = root.find("channel")
+            if channel is None:
+                pages_done.append(feed_url)
+                continue
+            
+            items = channel.findall("item")
+            print(f"[Medium] Found {len(items)} articles in feed")
+            
+            for item in items:
+                if sum(current_counts.values()) >= MAX_TOTAL_WRITEUPS:
+                    return saved
+                    
+                title_el = item.find("title")
+                link_el = item.find("link")
+                desc_el = item.find("description")
+                
+                if title_el is None or link_el is None:
+                    continue
+                    
+                title = title_el.text or ""
+                link = link_el.text or ""
+                description = desc_el.text or "" if desc_el is not None else ""
+                
+                combined = (title + " " + description).lower()
+                ctf_keywords = [
+                    "ctf", "binary exploitation", "pwn", "buffer overflow",
+                    "format string", "heap", "ret2", "shellcode", "rop",
+                    "pwntools", "reverse engineering", "capture the flag"
+                ]
+                if not any(kw in combined for kw in ctf_keywords):
+                    continue
+                
+                try:
+                    article_resp = requests.get(link, timeout=15, headers={
+                        "User-Agent": "Mozilla/5.0 (compatible; research scraper)"
+                    })
+                    if article_resp.status_code != 200:
+                        continue
+                    
+                    from html.parser import HTMLParser
+                    
+                    class TextExtractor(HTMLParser):
+                        def __init__(self):
+                            super().__init__()
+                            self.text_parts = []
+                            self.in_article = False
+                            self.skip_tags = {"script", "style", "nav", "header", "footer"}
+                            self.current_tag = ""
+                            
+                        def handle_starttag(self, tag, attrs):
+                            self.current_tag = tag
+                            attrs_dict = dict(attrs)
+                            if "article" in attrs_dict.get("class", "") or tag == "article":
+                                self.in_article = True
+                                
+                        def handle_data(self, data):
+                            if self.current_tag not in self.skip_tags:
+                                cleaned = data.strip()
+                                if cleaned and len(cleaned) > 20:
+                                    self.text_parts.append(cleaned)
+                    
+                    extractor = TextExtractor()
+                    extractor.feed(article_resp.text)
+                    content = "\n".join(extractor.text_parts)
+                    
+                    if len(content) < 300:
+                        continue
+                    
+                    if contains_credentials(content):
+                        continue
+                    
+                    is_quality, score, reason = calculate_writeup_quality(content)
+                    if not is_quality:
+                        continue
+                    
+                    if is_duplicate_content(content, WALKTHROUGH_DIR):
+                        continue
+                    
+                    detected_cat = detect_category_from_text(content)
+                    
+                    if not category_needs_more(detected_cat, current_counts):
+                        continue
+                    
+                    import hashlib
+                    url_hash = hashlib.md5(link.encode()).hexdigest()[:8]
+                    safe_title = "".join(c for c in title[:40] if c.isalnum() or c in "_ ")
+                    safe_title = safe_title.replace(" ", "_").lower()
+                    filename = f"medium_{safe_title}_{url_hash}.txt"
+                    
+                    save_dir = os.path.join(WALKTHROUGH_DIR, "medium")
+                    os.makedirs(save_dir, exist_ok=True)
+                    save_path = os.path.join(save_dir, filename)
+                    
+                    header = f"""SOURCE: medium
+URL: {link}
+CHALLENGE: {title}
+CATEGORY: {detected_cat}
+QUALITY_SCORE: {score:.2f}
+---
+"""
+                    with open(save_path, "w", encoding="utf-8") as f:
+                        f.write(header + content[:4000])
+                    
+                    current_counts[detected_cat] = current_counts.get(detected_cat, 0) + 1
+                    saved += 1
+                    print(f"[Medium] Saved: {filename} ({detected_cat}, score={score:.2f})")
+                    
+                    time.sleep(0.5)
+                    
+                except Exception as e:
+                    print(f"[Medium] Article error: {e}")
+                    continue
+            
+            pages_done.append(feed_url)
+            checkpoint["medium_pages_done"] = pages_done
+            save_checkpoint(checkpoint)
+            time.sleep(1)
+            
+        except Exception as e:
+            print(f"[Medium] Feed error {feed_url}: {e}")
+            pages_done.append(feed_url)
+    
+    print(f"[Medium] Done. Saved {saved} articles.")
+    return saved
+
+
+def scrape_pwnable_kr_writeups() -> int:
+    import requests, time, os
+    print("\n[Scraper] Scraping pwnable.kr writeups from GitHub...")
+    query = "pwnable.kr writeup exploit"
+    url = "https://api.github.com/search/repositories"
+    params = {
+        "q": query,
+        "sort": "stars",
+        "order": "desc",
+        "per_page": 10,
+    }
+    saved = 0
+    scraper = get_scraper()
+    
+    try:
+        resp = requests.get(url, headers=GITHUB_HEADERS, params=params, timeout=15)
+        if resp.status_code != 200:
+            print(f"[pwnable.kr] GitHub search failed: {resp.status_code}")
+            return 0
+        repos = resp.json().get("items", [])
+        for repo in repos:
+            owner = repo["owner"]["login"]
+            repo_name = repo["name"]
+            branch = repo.get("default_branch", "master")
+            
+            print(f"[pwnable.kr] Scraping repository: {owner}/{repo_name}...")
+            tree_url = f"https://api.github.com/repos/{owner}/{repo_name}/git/trees/{branch}?recursive=1"
+            time.sleep(1)
+            tree_resp = requests.get(tree_url, headers=GITHUB_HEADERS, timeout=15)
+            if tree_resp.status_code != 200:
+                continue
+            tree = tree_resp.json().get("tree", [])
+            for item in tree:
+                path = item.get("path", "")
+                if item.get("type") == "blob" and (path.endswith(".md") or path.endswith(".txt")):
+                    filename_lower = os.path.basename(path).lower()
+                    if any(x in filename_lower for x in ["readme", "license", "summary"]):
+                        continue
+                    
+                    raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/{branch}/{path}"
+                    if raw_url in scraper.scraped_urls:
+                        continue
+                    
+                    time.sleep(0.5)
+                    raw_r = requests.get(raw_url, headers=scraper.headers, timeout=10)
+                    if raw_r.status_code == 200:
+                        scraper.scraped_urls.add(raw_url)
+                        scraper._save_scraped_urls()
+                        content = raw_r.text
+                        
+                        if len(content) < 150 or contains_credentials(content):
+                            continue
+                        
+                        is_quality, score, _ = calculate_writeup_quality(content)
+                        if not is_quality:
+                            continue
+                            
+                        if is_duplicate_content(content, WALKTHROUGH_DIR):
+                            continue
+                        
+                        detected_cat = detect_category_from_text(content)
+                        
+                        slug = f"{owner}_{repo_name}_{os.path.splitext(os.path.basename(path))[0]}"
+                        safe_slug = "".join(c for c in slug if c.isalnum() or c in "_-").lower()
+                        filename = f"pwnablekr_{safe_slug}.txt"
+                        save_dir = os.path.join(WALKTHROUGH_DIR, "pwnablekr")
+                        os.makedirs(save_dir, exist_ok=True)
+                        save_path = os.path.join(save_dir, filename)
+                        
+                        header = f"""SOURCE: pwnable_kr
+URL: {raw_url}
+CHALLENGE: {os.path.basename(path)}
+CATEGORY: {detected_cat}
+QUALITY_SCORE: {score:.2f}
+---
+"""
+                        with open(save_path, "w", encoding="utf-8") as f:
+                            f.write(header + content[:4000])
+                        
+                        saved += 1
+                        print(f"[pwnable.kr] Saved: {filename} ({detected_cat})")
+    except Exception as e:
+        print(f"[pwnable.kr] Error: {e}")
+    return saved
+
+
+def scrape_exploit_education() -> int:
+    import requests, time, os
+    from bs4 import BeautifulSoup
+    print("\n[Scraper] Scraping exploit.education...")
+    base_urls = [
+        "https://exploit.education/phoenix/",
+        "https://exploit.education/fusion/",
+        "https://exploit.education/nebula/",
+    ]
+    saved = 0
+    scraper = get_scraper()
+    
+    for base_url in base_urls:
+        try:
+            time.sleep(0.5)
+            resp = requests.get(base_url, headers=SCRAPER_HEADERS, timeout=15)
+            if resp.status_code != 200:
+                print(f"[Exploit Education] Failed to fetch index {base_url}: {resp.status_code}")
+                continue
+            
+            soup = BeautifulSoup(resp.text, 'lxml')
+            links = []
+            for a in soup.find_all('a', href=True):
+                href = a['href']
+                full_url = urllib.parse.urljoin(base_url, href)
+                if full_url.startswith(base_url) and len(full_url) > len(base_url):
+                    if full_url not in links:
+                        links.append(full_url)
+            
+            print(f"[Exploit Education] Found {len(links)} links for {base_url}")
+            for link in links:
+                if link in scraper.scraped_urls:
+                    continue
+                
+                try:
+                    time.sleep(0.5)
+                    r = requests.get(link, headers=SCRAPER_HEADERS, timeout=10)
+                    if r.status_code != 200:
+                        continue
+                    
+                    sub_soup = BeautifulSoup(r.text, 'lxml')
+                    title_el = sub_soup.find('h1') or sub_soup.find('title')
+                    challenge_title = title_el.text.strip() if title_el else link.rstrip('/').split('/')[-1]
+                    
+                    text = scraper.extract_page_content(sub_soup, 'exploit_education')
+                    if len(text.split()) < 100:
+                        continue
+                    
+                    if contains_credentials(text):
+                        continue
+                        
+                    detected_cat = detect_category_from_text(text)
+                    if detected_cat == 'unknown':
+                        pred_cat = scraper.predict_category_from_meta(challenge_title, link)
+                        if pred_cat != 'others':
+                            detected_cat = pred_cat
+                        else:
+                            detected_cat = 'rop_chain'
+                    
+                    import hashlib
+                    url_hash = hashlib.md5(link.encode()).hexdigest()[:8]
+                    safe_title = "".join(c for c in challenge_title[:40] if c.isalnum() or c in "_ ")
+                    safe_title = safe_title.replace(" ", "_").lower()
+                    filename = f"exploitedu_{safe_title}_{url_hash}.txt"
+                    
+                    save_dir = os.path.join(WALKTHROUGH_DIR, "exploit_education")
+                    os.makedirs(save_dir, exist_ok=True)
+                    save_path = os.path.join(save_dir, filename)
+                    
+                    header = f"""SOURCE: exploit_education
+URL: {link}
+CHALLENGE: {challenge_title}
+CATEGORY: {detected_cat}
+QUALITY_SCORE: 1.00
+---
+"""
+                    with open(save_path, "w", encoding="utf-8") as f:
+                        f.write(header + text[:4000])
+                    
+                    scraper.scraped_urls.add(link)
+                    scraper._save_scraped_urls()
+                    saved += 1
+                    print(f"[Exploit Education] Saved: {filename} ({detected_cat})")
+                except Exception as e:
+                    print(f"[Exploit Education] Error on page {link}: {e}")
+        except Exception as e:
+            print(f"[Exploit Education] Error on index {base_url}: {e}")
+            
+    return saved
+
+
+def scrape_ropemporium() -> int:
+    import requests, time, os
+    from bs4 import BeautifulSoup
+    print("\n[Scraper] Scraping ropemporium...")
+    challenges = ["ret2win", "split", "callme", "write4", "badchars", "fluff", "pivot", "ret2csu"]
+    saved = 0
+    scraper = get_scraper()
+    
+    for chal in challenges:
+        url = f"https://ropemporium.com/challenge/{chal}.html"
+        if url in scraper.scraped_urls:
+            continue
+        
+        try:
+            time.sleep(0.5)
+            resp = requests.get(url, headers=SCRAPER_HEADERS, timeout=15)
+            if resp.status_code != 200:
+                print(f"[ROP Emporium] Failed to fetch {url}: {resp.status_code}")
+                continue
+            
+            soup = BeautifulSoup(resp.text, 'lxml')
+            title_el = soup.find('h1') or soup.find('title')
+            title = title_el.text.strip() if title_el else chal
+            
+            text = scraper.extract_page_content(soup, 'ropemporium')
+            if len(text.split()) < 100:
+                continue
+                
+            if chal == "ret2win":
+                category = "ret2win"
+            elif chal == "ret2csu":
+                category = "ret2csu"
+            else:
+                category = "rop_chain"
+                
+            filename = f"ropemporium_{chal}.txt"
+            save_dir = os.path.join(WALKTHROUGH_DIR, "ropemporium")
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, filename)
+            
+            header = f"""SOURCE: ropemporium
+URL: {url}
+CHALLENGE: {title}
+CATEGORY: {category}
+QUALITY_SCORE: 1.00
+---
+"""
+            with open(save_path, "w", encoding="utf-8") as f:
+                f.write(header + text[:4000])
+            
+            scraper.scraped_urls.add(url)
+            scraper._save_scraped_urls()
+            saved += 1
+            print(f"[ROP Emporium] Saved: {filename} ({category})")
+        except Exception as e:
+            print(f"[ROP Emporium] Error on {chal}: {e}")
+            
+    return saved
+
+
+def scrape_how2heap() -> int:
+    print("\n[Scraper] Scraping how2heap...")
+    api_url = "https://api.github.com/repos/shellphish/how2heap/contents/"
+    scraper = get_scraper()
+    saved = 0
+    try:
+        time.sleep(0.5)
+        r = requests.get(api_url, headers=GITHUB_HEADERS, timeout=15)
+        if r.status_code != 200:
+            print(f"Failed to list how2heap contents: {r.status_code}")
+            return 0
+        items = r.json()
+        c_files = [item["name"] for item in items if item["name"].endswith(".c")]
+        print(f"Found {len(c_files)} how2heap .c files. Scraping them...")
+        for fname in c_files:
+            challenge_name = fname.replace(".c", "")
+            raw_url = f"https://raw.githubusercontent.com/shellphish/how2heap/master/{fname}"
+            
+            if raw_url in scraper.scraped_urls:
+                print(f"[Scraper] Already scraped: {raw_url}. Skipping.")
+                continue
+
+            time.sleep(0.5)
+            raw_r = requests.get(raw_url, headers=scraper.headers, timeout=10)
+            if raw_r.status_code == 200:
+                text = raw_r.text
+                lines = text.splitlines()
+                comment_lines = []
+                for line in lines:
+                    trimmed = line.strip()
+                    if trimmed.startswith("//"):
+                        comment_lines.append(trimmed[2:].strip())
+                
+                comment_content = "\n".join(comment_lines)
+                if not comment_content.strip():
+                    comment_content = text
+                    
+                scraper.save_writeup(
+                    source="how2heap",
+                    url=raw_url,
+                    challenge=challenge_name,
+                    event="how2heap",
+                    team="N/A",
+                    text=comment_content
+                )
+                saved += 1
+    except Exception as e:
+        print(f"Error scraping how2heap: {e}")
+    return saved
+
+
+def scrape_ctf_pwn_tips() -> int:
+    print("\n[Scraper] Scraping CTF-pwn-tips...")
+    readme_url = "https://raw.githubusercontent.com/Naetw/CTF-pwn-tips/master/README.md"
+    scraper = get_scraper()
+    saved = 0
+    try:
+        time.sleep(SLEEP_WEB)
+        r = requests.get(readme_url, headers=scraper.headers, timeout=10)
+        if r.status_code != 200:
+            print(f"Failed to fetch CTF-pwn-tips README: {r.status_code}")
+            return 0
+        content = r.text
+        sections = re.split(r'\n##\s+', content)
+        print(f"Found {len(sections)} sections in README. Processing...")
+        keywords = ["overflow", "format", "heap", "rop", "got", "plt", "canary", "pie", "shellcode", "ret2"]
+        for sec in sections:
+            if not sec.strip():
+                continue
+            lines = sec.strip().splitlines()
+            title = lines[0].strip()
+            sec_text = "\n".join(lines[1:])
+            
+            sec_lower = sec.lower()
+            if any(kw in sec_lower for kw in keywords):
+                challenge_name = title.replace("#", "").strip()
+                anchor_name = title.lower().replace(" ", "-").replace("/", "").replace("'", "")
+                url = f"https://github.com/Naetw/CTF-pwn-tips#{anchor_name}"
+                
+                scraper.save_writeup(
+                    source="ctf_pwn_tips",
+                    url=url,
+                    challenge=challenge_name,
+                    event="CTF-pwn-tips",
+                    team="N/A",
+                    text=sec_text
+                )
+                saved += 1
+    except Exception as e:
+        print(f"Error scraping ctf_pwn_tips: {e}")
+    return saved
+
+
+def scrape_nobodyisnobody(checkpoint: dict) -> int:
+    if "nobodyisnobody" in checkpoint.get("sources_completed", []):
+        print("[nobodyisnobody] Already completed — skipping")
+        return 0
+        
+    print("\n[Scraper] Scraping nobodyisnobody...")
+    base_url = "https://nobodyisnobody.github.io"
+    scraper = get_scraper()
+    saved = 0
+    try:
+        time.sleep(SLEEP_WEB)
+        r = requests.get(base_url, headers=scraper.headers, timeout=15)
+        if r.status_code != 200:
+            print(f"Failed to fetch nobodyisnobody main page: {r.status_code}")
+            return 0
+        soup = BeautifulSoup(r.text, 'lxml')
+        links = []
+        keywords = ["heap", "pwn", "exploit", "overflow", "rop", "format"]
+        for a in soup.find_all('a', href=True):
+            href = a['href']
+            full_url = urllib.parse.urljoin(base_url, href)
+            if "nobodyisnobody.github.io" in full_url and any(kw in full_url.lower() for kw in keywords):
+                if full_url not in links:
+                    links.append(full_url)
+        
+        links = links[:30]
+        print(f"Found {len(links)} matching nobodyisnobody links. Scraping them...")
+        for url in links:
+            if url in scraper.scraped_urls:
+                print(f"[Scraper] Already scraped: {url}. Skipping.")
+                continue
+
+            time.sleep(SLEEP_WEB)
+            res = requests.get(url, headers=scraper.headers, timeout=10)
+            if res.status_code == 200:
+                sub_soup = BeautifulSoup(res.text, 'lxml')
+                title_el = sub_soup.find('h1') or sub_soup.find('title')
+                challenge_name = title_el.text.strip() if title_el else url.rstrip('/').split('/')[-1]
+                challenge_name = challenge_name.replace("nobodyisnobody", "").strip()
+                
+                text = scraper.extract_page_content(sub_soup, 'nobodyisnobody')
+                if len(text.split()) < 150:
+                    continue
+                
+                scraper.save_writeup(
+                    source="nobodyisnobody",
+                    url=url,
+                    challenge=challenge_name,
+                    event="nobodyisnobody Blog",
+                    team="N/A",
+                    text=text
+                )
+                saved += 1
+                
+        checkpoint.setdefault("sources_completed", []).append("nobodyisnobody")
+        save_checkpoint(checkpoint)
+    except Exception as e:
+        print(f"Error scraping nobodyisnobody: {e}")
+    return saved
+
+
+def scrape_ir0nstone_extended() -> int:
+    print("\n[Scraper] Scraping ir0nstone_extended...")
+    target_urls = [
+        "https://ir0nstone.gitbook.io/notes/types/stack/return-oriented-programming/ret2csu",
+        "https://ir0nstone.gitbook.io/notes/types/stack/return-oriented-programming/srop",
+        "https://ir0nstone.gitbook.io/notes/types/heap/use-after-free",
+        "https://ir0nstone.gitbook.io/notes/types/heap/tcache-poisoning",
+        "https://ir0nstone.gitbook.io/notes/types/heap/fastbin-dup",
+        "https://ir0nstone.gitbook.io/notes/types/stack/got-overwrite",
+    ]
+    scraper = get_scraper()
+    saved = 0
+    for url in target_urls:
+        challenge_name = url.rstrip('/').split('/')[-1]
+        if url in scraper.scraped_urls:
+            print(f"[Scraper] Already scraped: {url}. Skipping.")
+            continue
+
+        try:
+            time.sleep(SLEEP_WEB)
+            res = requests.get(url, headers=scraper.headers, timeout=10)
+            if res.status_code == 200:
+                soup = BeautifulSoup(res.text, 'lxml')
+                text = scraper.extract_page_content(soup, 'ironstone')
+                if len(text.split()) < 150:
+                    continue
+                
+                scraper.save_writeup(
+                    source="ir0nstone",
+                    url=url,
+                    challenge=challenge_name.replace('-', ' ').title(),
+                    event="ir0nstone's GitBook",
+                    team="N/A",
+                    text=text
+                )
+                saved += 1
+        except Exception as e:
+            print(f"Error scraping ir0nstone page {url}: {e}")
     return saved
 
 
@@ -632,86 +1368,6 @@ class WriteupScraper:
                 return content_el.get_text().strip()
             return soup.get_text().strip()
 
-    def scrape_ctftime_pages(self, start_page: int, end_page: int):
-        print(f"\n[Scraper] Scraping CTFtime.org pages {start_page} to {end_page}...")
-        ctftime_links = []
-        page = start_page
-        while len(ctftime_links) < 1000 and page <= end_page:
-            url = f"https://ctftime.org/writeups?page={page}"
-            try:
-                time.sleep(0.3)
-                r = requests.get(url, headers=self.headers, timeout=10)
-                if r.status_code == 200:
-                    soup = BeautifulSoup(r.text, 'lxml')
-                    for a in soup.find_all('a', href=True):
-                        href = a['href']
-                        if '/writeup/' in href:
-                            full_url = urllib.parse.urljoin("https://ctftime.org", href)
-                            if full_url not in ctftime_links:
-                                ctftime_links.append(full_url)
-                else:
-                    print(f"Failed to fetch CTFtime writeups list: status {r.status_code}")
-            except Exception as e:
-                print(f"Error fetching CTFtime list page {page}: {e}")
-            page += 1
-
-        print(f"Found {len(ctftime_links)} writeup links. Scraping them...")
-        current_counts = get_current_category_counts(self.walkthroughs_dir)
-        for url in ctftime_links:
-            if url in self.scraped_urls:
-                print(f"[Scraper] Already scraped: {url}. Skipping.")
-                continue
-
-            if self.get_current_total() >= MAX_TOTAL_WRITEUPS:
-                print(f'[Scraper] Reached maximum {MAX_TOTAL_WRITEUPS} writeups. Stopping.')
-                break
-
-            pred_cat = self.predict_category_from_meta("", url)
-            if pred_cat != "others" and not category_needs_more(pred_cat, current_counts):
-                continue
-
-            try:
-                time.sleep(0.3)
-                r = requests.get(url, headers=self.headers, timeout=10)
-                if r.status_code == 200:
-                    soup = BeautifulSoup(r.text, 'lxml')
-                    parts = [p.strip() for p in soup.title.text.split('/')]
-                    if len(parts) >= 3:
-                        event_name = parts[1]
-                        challenge_name = parts[2]
-                    else:
-                        h2 = soup.find('h2')
-                        challenge_name = h2.text.strip() if h2 else "Unknown Challenge"
-                        event_name = "Unknown Event"
-
-                    team_name = "Unknown Team"
-                    for a in soup.find_all('a', href=True):
-                        if '/team/' in a['href']:
-                            team_name = a.text.strip()
-                            break
-                            
-                    writeup_text = self.extract_page_content(soup, 'ctftime')
-                    if not writeup_text:
-                        continue
-                        
-                    keywords = ["overflow", "format string", "heap", "ROP", "shellcode", "pwntools", "pwn", "binary", "exploit", "gets(", "printf(", "malloc(", "free("]
-                    if any(kw in writeup_text for kw in keywords):
-                        cat = self.detect_category(writeup_text)
-                        if not category_needs_more(cat, current_counts):
-                            continue
-                        self.save_writeup(
-                            source="ctftime",
-                            url=url,
-                            challenge=challenge_name,
-                            event=event_name,
-                            team=team_name,
-                            text=writeup_text
-                        )
-                        # Normalize category for counts dictionary key
-                        cat_clean = cat if cat in current_counts else 'others'
-                        current_counts[cat_clean] = current_counts.get(cat_clean, 0) + 1
-            except Exception as e:
-                print(f"Error scraping CTFtime writeup at {url}: {e}")
 
     def save_writeup(self, source, url, challenge, event, team, text):
         # Always mark URL as processed to prevent re-fetching rejected pages
@@ -785,13 +1441,8 @@ QUALITY_SCORE: {quality_score:.2f}
             if has_strong_signal:
                 # Reclassify with scorer — strong signal means it IS a pwn writeup
                 rescored = detect_category_from_text(text)
-                if rescored != 'unknown':
-                    category_clean = rescored
-                    print(f'[Scraper] Reclassified to {category_clean} via strong signal')
-                else:
-                    # Has strong pwn signal but no specific category — put in rop_chain
-                    category_clean = 'rop_chain'
-                    print(f'[Scraper] Reclassified to rop_chain (generic pwn, strong signal)')
+                category_clean = rescored
+                print(f'[Scraper] Reclassified to {category_clean} via strong signal')
             else:
                 print(f'[Scraper] Skipping: no strong pwn signal found')
                 return
@@ -937,521 +1588,6 @@ QUALITY_SCORE: {quality_score:.2f}
         except Exception as e:
             print(f"Error scraping repo {owner}/{repo}: {e}")
 
-    def scrape_hacktricks(self):
-        if self.get_current_total() >= MAX_TOTAL_WRITEUPS:
-            return
-
-        print("\n[Scraper] Scraping HackTricks...")
-        main_url = "https://book.hacktricks.xyz/reversing-and-exploiting/linux-exploiting-basic-esp/"
-        try:
-            time.sleep(SLEEP_WEB)
-            r = requests.get(main_url, headers=self.headers, timeout=15)
-            if r.status_code != 200:
-                print(f"Failed to fetch HackTricks index: status {r.status_code}")
-                return
-            soup = BeautifulSoup(r.text, 'lxml')
-            links = []
-            for a in soup.find_all('a', href=True):
-                href = a['href']
-                if "/reversing-and-exploiting/linux-exploiting-basic-esp/" in href or "/exploiting-tools/" in href:
-                    full_url = urllib.parse.urljoin(main_url, href)
-                    if full_url not in links:
-                        links.append(full_url)
-                        
-            print(f"Found {len(links)} HackTricks sub-links. Scraping them...")
-            for url in links:
-                if url in self.scraped_urls:
-                    print(f"[Scraper] Already scraped: {url}. Skipping.")
-                    continue
-                    
-                if self.get_current_total() >= MAX_TOTAL_WRITEUPS:
-                    print(f"[Scraper] Total cap reached: {self.get_current_total()}/{MAX_TOTAL_WRITEUPS}. Stopping.")
-                    break
-                    
-                current_counts = get_current_category_counts(self.walkthroughs_dir)
-                pred_cat = self.predict_category_from_meta("", url)
-                if pred_cat != "others" and not category_needs_more(pred_cat, current_counts):
-                    continue
-                    
-                time.sleep(SLEEP_WEB)
-                res = requests.get(url, headers=self.headers, timeout=10)
-                if res.status_code == 200:
-                    sub_soup = BeautifulSoup(res.text, 'lxml')
-                    text = self.extract_page_content(sub_soup, 'hacktricks')
-                    if len(text.split()) < 150:
-                        continue
-                    cat = self.detect_category(text)
-                    if not category_needs_more(cat, current_counts):
-                        continue
-                        
-                    challenge_name = url.rstrip('/').split('/')[-1].replace('-', '_')
-                    self.save_writeup(
-                        source="hacktricks",
-                        url=url,
-                        challenge=challenge_name,
-                        event="HackTricks",
-                        team="N/A",
-                        text=text
-                    )
-        except Exception as e:
-            print(f"Error scraping HackTricks: {e}")
-
-    def scrape_github_search(self):
-        if self.get_current_total() >= MAX_TOTAL_WRITEUPS:
-            return
-
-        print("\n[Scraper] Searching GitHub for ctf-writeups and pwn-writeups...")
-        queries = [
-            "ctf-writeups pwn",
-            "pwn-writeups binary exploitation",
-            "binary-exploitation-writeups",
-            "heap-exploitation-writeups",
-            "buffer-overflow-ctf writeup",
-            "format-string-exploit writeup",
-            "ret2libc writeup",
-            "rop-chain-writeup",
-            "pwntools ctf writeup",
-            "ctf pwn challenge writeup",
-            "pwnable writeup exploit",
-            "stack-overflow-exploit writeup",
-            "how2heap exploitation",
-            "tcache-poisoning writeup",
-            "use-after-free ctf",
-            "got-overwrite writeup",
-            "shellcode-injection ctf",
-            "canary-bypass writeup",
-            "pie-bypass exploit writeup",
-            "sigreturn-oriented-programming writeup",
-        ]
-        for q in queries:
-            if self.get_current_total() >= MAX_TOTAL_WRITEUPS:
-                print(f"[Scraper] Total cap reached. Stopping.")
-                break
-            search_url = f"https://api.github.com/search/repositories?q={q}+stars:%3E=5&sort=stars&order=desc"
-            try:
-                time.sleep(SLEEP_GITHUB)
-                r = requests.get(search_url, headers=GITHUB_HEADERS, timeout=15)
-                if r.status_code != 200:
-                    print(f"GitHub search failed: {r.status_code}")
-                    continue
-                repos = r.json().get("items", [])[:15]
-                for repo_item in repos:
-                    owner = repo_item["owner"]["login"]
-                    repo_name = repo_item["name"]
-                    branch = repo_item.get("default_branch", "master")
-                    self.scrape_github_repo(owner, repo_name, branch)
-            except Exception as e:
-                print(f"Error searching GitHub for {q}: {e}")
-
-    def scrape_how2heap(self):
-        print("\n[Scraper] Scraping how2heap...")
-        api_url = "https://api.github.com/repos/shellphish/how2heap/contents/"
-        try:
-            time.sleep(0.5)
-            r = requests.get(api_url, headers=GITHUB_HEADERS, timeout=15)
-            if r.status_code != 200:
-                print(f"Failed to list how2heap contents: {r.status_code}")
-                return
-            items = r.json()
-            c_files = [item["name"] for item in items if item["name"].endswith(".c")]
-            print(f"Found {len(c_files)} how2heap .c files. Scraping them...")
-            for fname in c_files:
-                challenge_name = fname.replace(".c", "")
-                raw_url = f"https://raw.githubusercontent.com/shellphish/how2heap/master/{fname}"
-                
-                if raw_url in self.scraped_urls:
-                    print(f"[Scraper] Already scraped: {raw_url}. Skipping.")
-                    continue
-
-                time.sleep(0.5)
-                raw_r = requests.get(raw_url, headers=self.headers, timeout=10)
-                if raw_r.status_code == 200:
-                    text = raw_r.text
-                    lines = text.splitlines()
-                    comment_lines = []
-                    for line in lines:
-                        trimmed = line.strip()
-                        if trimmed.startswith("//"):
-                            comment_lines.append(trimmed[2:].strip())
-                    
-                    comment_content = "\n".join(comment_lines)
-                    if not comment_content.strip():
-                        comment_content = text
-                        
-                    self.save_writeup(
-                        source="how2heap",
-                        url=raw_url,
-                        challenge=challenge_name,
-                        event="how2heap",
-                        team="N/A",
-                        text=comment_content
-                    )
-        except Exception as e:
-            print(f"Error scraping how2heap: {e}")
-
-    def scrape_ctf_pwn_tips(self):
-        print("\n[Scraper] Scraping CTF-pwn-tips...")
-        readme_url = "https://raw.githubusercontent.com/Naetw/CTF-pwn-tips/master/README.md"
-        try:
-            time.sleep(SLEEP_WEB)
-            r = requests.get(readme_url, headers=self.headers, timeout=10)
-            if r.status_code != 200:
-                print(f"Failed to fetch CTF-pwn-tips README: {r.status_code}")
-                return
-            content = r.text
-            sections = re.split(r'\n##\s+', content)
-            print(f"Found {len(sections)} sections in README. Processing...")
-            keywords = ["overflow", "format", "heap", "rop", "got", "plt", "canary", "pie", "shellcode", "ret2"]
-            for sec in sections:
-                if not sec.strip():
-                    continue
-                lines = sec.strip().splitlines()
-                title = lines[0].strip()
-                sec_text = "\n".join(lines[1:])
-                
-                sec_lower = sec.lower()
-                if any(kw in sec_lower for kw in keywords):
-                    challenge_name = title.replace("#", "").strip()
-                    anchor_name = title.lower().replace(" ", "-").replace("/", "").replace("'", "")
-                    url = f"https://github.com/Naetw/CTF-pwn-tips#{anchor_name}"
-                    
-                    self.save_writeup(
-                        source="ctf_pwn_tips",
-                        url=url,
-                        challenge=challenge_name,
-                        event="CTF-pwn-tips",
-                        team="N/A",
-                        text=sec_text
-                    )
-        except Exception as e:
-            print(f"Error scraping ctf_pwn_tips: {e}")
-
-    def scrape_nobodyisnobody(self):
-        print("\n[Scraper] Scraping nobodyisnobody...")
-        base_url = "https://nobodyisnobody.github.io"
-        try:
-            time.sleep(SLEEP_WEB)
-            r = requests.get(base_url, headers=self.headers, timeout=15)
-            if r.status_code != 200:
-                print(f"Failed to fetch nobodyisnobody main page: {r.status_code}")
-                return
-            soup = BeautifulSoup(r.text, 'lxml')
-            links = []
-            keywords = ["heap", "pwn", "exploit", "overflow", "rop", "format"]
-            for a in soup.find_all('a', href=True):
-                href = a['href']
-                full_url = urllib.parse.urljoin(base_url, href)
-                if "nobodyisnobody.github.io" in full_url and any(kw in full_url.lower() for kw in keywords):
-                    if full_url not in links:
-                        links.append(full_url)
-            
-            links = links[:30]
-            print(f"Found {len(links)} matching nobodyisnobody links. Scraping them...")
-            for url in links:
-                if url in self.scraped_urls:
-                    print(f"[Scraper] Already scraped: {url}. Skipping.")
-                    continue
-
-                time.sleep(SLEEP_WEB)
-                res = requests.get(url, headers=self.headers, timeout=10)
-                if res.status_code == 200:
-                    sub_soup = BeautifulSoup(res.text, 'lxml')
-                    title_el = sub_soup.find('h1') or sub_soup.find('title')
-                    challenge_name = title_el.text.strip() if title_el else url.rstrip('/').split('/')[-1]
-                    challenge_name = challenge_name.replace("nobodyisnobody", "").strip()
-                    
-                    text = self.extract_page_content(sub_soup, 'nobodyisnobody')
-                    if len(text.split()) < 150:
-                        continue
-                    
-                    self.save_writeup(
-                        source="nobodyisnobody",
-                        url=url,
-                        challenge=challenge_name,
-                        event="nobodyisnobody Blog",
-                        team="N/A",
-                        text=text
-                    )
-        except Exception as e:
-            print(f"Error scraping nobodyisnobody: {e}")
-
-    def scrape_ir0nstone_extended(self):
-        print("\n[Scraper] Scraping ir0nstone_extended...")
-        target_urls = [
-            "https://ir0nstone.gitbook.io/notes/types/stack/return-oriented-programming/ret2csu",
-            "https://ir0nstone.gitbook.io/notes/types/stack/return-oriented-programming/srop",
-            "https://ir0nstone.gitbook.io/notes/types/heap/use-after-free",
-            "https://ir0nstone.gitbook.io/notes/types/heap/tcache-poisoning",
-            "https://ir0nstone.gitbook.io/notes/types/heap/fastbin-dup",
-            "https://ir0nstone.gitbook.io/notes/types/stack/got-overwrite",
-        ]
-        for url in target_urls:
-            challenge_name = url.rstrip('/').split('/')[-1]
-            if url in self.scraped_urls:
-                print(f"[Scraper] Already scraped: {url}. Skipping.")
-                continue
-
-            try:
-                time.sleep(SLEEP_WEB)
-                res = requests.get(url, headers=self.headers, timeout=10)
-                if res.status_code == 200:
-                    soup = BeautifulSoup(res.text, 'lxml')
-                    text = self.extract_page_content(soup, 'ironstone')
-                    if len(text.split()) < 150:
-                        continue
-                    
-                    self.save_writeup(
-                        source="ir0nstone",
-                        url=url,
-                        challenge=challenge_name.replace('-', ' ').title(),
-                        event="ir0nstone's GitBook",
-                        team="N/A",
-                        text=text
-                    )
-            except Exception as e:
-                print(f"Error scraping ir0nstone page {url}: {e}")
-
-    def run(self):
-        print("STEP A: Creating walkthroughs directory...")
-        os.makedirs(self.walkthroughs_dir, exist_ok=True)
-
-        current_counts = get_current_category_counts(self.walkthroughs_dir)
-        print_category_progress(current_counts)
-
-        # ── 1. scrape_how2heap ─────────────────────────────────────────
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_how2heap()
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        # ── 2. scrape_ctf_pwn_tips ─────────────────────────────────────
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_ctf_pwn_tips()
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        # ── 3. scrape_nobodyisnobody ───────────────────────────────────
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_nobodyisnobody()
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        # ── 4. scrape_ir0nstone_extended ───────────────────────────────
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_ir0nstone_extended()
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        # ── 5. CTFtime.org writeups ────────────────────────────────────
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_ctftime_pages(1, 50)
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        # ── 6. CTF-Wiki ───────────────────────────────────────────────
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            print("\nSTEP C: Scraping CTF-Wiki...")
-            ctfwiki_targets = [
-                {"url": "https://ctf-wiki.org/pwn/linux/user-mode/stackoverflow/x86-64/basic-rop/", "fallback": "https://ctf-wiki.org/pwn/linux/user-mode/stackoverflow/x86/basic-rop/", "topic": "basic_rop"},
-                {"url": "https://ctf-wiki.org/pwn/linux/user-mode/stackoverflow/x86-64/ret2libc/", "fallback": "https://ctf-wiki.org/pwn/linux/user-mode/stackoverflow/x86/basic-rop/", "topic": "ret2libc"},
-                {"url": "https://ctf-wiki.org/pwn/linux/user-mode/format-string/exploit-printf/", "fallback": "https://ctf-wiki.org/pwn/linux/user-mode/fmtstr/fmtstr-exploit/", "topic": "exploit_printf"},
-                {"url": "https://ctf-wiki.org/pwn/linux/user-mode/heap/ptmalloc2/use-after-free/", "fallback": "https://ctf-wiki.org/pwn/linux/user-mode/heap/ptmalloc2/use-after-free/", "topic": "use_after_free"}
-            ]
-            for target in ctfwiki_targets:
-                pred_cat = self.predict_category_from_meta(target["topic"], target["url"])
-                if pred_cat != "others" and not category_needs_more(pred_cat, current_counts):
-                    continue
-
-                try:
-                    time.sleep(SLEEP_WEB)
-                    r = requests.get(target["url"], headers=self.headers, timeout=10)
-                    active_url = target["url"]
-                    if r.status_code != 200 and target["fallback"]:
-                        time.sleep(SLEEP_WEB)
-                        r = requests.get(target["fallback"], headers=self.headers, timeout=10)
-                        active_url = target["fallback"]
-                        
-                    if r.status_code == 200:
-                        soup = BeautifulSoup(r.text, 'lxml')
-                        text = self.extract_page_content(soup, 'ctfwiki')
-                        cat = self.detect_category(text)
-                        if not category_needs_more(cat, current_counts):
-                            continue
-                        self.save_writeup(
-                            source="ctfwiki",
-                            url=active_url,
-                            challenge=target["topic"].replace('_', ' ').title(),
-                            event="Overlay/Wiki",
-                            team="N/A",
-                            text=text
-                        )
-                        cat_clean = cat if cat in current_counts else 'others'
-                        current_counts[cat_clean] = current_counts.get(cat_clean, 0) + 1
-                except Exception as e:
-                    print(f"Error scraping CTF-Wiki for {target['topic']}: {e}")
-
-        # ── 7. ir0nstone's GitBook ────────────────────────────────────
-        total = get_total_writeup_count(self.walkthroughs_dir)
-        if total < MAX_TOTAL_WRITEUPS:
-            print("\nSTEP D: Scraping ir0nstone's GitBook...")
-            ironstone_targets = [
-                {"url": "https://ir0nstone.gitbook.io/notes/types/stack/return-oriented-programming", "fallback": "https://ir0nstone.gitbook.io/notes/binexp/stack/return-oriented-programming", "topic": "return_oriented_programming"},
-                {"url": "https://ir0nstone.gitbook.io/notes/types/stack/ret2libc", "fallback": "https://ir0nstone.gitbook.io/notes/binexp/stack/return-oriented-programming/ret2libc", "topic": "ret2libc"},
-                {"url": "https://ir0nstone.gitbook.io/notes/types/stack/format-string-exploits", "fallback": "https://ir0nstone.gitbook.io/notes/binexp/stack/format-string", "topic": "format_string_exploits"},
-                {"url": "https://ir0nstone.gitbook.io/notes/types/heap/use-after-free", "fallback": "https://ir0nstone.gitbook.io/notes/binexp/heap/use-after-free", "topic": "use_after_free"}
-            ]
-            for target in ironstone_targets:
-                pred_cat = self.predict_category_from_meta(target["topic"], target["url"])
-                if pred_cat != "others" and not category_needs_more(pred_cat, current_counts):
-                    continue
-
-                try:
-                    time.sleep(SLEEP_WEB)
-                    r = requests.get(target["url"], headers=self.headers, timeout=10)
-                    active_url = target["url"]
-                    if r.status_code != 200 and target["fallback"]:
-                        time.sleep(SLEEP_WEB)
-                        r = requests.get(target["fallback"], headers=self.headers, timeout=10)
-                        active_url = target["fallback"]
-                        
-                    if r.status_code == 200:
-                        soup = BeautifulSoup(r.text, 'lxml')
-                        text = self.extract_page_content(soup, 'ironstone')
-                        cat = self.detect_category(text)
-                        if not category_needs_more(cat, current_counts):
-                            continue
-                        self.save_writeup(
-                            source="ironstone",
-                            url=active_url,
-                            challenge=target["topic"].replace('_', ' ').title(),
-                            event="ir0nstone's GitBook",
-                            team="N/A",
-                            text=text
-                        )
-                        cat_clean = cat if cat in current_counts else 'others'
-                        current_counts[cat_clean] = current_counts.get(cat_clean, 0) + 1
-                except Exception as e:
-                    print(f"Error scraping ir0nstone GitBook for {target['topic']}: {e}")
-
-        # ── 8. guyinatuxedo (nightmare) ───────────────────────────────
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            print("\nSTEP E: Scraping guyinatuxedo (nightmare)...")
-            try:
-                base_url = "https://guyinatuxedo.github.io/"
-                time.sleep(SLEEP_WEB)
-                r = requests.get(base_url, headers=self.headers, timeout=10)
-                if r.status_code == 200:
-                    soup = BeautifulSoup(r.text, 'lxml')
-                    nightmare_links = []
-                    for a in soup.find_all('a', href=True):
-                        href = a['href']
-                        if re.match(r'^\d{2}-[^/]+/[^/]+/index\.html$', href):
-                            if not any(x in href for x in ['intro_assembly', 'intro_tooling']):
-                                full_url = urllib.parse.urljoin(base_url, href)
-                                if full_url not in nightmare_links:
-                                    nightmare_links.append(full_url)
-                                    
-                    print(f"Found {len(nightmare_links)} guyinatuxedo challenge links. Scraping them...")
-                    for url in nightmare_links:
-                        if url in self.scraped_urls:
-                            print(f"[Scraper] Already scraped: {url}. Skipping.")
-                            continue
-
-                        if self.get_current_total() >= MAX_TOTAL_WRITEUPS:
-                            print(f"[Scraper] Total cap reached: {self.get_current_total()}/{MAX_TOTAL_WRITEUPS}. Stopping.")
-                            break
-                        pred_cat = self.predict_category_from_meta("", url)
-                        if pred_cat != "others" and not category_needs_more(pred_cat, current_counts):
-                            continue
-
-                        try:
-                            time.sleep(SLEEP_WEB)
-                            res = requests.get(url, headers=self.headers, timeout=10)
-                            if res.status_code == 200:
-                                sub_soup = BeautifulSoup(res.text, 'lxml')
-                                url_parts = url.rstrip('/').split('/')
-                                challenge_name = url_parts[-2] if len(url_parts) >= 2 else "Unknown"
-                                
-                                text = self.extract_page_content(sub_soup, 'nightmare')
-                                cat = self.detect_category(text)
-                                if not category_needs_more(cat, current_counts):
-                                    continue
-                                self.save_writeup(
-                                    source="nightmare",
-                                    url=url,
-                                    challenge=challenge_name,
-                                    event="Nightmare",
-                                    team="N/A",
-                                    text=text
-                                )
-                                cat_clean = cat if cat in current_counts else 'others'
-                                current_counts[cat_clean] = current_counts.get(cat_clean, 0) + 1
-                        except Exception as e:
-                            print(f"Error scraping guyinatuxedo page {url}: {e}")
-            except Exception as e:
-                print(f"Error scraping guyinatuxedo: {e}")
-
-        # ── 9. pwn.college writeups ───────────────────────────────────
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_github_repo("w181496", "pwn.college-writeups")
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_github_repo("AidenHils", "pwn-college")
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_github_repo("xct", "pwn.college")
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        # ── 10. LiveOverflow repositories ──────────────────────────────
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_github_repo("LiveOverflow", "LiveOverflow-CTF")
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_github_repo("liveoverflow", "lo-exploit-dev")
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        # ── 11. HackTricks ─────────────────────────────────────────────
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_hacktricks()
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        # ── 12. other specific high quality repositories ───────────────
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_github_repo("ctfs", "writeups")
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_github_repo("Dvd848", "CTFs")
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_github_repo("M4x", "ctf-writeups")
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_github_repo("ir0nstone", "ir0nstone.github.io")
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        # ── 13. GitHub Code Search ─────────────────────────────────────
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            self.scrape_github_search()
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        # ── 15. Targeted per-category GitHub search ────────────────────
-        if self.get_current_total() < MAX_TOTAL_WRITEUPS:
-            scrape_targeted_by_category()
-            current_counts = get_current_category_counts(self.walkthroughs_dir)
-
-        final_counts = get_current_category_counts(self.walkthroughs_dir)
-        print_category_progress(final_counts)
-
-        print(f'\n[Scraper] Quality Filter Summary:')
-        print(f'  Accepted:            {quality_stats["accepted"]}')
-        print(f'  Rejected (quality):  {quality_stats["rejected_quality"]}')
-        print(f'  Rejected (dupe):     {quality_stats["rejected_duplicate"]}')
-        print(f'  Rejected (creds):    {quality_stats["rejected_credentials"]}')
-        acceptance_rate = (quality_stats["accepted"] /
-            max(1, sum(quality_stats.values())) * 100)
-        print(f'  Acceptance Rate:     {acceptance_rate:.1f}%')
-
 
 _shared_scraper = None
 def get_scraper():
@@ -1459,150 +1595,6 @@ def get_scraper():
     if _shared_scraper is None:
         _shared_scraper = WriteupScraper()
     return _shared_scraper
-
-def scrape_ctftime_pages(start_page: int, end_page: int):
-    get_scraper().scrape_ctftime_pages(start_page, end_page)
-
-def scrape_how2heap():
-    get_scraper().scrape_how2heap()
-
-def scrape_ctf_pwn_tips():
-    get_scraper().scrape_ctf_pwn_tips()
-
-def scrape_nobodyisnobody():
-    get_scraper().scrape_nobodyisnobody()
-
-def scrape_ir0nstone_extended():
-    get_scraper().scrape_ir0nstone_extended()
-
-
-def scrape_targeted_by_category():
-    """For each category that still needs files, run targeted GitHub repo
-    searches and save only content that fits that specific category.
-    Categories furthest from their target are prioritised first."""
-    current_counts = get_current_category_counts(WALKTHROUGH_DIR)
-
-    # Sort categories by gap (largest gap = highest priority)
-    gaps = {
-        cat: CATEGORY_TARGETS[cat] - current_counts.get(cat, 0)
-        for cat in CATEGORY_TARGETS
-        if CATEGORY_TARGETS[cat] - current_counts.get(cat, 0) > 0
-    }
-    if not gaps:
-        print("[Targeted] All category targets met — nothing to do.")
-        return
-
-    sorted_cats = sorted(gaps.items(), key=lambda x: x[1], reverse=True)
-    print(f"\n[Targeted] Hunting for {len(sorted_cats)} under-filled categories...")
-    for cat, gap in sorted_cats:
-        print(f"  {cat:<25} needs {gap:>4} more")
-
-    token = os.getenv('GITHUB_TOKEN', '') or os.getenv('GITHUB_Token', '')
-    headers = {
-        "Authorization": f"token {token}",
-        "Accept": "application/vnd.github.v3+json",
-    }
-
-    for cat, gap in sorted_cats:
-        if gap <= 0:
-            continue
-        queries = CATEGORY_SEARCH_QUERIES.get(cat, [])
-        if not queries:
-            continue
-
-        print(f"\n[Targeted] Category: {cat} (needs {gap} more)")
-        saved_for_cat = 0
-        needed = min(gap, CATEGORY_TARGETS[cat])  # never exceed the target
-
-        for query in queries:
-            if saved_for_cat >= needed:
-                break
-            print(f"[Targeted]   Query: {query}")
-
-            for page in range(1, 6):  # up to 5 pages per query
-                if saved_for_cat >= needed:
-                    break
-                params = {"q": query, "sort": "stars", "order": "desc",
-                          "per_page": 30, "page": page}
-                try:
-                    resp = requests.get("https://api.github.com/search/repositories",
-                                        headers=headers, params=params, timeout=15)
-                    if resp.status_code == 403:
-                        print("[Targeted] Rate limited. Sleeping 60s...")
-                        time.sleep(60)
-                        continue
-                    if resp.status_code != 200:
-                        break
-                    repos = resp.json().get("items", [])
-                    if not repos:
-                        break
-
-                    for repo in repos:
-                        if saved_for_cat >= needed:
-                            break
-                        raw_url = (
-                            f"https://raw.githubusercontent.com/"
-                            f"{repo['full_name']}/{repo.get('default_branch', 'main')}/README.md"
-                        )
-                        try:
-                            readme = requests.get(raw_url, timeout=10)
-                            if readme.status_code != 200 or len(readme.text) < 300:
-                                continue
-                            content = readme.text
-                            if contains_credentials(content):
-                                continue
-
-                            # Must have a strong pwn signal
-                            content_lower = content.lower()
-                            if not any(sig.lower() in content_lower for sig in STRONG_PWN_SIGNALS):
-                                continue
-
-                            # Must score for this specific category
-                            detected = detect_category_from_text(content)
-                            if detected != cat:
-                                continue
-
-                            is_quality, score, _ = calculate_writeup_quality(content)
-                            if not is_quality:
-                                continue
-
-                            if is_duplicate_content(content, WALKTHROUGH_DIR):
-                                continue
-
-                            slug = repo['full_name'].replace('/', '_')[:50]
-                            filename = f"targeted_{cat}_{slug}.txt"
-                            save_dir = os.path.join(WALKTHROUGH_DIR, cat)
-                            os.makedirs(save_dir, exist_ok=True)
-                            save_path = os.path.join(save_dir, filename)
-
-                            if os.path.exists(save_path):
-                                continue
-
-                            header = (
-                                f"SOURCE: targeted_github\n"
-                                f"URL: {repo['html_url']}\n"
-                                f"CHALLENGE: {repo['name']}\n"
-                                f"CATEGORY: {cat}\n"
-                                f"QUALITY_SCORE: {score:.2f}\n"
-                                f"---\n"
-                            )
-                            with open(save_path, 'w', encoding='utf-8') as f:
-                                f.write(header + content[:4000])
-
-                            saved_for_cat += 1
-                            current_counts[cat] = current_counts.get(cat, 0) + 1
-                            print(f"[Targeted]   Saved: {filename}")
-
-                        except Exception:
-                            pass
-                        time.sleep(0.2)
-
-                    time.sleep(1)
-                except Exception as e:
-                    print(f"[Targeted] Error: {e}")
-                    time.sleep(5)
-
-        print(f"[Targeted] {cat}: saved {saved_for_cat} new files")
 
 def reclassify_unknowns(walkthrough_dir: str):
     import os
@@ -1634,98 +1626,61 @@ def reclassify_unknowns(walkthrough_dir: str):
     return reclassified
 
 
-def purge_non_pwn_writeups(walkthrough_dir: str) -> int:
-    """Scan all existing writeup files and delete any that do not contain
-    at least one strong pwn-specific signal.  Returns the number deleted."""
-    deleted = 0
-    kept = 0
-    text_lower_cache = None
-    for root, dirs, files in os.walk(walkthrough_dir):
-        for fname in files:
-            if not fname.endswith('.txt'):
-                continue
-            fpath = os.path.join(root, fname)
-            try:
-                with open(fpath, encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
-                text_lower_cache = content.lower()
-                has_strong = any(
-                    sig.lower() in text_lower_cache for sig in STRONG_PWN_SIGNALS
-                )
-                if not has_strong:
-                    os.remove(fpath)
-                    deleted += 1
-                    print(f'[Purge] Removed non-pwn file: {fname}')
-                else:
-                    kept += 1
-            except Exception as e:
-                print(f'[Purge] Error checking {fname}: {e}')
-    print(f'[Purge] Done — removed {deleted} non-pwn files, kept {kept} genuine pwn writeups')
-    return deleted
-
 def main():
-    # Minimum fill rate before the scraper considers a category "done".
-    # 0.95 = every category must reach at least 95% of its CATEGORY_TARGETS value.
-    MIN_FILL_RATE = 0.95
-
-    print("[Main] Step 0: Purging existing non-pwn writeups...")
-    purge_non_pwn_writeups(WALKTHROUGH_DIR)
-
-    # Initial pass through all sources
-    scraper = get_scraper()
-    scraper.run()
-
+    checkpoint = load_checkpoint()
+    
+    print("[Scraper] Starting with category coverage:")
     current_counts = get_current_category_counts(WALKTHROUGH_DIR)
     print_category_progress(current_counts)
-
-    MAX_PASSES = 30   # enough headroom to reach 95% across all categories
-    for pass_num in range(1, MAX_PASSES + 1):
-        total = sum(current_counts.values())
-        if total >= MAX_TOTAL_WRITEUPS:
-            print(f"Hard total cap reached: {total} files")
-            break
-
-        # A category is "done" once it hits MIN_FILL_RATE of its target
-        categories_needing = [
-            cat for cat, target in CATEGORY_TARGETS.items()
-            if current_counts.get(cat, 0) < int(target * MIN_FILL_RATE)
-        ]
-        if not categories_needing:
-            print(f"All categories at ≥{int(MIN_FILL_RATE*100)}% — done!")
-            break
-
-        # Sort by biggest gap first so we spend effort where it matters most
-        categories_needing.sort(
-            key=lambda c: CATEGORY_TARGETS[c] - current_counts.get(c, 0),
-            reverse=True
-        )
-
-        print(f"\n[Scraper] Pass {pass_num} — {len(categories_needing)} categories below 95%")
-        for cat in categories_needing:
-            have = current_counts.get(cat, 0)
-            need = CATEGORY_TARGETS[cat]
-            print(f"  {cat:<25} {have:>4}/{need}  ({have/need*100:.0f}%)")
-
-        # --- Targeted hunt FIRST: directly fills the emptiest categories ---
-        scrape_targeted_by_category()
-
-        # --- Broad sources to catch anything targeted search misses ---
-        scrape_ctftime_pages(start_page=1 + (pass_num * 50),
-                            end_page=50 + (pass_num * 50))
-        scrape_github_search_bulk()
+    
+    if "ctftime" not in checkpoint.get("sources_completed", []):
+        scrape_ctftime(checkpoint)
+        checkpoint.setdefault("sources_completed", []).append("ctftime")
+        save_checkpoint(checkpoint)
+    else:
+        print("[Scraper] CTFtime already completed — skipping")
+    
+    if "how2heap" not in checkpoint.get("sources_completed", []):
         scrape_how2heap()
-        scrape_ctf_pwn_tips()
-        scrape_nobodyisnobody()
+        checkpoint.setdefault("sources_completed", []).append("how2heap")
+        save_checkpoint(checkpoint)
+    
+    if "ir0nstone" not in checkpoint.get("sources_completed", []):
         scrape_ir0nstone_extended()
+        checkpoint.setdefault("sources_completed", []).append("ir0nstone")
+        save_checkpoint(checkpoint)
+    
+    if "ctf_pwn_tips" not in checkpoint.get("sources_completed", []):
+        scrape_ctf_pwn_tips()
+        checkpoint.setdefault("sources_completed", []).append("ctf_pwn_tips")
+        save_checkpoint(checkpoint)
+    
+    if "ropemporium" not in checkpoint.get("sources_completed", []):
+        scrape_ropemporium()
+        checkpoint.setdefault("sources_completed", []).append("ropemporium")
+        save_checkpoint(checkpoint)
+    
+    if "exploit_education" not in checkpoint.get("sources_completed", []):
+        scrape_exploit_education()
+        checkpoint.setdefault("sources_completed", []).append("exploit_education")
+        save_checkpoint(checkpoint)
 
-        current_counts = get_current_category_counts(WALKTHROUGH_DIR)
-        print_category_progress(current_counts)
-
+    if "pwnable_kr" not in checkpoint.get("sources_completed", []):
+        scrape_pwnable_kr_writeups()
+        checkpoint.setdefault("sources_completed", []).append("pwnable_kr")
+        save_checkpoint(checkpoint)
+    
+    scrape_github_search_bulk(checkpoint)
+    scrape_medium_ctf_writeups(checkpoint)
+    scrape_nobodyisnobody(checkpoint)
+    
+    # Reclassify any unknowns with improved keyword detection
     reclassify_unknowns(WALKTHROUGH_DIR)
-
+    
     final_counts = get_current_category_counts(WALKTHROUGH_DIR)
-    print(f"\nFINAL TOTAL: {sum(final_counts.values())} writeups")
+    print("\n[Scraper] FINAL RESULTS:")
     print_category_progress(final_counts)
+    print(f"Total: {sum(final_counts.values())} writeups")
 
 
 if __name__ == "__main__":
