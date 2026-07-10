@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import GlossaryText from '../components/GlossaryText';
+import ElfDiagram from '../components/learn/ElfDiagram';
+import ProtectionsMap from '../components/learn/ProtectionsMap';
 
 export default function Learn() {
   const [activeSection, setActiveSection] = useState('binary');
@@ -69,19 +71,15 @@ export default function Learn() {
         ))}
       </div>
 
-      {/* Section content — placeholders for now */}
+      {/* Section content */}
       {activeSection === 'binary' && (
         <div id="section-binary">
-          <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>
-            ELF binary diagram coming in next prompt
-          </p>
+          <ElfDiagram />
         </div>
       )}
       {activeSection === 'protections' && (
         <div id="section-protections">
-          <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>
-            Security protections map coming in next prompt
-          </p>
+          <ProtectionsMap />
         </div>
       )}
       {activeSection === 'flowchart' && (
