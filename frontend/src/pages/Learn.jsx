@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import GlossaryText from '../components/GlossaryText';
 import ElfDiagram from '../components/learn/ElfDiagram';
 import ProtectionsMap from '../components/learn/ProtectionsMap';
+import ExploitFlowchart from '../components/learn/ExploitFlowchart';
+import TechniqueDives from '../components/learn/TechniqueDives';
 
 export default function Learn() {
   const [activeSection, setActiveSection] = useState('binary');
@@ -84,16 +86,12 @@ export default function Learn() {
       )}
       {activeSection === 'flowchart' && (
         <div id="section-flowchart">
-          <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>
-            Exploitation flowchart coming in next prompt
-          </p>
+          <ExploitFlowchart />
         </div>
       )}
       {activeSection === 'techniques' && (
         <div id="section-techniques">
-          <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>
-            Technique deep dives coming in next prompt
-          </p>
+          <TechniqueDives />
         </div>
       )}
       {activeSection === 'relations' && (
