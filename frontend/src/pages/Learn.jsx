@@ -7,18 +7,20 @@ import ExploitFlowchart from '../components/learn/ExploitFlowchart';
 import TechniqueDives from '../components/learn/TechniqueDives';
 import RelationshipMap from '../components/learn/RelationshipMap';
 import RealWorldMap from '../components/learn/RealWorldMap';
+import TryItYourself from '../components/learn/TryItYourself';
 
 export default function Learn() {
   const [activeSection, setActiveSection] = useState('binary');
   const [refOpen, setRefOpen] = useState(false);
 
   const sections = [
-    { id: 'binary',      label: 'What is a Binary' },
-    { id: 'protections', label: 'Security Protections' },
-    { id: 'flowchart',   label: 'Exploitation Flowchart' },
-    { id: 'techniques',  label: 'Technique Deep Dives' },
-    { id: 'relations',   label: 'What Changes What' },
-    { id: 'realworld',   label: '🌍 Real World' },
+    { id: 'binary',      label: '1. What is a Binary' },
+    { id: 'protections', label: '2. Security Protections' },
+    { id: 'flowchart',   label: '3. Exploitation Flowchart' },
+    { id: 'techniques',  label: '4. Technique Deep Dives' },
+    { id: 'relations',   label: '5. What Changes What' },
+    { id: 'realworld',   label: '6. Real World Impact' },
+    { id: 'tryit',       label: '7. Try It Yourself' },
   ];
 
   return (
@@ -108,41 +110,109 @@ export default function Learn() {
             {activeSection === 'techniques' && 'In-depth analysis of core exploitation categories, payloads, and steps.'}
             {activeSection === 'relations' && 'Interactive map connecting dangerous functions, security flaws, techniques, and counters.'}
             {activeSection === 'realworld' && 'Real-world exploits, CVEs, impacts, and developer lessons mapped to each pwn technique.'}
+            {activeSection === 'tryit' && 'Target practice suggestions, pwn checklists, and templates to start exploiting binaries.'}
           </span>
         </div>
       </div>
 
       {/* Section content */}
-      {activeSection === 'binary' && (
-        <div id="section-binary">
-          <ElfDiagram />
-        </div>
-      )}
-      {activeSection === 'protections' && (
-        <div id="section-protections">
-          <ProtectionsMap />
-        </div>
-      )}
-      {activeSection === 'flowchart' && (
-        <div id="section-flowchart">
-          <ExploitFlowchart />
-        </div>
-      )}
-      {activeSection === 'techniques' && (
-        <div id="section-techniques">
-          <TechniqueDives />
-        </div>
-      )}
-      {activeSection === 'relations' && (
-        <div id="section-relations">
-          <RelationshipMap />
-        </div>
-      )}
-      {activeSection === 'realworld' && (
-        <div id="section-realworld">
-          <RealWorldMap />
-        </div>
-      )}
+      <div>
+        {activeSection === 'binary' && (
+          <div id="section-binary">
+            <ElfDiagram />
+          </div>
+        )}
+        {activeSection === 'protections' && (
+          <div id="section-protections">
+            <ProtectionsMap />
+          </div>
+        )}
+        {activeSection === 'flowchart' && (
+          <div id="section-flowchart">
+            <ExploitFlowchart />
+          </div>
+        )}
+        {activeSection === 'techniques' && (
+          <div id="section-techniques">
+            <TechniqueDives />
+          </div>
+        )}
+        {activeSection === 'relations' && (
+          <div id="section-relations">
+            <RelationshipMap />
+          </div>
+        )}
+        {activeSection === 'realworld' && (
+          <div id="section-realworld">
+            <RealWorldMap />
+          </div>
+        )}
+        {activeSection === 'tryit' && (
+          <div id="section-tryit">
+            <TryItYourself onSectionChange={setActiveSection} />
+          </div>
+        )}
+
+        {/* Section Navigation Arrows */}
+        {(() => {
+          const currentIndex = sections.findIndex(s => s.id === activeSection);
+          const prevSection = currentIndex > 0 ? sections[currentIndex - 1] : null;
+          const nextSection = currentIndex < sections.length - 1 ? sections[currentIndex + 1] : null;
+
+          return (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: '48px',
+              paddingTop: '24px',
+              borderTop: '1px solid #21262d',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              {prevSection ? (
+                <button
+                  onClick={() => {
+                    setActiveSection(prevSection.id);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  style={{
+                    padding: '10px 20px', borderRadius: '8px', background: '#21262d',
+                    border: '1px solid #30363d', color: '#c9d1d9', fontSize: '13px',
+                    fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#8b949e'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#30363d'; }}
+                >
+                  ← Previous Section
+                </button>
+              ) : (
+                <div />
+              )}
+
+              {nextSection ? (
+                <button
+                  onClick={() => {
+                    setActiveSection(nextSection.id);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  style={{
+                    padding: '10px 20px', borderRadius: '8px', background: '#388bfd',
+                    border: 'none', color: '#fff', fontSize: '13px',
+                    fontWeight: 600, cursor: 'pointer', transition: 'background 0.15s'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#2575e6'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '#388bfd'; }}
+                >
+                  Next Section →
+                </button>
+              ) : (
+                <div />
+              )}
+            </div>
+          );
+        })()}
+      </div>
 
       {/* Floating Quick Reference Panel */}
       <div style={{
