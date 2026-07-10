@@ -6,6 +6,7 @@ export default function TopNav() {
   
   const links = [
     { to: '/', label: 'Tool' },
+    { to: '/learn', label: 'Learn' },
     { to: '/docs', label: 'Docs' },
     { to: '/blog', label: 'Blog' },
     { to: '/about', label: 'About' },

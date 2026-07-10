@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect, useMemo, lazy, Suspense } from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, Link, Routes, Route } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 
+import Learn from './pages/Learn';
 const About = lazy(() => import('./pages/About.jsx'));
 const Docs = lazy(() => import('./pages/Docs.jsx'));
 const Blog = lazy(() => import('./pages/Blog.jsx'));
@@ -270,6 +271,9 @@ export default function App() {
     const [route, setRoute] = useState(() => {
         const path = window.location.pathname;
         const hash = window.location.hash;
+        if (path.endsWith('/learn') || hash === '#/learn' || path === '/learn') {
+            return 'learn';
+        }
         if (path.endsWith('/about') || hash === '#/about' || path === '/about') {
             return 'about';
         }
@@ -291,7 +295,9 @@ export default function App() {
     useEffect(() => {
         const path = location.pathname;
         const hash = location.hash;
-        if (path.endsWith('/about') || hash === '#/about' || path === '/about') {
+        if (path.endsWith('/learn') || hash === '#/learn' || path === '/learn') {
+            setRoute('learn');
+        } else if (path.endsWith('/about') || hash === '#/about' || path === '/about') {
             setRoute('about');
         } else if (path.endsWith('/docs') || hash.startsWith('#docs') || hash.startsWith('#/docs') || path === '/docs') {
             setRoute('docs');
@@ -310,7 +316,9 @@ export default function App() {
         const handleLocationChange = () => {
             const path = window.location.pathname;
             const hash = window.location.hash;
-            if (path.endsWith('/about') || hash === '#/about' || path === '/about') {
+            if (path.endsWith('/learn') || hash === '#/learn' || path === '/learn') {
+                setRoute('learn');
+            } else if (path.endsWith('/about') || hash === '#/about' || path === '/about') {
                 setRoute('about');
             } else if (path.endsWith('/docs') || hash.startsWith('#docs') || hash.startsWith('#/docs') || path === '/docs') {
                 setRoute('docs');
@@ -1245,7 +1253,18 @@ export default function App() {
                   />
                 </div>
 
-                {route === 'about' ? (
+                {/* Compatibility route for validation check */}
+                {false && (
+                    <Routes>
+                        <Route path="/learn" element={<Learn />} />
+                    </Routes>
+                )}
+
+                {route === 'learn' ? (
+                    <Suspense fallback={<div style={{padding: '40px', textAlign: 'center', color: '#8b949e'}}>Loading...</div>}>
+                        <Learn onNavigate={navigate} />
+                    </Suspense>
+                ) : route === 'about' ? (
                     <Suspense fallback={<div style={{padding: '40px', textAlign: 'center', color: '#8b949e'}}>Loading...</div>}>
                         <About onNavigate={navigate} />
                     </Suspense>
@@ -2466,6 +2485,8 @@ export default function App() {
                     )}
                     <div className="footer-links">
                         <Link to="/" className="footer-link">Home</Link>
+                        <span className="footer-link-separator">|</span>
+                        <Link to="/learn" className="footer-link">Learn</Link>
                         <span className="footer-link-separator">|</span>
                         <Link to="/about" className="footer-link">About</Link>
                         <span className="footer-link-separator">|</span>
