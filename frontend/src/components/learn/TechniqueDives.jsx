@@ -267,6 +267,16 @@ export default function TechniqueDives() {
                       </li>
                     ))}
                   </ol>
+
+                  <a href="/" style={{
+                    display: 'inline-block', marginTop: '16px',
+                    padding: '10px 20px', background: '#238636',
+                    border: '1px solid #2ea043', color: 'white',
+                    borderRadius: '6px', textDecoration: 'none',
+                    fontSize: '14px', fontWeight: 600
+                  }}>
+                    Try this on a real binary →
+                  </a>
                 </div>
               )}
             </div>
