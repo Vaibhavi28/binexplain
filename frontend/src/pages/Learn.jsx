@@ -6,17 +6,19 @@ import ProtectionsMap from '../components/learn/ProtectionsMap';
 import ExploitFlowchart from '../components/learn/ExploitFlowchart';
 import TechniqueDives from '../components/learn/TechniqueDives';
 import RelationshipMap from '../components/learn/RelationshipMap';
+import RealWorldMap from '../components/learn/RealWorldMap';
 
 export default function Learn() {
   const [activeSection, setActiveSection] = useState('binary');
   const [refOpen, setRefOpen] = useState(false);
 
   const sections = [
-    { id: 'binary',     label: 'What is a Binary' },
+    { id: 'binary',      label: 'What is a Binary' },
     { id: 'protections', label: 'Security Protections' },
-    { id: 'flowchart',  label: 'Exploitation Flowchart' },
-    { id: 'techniques', label: 'Technique Deep Dives' },
-    { id: 'relations',  label: 'What Changes What' },
+    { id: 'flowchart',   label: 'Exploitation Flowchart' },
+    { id: 'techniques',  label: 'Technique Deep Dives' },
+    { id: 'relations',   label: 'What Changes What' },
+    { id: 'realworld',   label: '🌍 Real World' },
   ];
 
   return (
@@ -105,6 +107,7 @@ export default function Learn() {
             {activeSection === 'flowchart' && 'Step through decision-tree classification paths to identify vulnerabilities.'}
             {activeSection === 'techniques' && 'In-depth analysis of core exploitation categories, payloads, and steps.'}
             {activeSection === 'relations' && 'Interactive map connecting dangerous functions, security flaws, techniques, and counters.'}
+            {activeSection === 'realworld' && 'Real-world exploits, CVEs, impacts, and developer lessons mapped to each pwn technique.'}
           </span>
         </div>
       </div>
@@ -133,6 +136,11 @@ export default function Learn() {
       {activeSection === 'relations' && (
         <div id="section-relations">
           <RelationshipMap />
+        </div>
+      )}
+      {activeSection === 'realworld' && (
+        <div id="section-realworld">
+          <RealWorldMap />
         </div>
       )}
 
