@@ -4,6 +4,7 @@ import ElfDiagram from '../components/learn/ElfDiagram';
 import ProtectionsMap from '../components/learn/ProtectionsMap';
 import ExploitFlowchart from '../components/learn/ExploitFlowchart';
 import TechniqueDives from '../components/learn/TechniqueDives';
+import RelationshipMap from '../components/learn/RelationshipMap';
 
 export default function Learn() {
   const [activeSection, setActiveSection] = useState('binary');
@@ -96,9 +97,7 @@ export default function Learn() {
       )}
       {activeSection === 'relations' && (
         <div id="section-relations">
-          <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>
-            Relationship map coming in next prompt
-          </p>
+          <RelationshipMap />
         </div>
       )}
     </div>
