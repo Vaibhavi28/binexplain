@@ -15,7 +15,6 @@ import TopNav from './components/TopNav';
 import { extractCommandsFromHistory, extractFailedCommands } from './utils/commandTracker';
 import { parseAIResponse } from './utils/responseParser';
 import { initDevtoolsDeterrent } from './utils/devtoolsDeterrent';
-import GlossaryText from './components/GlossaryText';
 
 /* -- Config ---------------------------------------------------------- */
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -1626,7 +1625,7 @@ export default function App() {
                                         <span className={`ctf-category-badge ctf-category-badge--${result.ctf_category.confidence.toLowerCase()}`}>{result.ctf_category.category.replace(/_/g, ' ').toUpperCase()}</span>
                                         <span className={`ctf-confidence-badge ctf-confidence-badge--${result.ctf_category.confidence.toLowerCase()}`}>{result.ctf_category.confidence}</span>
                                     </div>
-                                    <p className="hero-card-desc"><GlossaryText text={result.ctf_category.explanation} /></p>
+                                    <p className="hero-card-desc">{result.ctf_category.explanation}</p>
                                     {result && result.ctf_category && (
                                       <div style={{
                                         marginTop: '12px', padding: '8px 12px',
@@ -1671,7 +1670,7 @@ export default function App() {
                                     <div className="hero-card-main">
                                         <span className={`difficulty-badge difficulty-badge--${result.difficulty.difficulty.toLowerCase()}`}>{result.difficulty.difficulty}</span>
                                     </div>
-                                    <p className="hero-card-desc"><GlossaryText text={result.difficulty.reason} /></p>
+                                    <p className="hero-card-desc">{result.difficulty.reason}</p>
                                 </div>
                             )}
                         </div>
@@ -1679,7 +1678,7 @@ export default function App() {
                         {/* -- Section 2: Vulnerability Analysis -- */}
                         <Carousel title="Vulnerability Analysis" icon="">
                             {result.checksec && result.checksec.nx !== null && <CCard icon="" title="Security Protections" stat={checksecSummary} statColor="#60a5fa" accent="#3b82f6" onClick={() => om('Security Protections','','#3b82f6',
-                                <div className="checksec-badges">{[{key:'nx',label:'NX',desc:'No-Execute'},{key:'pie',label:'PIE',desc:'Position Independent'},{key:'canary',label:'Canary',desc:'Stack Canary'},{key:'relro',label:'RELRO',desc:'Read-Only Relocations'},{key:'fortify',label:'Fortify',desc:'Fortify Source'}].map(({key,label,desc})=>(<div className={`checksec-badge checksec-badge--${result.checksec[key]?'enabled':'disabled'}`} key={key} title={desc}><span className="checksec-badge-icon">{result.checksec[key]?'[v]':''}</span><span className="checksec-badge-label"><GlossaryText text={label} /></span><span className="checksec-badge-status">{result.checksec[key]?'Enabled':'Disabled'}</span></div>))}</div>
+                                <div className="checksec-badges">{[{key:'nx',label:'NX',desc:'No-Execute'},{key:'pie',label:'PIE',desc:'Position Independent'},{key:'canary',label:'Canary',desc:'Stack Canary'},{key:'relro',label:'RELRO',desc:'Read-Only Relocations'},{key:'fortify',label:'Fortify',desc:'Fortify Source'}].map(({key,label,desc})=>(<div className={`checksec-badge checksec-badge--${result.checksec[key]?'enabled':'disabled'}`} key={key} title={desc}><span className="checksec-badge-icon">{result.checksec[key]?'[v]':''}</span><span className="checksec-badge-label">{label}</span><span className="checksec-badge-status">{result.checksec[key]?'Enabled':'Disabled'}</span></div>))}</div>
                             )} />}
                             {result.cvss_score !== undefined && <CCard icon="" title="CVSS Score" stat={`${result.cvss_score}/10.0 ${result.cvss_severity}`} statColor={cvssC(result.cvss_severity)} accent={cvssC(result.cvss_severity)} onClick={() => om('CVSS 3.1 Scoring','',cvssC(result.cvss_severity),
                                 <div className={`risk-card risk-card--${result.cvss_severity.toLowerCase()}`}><div className="risk-header"><div className="risk-score-circle"><span className="risk-score-number">{result.cvss_score}</span><span className="risk-score-max">/10.0</span></div><div className="risk-info"><span className={`risk-badge risk-badge--${result.cvss_severity.toLowerCase()}`}>{result.cvss_severity}</span><span className="risk-label">Base Score Equivalent</span></div></div><div className="risk-bar-track"><div className={`risk-bar-fill risk-bar-fill--${result.cvss_severity.toLowerCase()}`} style={{width:`${(result.cvss_score/10)*100}%`}}/></div></div>
@@ -1727,7 +1726,7 @@ export default function App() {
                                             )}
                                             {mainHints ? (
                                                 mainHints.split(/\n/).filter(l => l.trim()).map((line, i) => (
-                                                    <div className="section-item section-item--hint" key={i}><GlossaryText text={line} /></div>
+                                                    <div className="section-item section-item--hint" key={i}>{line}</div>
                                                 ))
                                             ) : (
                                                 <div className="section-empty">AI hints unavailable</div>
@@ -1781,12 +1780,12 @@ export default function App() {
                             />
                             {result.similar_writeups && result.similar_writeups.length > 0 && (
                                 <CCard
-                                    icon="🌐"
+                                    icon="🌐 "
                                     title="Similar Writeups"
                                     stat={`${result.similar_writeups.length} similar challenges found`}
                                     statColor="#22d3ee"
                                     accent="#06b6d4"
-                                    onClick={() => om('Similar Writeups', '🌐', '#06b6d4',
+                                    onClick={() => om('Similar Writeups', '🌐 ', '#06b6d4',
                                         <div className="result-card-body">
                                             {result.similar_writeups.map((w, idx) => (
                                                 <div key={idx} style={{ marginBottom: '1.2rem', paddingBottom: '1rem', borderBottom: idx < result.similar_writeups.length - 1 ? '1px solid rgba(255, 255, 255, 0.1)' : 'none' }}>
@@ -1808,7 +1807,7 @@ export default function App() {
                                 />
                             )}
                             {result.data_flows && result.data_flows.length > 0 && <CCard icon="" title="Data Flow" stat={`${result.data_flows.length} flows`} statColor="#3b82f6" accent="#3b82f6" onClick={() => om('Data Flow Analysis','','#3b82f6',
-                                <ul className="data-flow-list">{result.data_flows.map((f,i)=><li key={i} className="data-flow-item"><GlossaryText text={f} /></li>)}</ul>
+                                <ul className="data-flow-list">{result.data_flows.map((f,i)=><li key={i} className="data-flow-item">{f}</li>)}</ul>
                             )} />}
                             {result.format_string && <CCard icon="" title="Format String" stat={result.format_string.vulnerable?`Vulnerable  ${result.format_string.severity}`:'Safe'} statColor={result.format_string.vulnerable?'#f87171':'#4ade80'} accent={result.format_string.vulnerable?'#ef4444':'#22c55e'} onClick={() => om('Format String','',result.format_string.vulnerable?'#ef4444':'#22c55e',
                                 <div className="fmtstr-card"><div className="fmtstr-header"><span className={`fmtstr-badge fmtstr-badge--${result.format_string.vulnerable?result.format_string.severity.toLowerCase():'safe'}`}>{result.format_string.vulnerable?` VULNERABLE  ${result.format_string.severity}`:'[v] SAFE'}</span></div>{result.format_string.evidence.length>0&&<ul className="fmtstr-evidence">{result.format_string.evidence.map((e,i)=><li key={i} className="fmtstr-evidence-item">{e}</li>)}</ul>}</div>
@@ -2000,14 +1999,7 @@ export default function App() {
                               </div>
                             </div>
                         </div>
-                        <div style={{
-                          fontSize: '11px', color: '#484f58', padding: '8px 16px',
-                          textAlign: 'center', borderTop: '1px solid #21262d', marginTop: '16px'
-                        }}>
-                          💡 Hover over <span style={{
-                            borderBottom: '1px dashed #388bfd', color: '#79c0ff'
-                          }}>highlighted terms</span> for plain English explanations
-                        </div>
+
                     </>
                     );
                 })()}
@@ -2042,7 +2034,7 @@ export default function App() {
                                             <span className={`ctf-category-badge ctf-category-badge--${sourceResult.ctf_category.confidence.toLowerCase()}`}>{sourceResult.ctf_category.category.replace(/_/g, ' ').toUpperCase()}</span>
                                             <span className={`ctf-confidence-badge ctf-confidence-badge--${sourceResult.ctf_category.confidence.toLowerCase()}`}>{sourceResult.ctf_category.confidence}</span>
                                         </div>
-                                        <p className="hero-card-desc"><GlossaryText text={sourceResult.ctf_category.explanation} /></p>
+                                        <p className="hero-card-desc">{sourceResult.ctf_category.explanation}</p>
                                     </div>
                                 )}
                                 {sourceResult.difficulty && (
@@ -2051,7 +2043,7 @@ export default function App() {
                                         <div className="hero-card-main">
                                             <span className={`difficulty-badge difficulty-badge--${sourceResult.difficulty.difficulty.toLowerCase()}`}>{sourceResult.difficulty.difficulty}</span>
                                         </div>
-                                        <p className="hero-card-desc"><GlossaryText text={sourceResult.difficulty.reason} /></p>
+                                        <p className="hero-card-desc">{sourceResult.difficulty.reason}</p>
                                     </div>
                                 )}
                             </div>
@@ -2115,7 +2107,7 @@ export default function App() {
                                         accent="#3b82f6"
                                         onClick={() => om('Data Flow Analysis', '', '#3b82f6',
                                             <ul className="data-flow-list">
-                                                {sourceResult.data_flows.map((f, i) => <li key={i} className="data-flow-item"><GlossaryText text={f} /></li>)}
+                                                {sourceResult.data_flows.map((f, i) => <li key={i} className="data-flow-item">{f}</li>)}
                                              </ul>
                                          )}
                                      />
@@ -2293,7 +2285,7 @@ export default function App() {
                                             (sourceResult.ai_hints || sourceResult.hints).split('\n').filter(val => val.trim()).map((line, i) => (
                                                 <div key={i} className="ai-bullet">
                                                     <span className="bullet-point"></span>
-                                                    <GlossaryText text={line.replace(/^\s*/, '')} />
+                                                    {line.replace(/^\s*/, '')}
                                                 </div>
                                             ))
                                         ) : (
@@ -2310,7 +2302,7 @@ export default function App() {
                                                 {sourceResult.next_steps.split('\n').filter(val => val.trim()).map((line, i) => (
                                                     <div key={i} className="ai-bullet" style={{ color: 'var(--on-surface-variant)' }}>
                                                         <span className="bullet-point" style={{ background: 'var(--on-surface-variant)' }}></span>
-                                                        <GlossaryText text={line.replace(/^\s*/, '')} />
+                                                        {line.replace(/^\s*/, '')}
                                                     </div>
                                                 ))}
                                             </div>
@@ -2405,14 +2397,7 @@ export default function App() {
                                 <button className="chat-send-btn" onClick={sendSrcChat} disabled={srcChatLoading||!srcChatInput.trim()} id="src-chat-send-btn">{srcChatLoading?'...':' Send'}</button>
                             </div>
                         </div>
-                        <div style={{
-                          fontSize: '11px', color: '#484f58', padding: '8px 16px',
-                          textAlign: 'center', borderTop: '1px solid #21262d', marginTop: '16px'
-                        }}>
-                          💡 Hover over <span style={{
-                            borderBottom: '1px dashed #388bfd', color: '#79c0ff'
-                          }}>highlighted terms</span> for plain English explanations
-                        </div>
+
                     </>
                 )}
 

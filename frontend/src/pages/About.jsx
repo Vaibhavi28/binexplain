@@ -1,7 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
-import GlossaryText from '../components/GlossaryText';
 
 export default function About({ onNavigate }) {
     const handleBackClick = (e) => {
@@ -39,7 +38,7 @@ export default function About({ onNavigate }) {
             <header className="about-hero">
                 <h1 className="hero-headline">About BinExplain</h1>
                 <p className="hero-subheading">
-                    <GlossaryText text="Built by a master's student who got tired of staring at binaries with no idea where to start" />
+                    <span>Built by a master's student who got tired of staring at binaries with no idea where to start</span>
                 </p>
             </header>
 
@@ -47,7 +46,7 @@ export default function About({ onNavigate }) {
             <section className="about-section">
                 <h2>The Problem</h2>
                 <p>
-                    <GlossaryText text="Binary exploitation has the highest barrier to entry of any CTF category. Professional tools cost hundreds of dollars or assume you already know assembly. No free tool explains what the analysis MEANS or what to do next. Beginners download their first binary and stare at it with no idea where to start." />
+                    <span>Binary exploitation has the highest barrier to entry of any CTF category. Professional tools cost hundreds of dollars or assume you already know assembly. No free tool explains what the analysis MEANS or what to do next. Beginners download their first binary and stare at it with no idea where to start.</span>
                 </p>
             </section>
 
@@ -61,7 +60,7 @@ export default function About({ onNavigate }) {
                             <h3 className="about-card-title">CTF Category Detection</h3>
                         </div>
                         <p className="about-card-desc">
-                            <GlossaryText text="Classifies your binary into one of six exploitation archetypes with a confidence level, explanation, and difficulty prediction" />
+                            <span>Classifies your binary into one of six exploitation archetypes with a confidence level, explanation, and difficulty prediction</span>
                         </p>
                     </div>
 
@@ -71,7 +70,7 @@ export default function About({ onNavigate }) {
                             <h3 className="about-card-title">Parallel AI Inference</h3>
                         </div>
                         <p className="about-card-desc">
-                            <GlossaryText text="Calls Groq and Nemotron 3 Ultra simultaneously. A quality gate filters generic responses. Both answers merge into one expert-level hint" />
+                            <span>Calls Groq and Nemotron 3 Ultra simultaneously. A quality gate filters generic responses. Both answers merge into one expert-level hint</span>
                         </p>
                     </div>
 
@@ -81,7 +80,7 @@ export default function About({ onNavigate }) {
                             <h3 className="about-card-title">RAG-Powered Hints</h3>
                         </div>
                         <p className="about-card-desc">
-                            <GlossaryText text="2200+ real CTF writeups from 13 sources indexed with 24 technique tags. Hybrid vector + tag overlap retrieval finds genuinely similar past challenges" />
+                            <span>2200+ real CTF writeups from 13 sources indexed with 24 technique tags. Hybrid vector + tag overlap retrieval finds genuinely similar past challenges</span>
                         </p>
                     </div>
 
@@ -91,7 +90,7 @@ export default function About({ onNavigate }) {
                             <h3 className="about-card-title">Interactive Glossary</h3>
                         </div>
                         <p className="about-card-desc">
-                            <GlossaryText text="Hover over any technical term — NX, PIE, ROP, tcache — for a plain English explanation with a real-world attack example" />
+                            <span>Hover over any technical term — NX, PIE, ROP, tcache — for a plain English explanation with a real-world attack example</span>
                         </p>
                     </div>
 
@@ -101,7 +100,7 @@ export default function About({ onNavigate }) {
                             <h3 className="about-card-title">Source Code Analysis</h3>
                         </div>
                         <p className="about-card-desc">
-                            <GlossaryText text="Full feature parity between binary file and source code analysis. Overflow offset read directly from buffer declarations — more precise than binary disassembly" />
+                            <span>Full feature parity between binary file and source code analysis. Overflow offset read directly from buffer declarations — more precise than binary disassembly</span>
                         </p>
                     </div>
 
@@ -111,12 +110,12 @@ export default function About({ onNavigate }) {
                             <h3 className="about-card-title">Security First</h3>
                         </div>
                         <p className="about-card-desc">
-                            <GlossaryText text="Static analysis only. Files deleted immediately. Zero binary execution. Rate limited. Input validated. Never stored." />
+                            <span>Static analysis only. Files deleted immediately. Zero binary execution. Rate limited. Input validated. Never stored.</span>
                         </p>
                     </div>
                 </div>
                 <p style={{ marginTop: '24px', textAlign: 'center' }}>
-                    <GlossaryText text="BinExplain analyzes your binary and gives you category classification, ROP gadgets, and AI hints." /> <Link to="/docs">See the full feature documentation</Link>.
+                    <span>BinExplain analyzes your binary and gives you category classification, ROP gadgets, and AI hints.</span> <Link to="/docs">See the full feature documentation</Link>.
                 </p>
             </section>
 
@@ -124,10 +123,10 @@ export default function About({ onNavigate }) {
             <section className="about-section">
                 <h2>Who Built This</h2>
                 <p>
-                    <GlossaryText text="BinExplain was built by Vaibhavi Sanjay Kathepuri, a master's student at Pennsylvania State University studying cybersecurity and AI. After spending months of evenings and weekends struggling to understand her first binary exploitation challenges, she decided to build the tool she wished had existed." />
+                    <span>BinExplain was built by Vaibhavi Sanjay Kathepuri, a master's student at Pennsylvania State University studying cybersecurity and AI. After spending months of evenings and weekends struggling to understand her first binary exploitation challenges, she decided to build the tool she wished had existed.</span>
                 </p>
                 <p>
-                    <GlossaryText text="BinExplain began as a personal frustration with existing tools and grew into a full-featured platform over months of active development. The project explores AI-assisted scaffolding for binary exploitation education." />
+                    <span>BinExplain began as a personal frustration with existing tools and grew into a full-featured platform over months of active development. The project explores AI-assisted scaffolding for binary exploitation education.</span>
                 </p>
             </section>
 
@@ -148,11 +147,7 @@ export default function About({ onNavigate }) {
                 </div>
             </section>
 
-            <div style={{fontSize:'11px',color:'#484f58',padding:'8px 16px',
-                textAlign:'center',marginTop:'24px'}}>
-              💡 Hover over <span style={{borderBottom:'1px dashed #388bfd',
-                color:'#79c0ff'}}>highlighted terms</span> for plain English explanations
-            </div>
+
         </div>
     );
 }

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import GlossaryText from '../GlossaryText';
 
 export default function ProtectionsMap() {
   const [protections, setProtections] = useState({
@@ -379,7 +378,7 @@ export default function ProtectionsMap() {
               </span>
             </div>
             <p style={{ color: '#c9d1d9', fontSize: '13px', lineHeight: '1.5', margin: 0 }}>
-              <GlossaryText text={getExplanation(selectedAttack)} />
+              {getExplanation(selectedAttack)}
             </p>
           </div>
         </div>

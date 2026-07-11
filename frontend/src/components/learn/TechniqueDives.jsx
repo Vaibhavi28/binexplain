@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import GlossaryText from '../GlossaryText';
 
 export default function TechniqueDives() {
   const [expandedCard, setExpandedCard] = useState(null);
@@ -263,7 +262,7 @@ export default function TechniqueDives() {
                   <ol style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {d.steps.map((step, idx) => (
                       <li key={idx} style={{ color: '#c9d1d9', fontSize: '13px', lineHeight: '1.5' }}>
-                        <GlossaryText text={step} />
+                        {step}
                       </li>
                     ))}
                   </ol>

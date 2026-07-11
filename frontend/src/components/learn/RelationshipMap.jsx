@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import GlossaryText from '../GlossaryText';
 
 const NODES = {
   gets: {
@@ -480,7 +479,7 @@ export default function RelationshipMap() {
               </span>
             </div>
             <p style={{ color: '#c9d1d9', fontSize: '14px', lineHeight: '1.6', margin: '0 0 16px' }}>
-              <GlossaryText text={NODES[activeNode]?.desc} />
+              {NODES[activeNode]?.desc}
             </p>
 
             {/* List connections */}

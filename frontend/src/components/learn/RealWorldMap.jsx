@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import GlossaryText from '../GlossaryText';
 
 const REAL_WORLD_DATA = [
   {
@@ -288,7 +287,7 @@ export default function RealWorldMap() {
       }
       return (
         <p key={idx} style={{ margin: '6px 0', lineHeight: '1.5', color: '#c9d1d9', fontSize: '14px' }}>
-          <GlossaryText text={line} />
+        {line}
         </p>
       );
     });
@@ -340,7 +339,7 @@ export default function RealWorldMap() {
             CWE: {data.cwe} — {data.cwe_label}
           </div>
           <p style={{ color: '#c9d1d9', fontSize: '14px', lineHeight: '1.6', margin: 0 }}>
-            <GlossaryText text={data.cwe_desc} />
+            {data.cwe_desc}
           </p>
         </div>
 
@@ -435,7 +434,7 @@ export default function RealWorldMap() {
                     }}>
                       <div style={{ fontSize: '11px', color: '#79c0ff', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px' }}>Key Security Lesson</div>
                       <p style={{ color: '#c9d1d9', fontSize: '13px', lineHeight: '1.5', margin: 0 }}>
-                        <GlossaryText text={c.lesson} />
+                        {c.lesson}
                       </p>
                     </div>
                   </div>

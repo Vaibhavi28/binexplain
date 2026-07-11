@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import GlossaryText from '../components/GlossaryText';
 import ElfDiagram from '../components/learn/ElfDiagram';
 import ProtectionsMap from '../components/learn/ProtectionsMap';
 import ExploitFlowchart from '../components/learn/ExploitFlowchart';
@@ -48,18 +47,8 @@ export default function Learn() {
           fontSize: '16px', color: 'var(--text-secondary)',
           maxWidth: '600px', margin: '0 auto', lineHeight: '1.6'
         }}>
-          <GlossaryText text="How do binaries work? What makes them exploitable? What changes when you add a security protection? Click anything to learn more. Hover over highlighted terms for definitions." />
+          <span>How do binaries work? What makes them exploitable? What changes when you add a security protection? Click anything to learn more. Hover over highlighted terms for definitions.</span>
         </p>
-        <div style={{
-          fontSize: '12px', color: '#484f58',
-          marginTop: '12px'
-        }}>
-          💡 Hover over{' '}
-          <span style={{ borderBottom: '1px dashed #388bfd', color: '#79c0ff' }}>
-            highlighted terms
-          </span>
-          {' '}for plain English explanations with real-world examples
-        </div>
       </div>
 
       {/* Section navigation pills */}

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import GlossaryText from '../components/GlossaryText';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -73,7 +72,7 @@ export default function Contact({ onNavigate }) {
             <header className="contact-header">
                 <h1 className="contact-title">Get in Touch</h1>
                 <p className="contact-subheading">
-                    <GlossaryText text="Bug report, feature request, or just want to say the tool helped you solve a challenge?" />
+                    <span>Bug report, feature request, or just want to say the tool helped you solve a challenge?</span>
                 </p>
             </header>
 
@@ -83,7 +82,7 @@ export default function Contact({ onNavigate }) {
                     <span className="contact-card-icon">🐛</span>
                     <h3 className="contact-card-title">Found a Bug?</h3>
                     <p className="contact-card-text">
-                        <GlossaryText text="Open a GitHub issue with steps to reproduce and I will fix it." />
+                        <span>Open a GitHub issue with steps to reproduce and I will fix it.</span>
                     </p>
                     <a
                         href="https://github.com/Vaibhavi28/binexplain/issues"
@@ -99,7 +98,7 @@ export default function Contact({ onNavigate }) {
                     <span className="contact-card-icon">💬</span>
                     <h3 className="contact-card-title">General Feedback</h3>
                     <p className="contact-card-text">
-                        <GlossaryText text="Did BinExplain help you solve a challenge? I genuinely want to know." />
+                        <span>Did BinExplain help you solve a challenge? I genuinely want to know.</span>
                     </p>
                     <a href="mailto:hello@binexplain.com" className="contact-card-btn">
                         Send Email
@@ -185,11 +184,7 @@ export default function Contact({ onNavigate }) {
                 </form>
             </div>
 
-            <div style={{fontSize:'11px',color:'#484f58',padding:'8px 16px',
-                textAlign:'center',marginTop:'24px'}}>
-              💡 Hover over <span style={{borderBottom:'1px dashed #388bfd',
-                color:'#79c0ff'}}>highlighted terms</span> for plain English explanations
-            </div>
+
         </div>
     );
 }

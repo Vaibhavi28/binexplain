@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import GlossaryText from '../GlossaryText';
 
 export default function ElfDiagram() {
   const [expanded, setExpanded] = useState(null);
@@ -140,7 +139,7 @@ export default function ElfDiagram() {
                 color: '#c9d1d9', fontSize: '14px',
                 lineHeight: '1.6', margin: '0 0 12px'
               }}>
-                <GlossaryText text={s.explanation} />
+                {s.explanation}
               </p>
               <div style={{
                 background: '#161b22', borderRadius: '6px',
@@ -158,7 +157,7 @@ export default function ElfDiagram() {
                   color: '#c9d1d9', fontSize: '13px',
                   lineHeight: '1.5', margin: 0
                 }}>
-                  <GlossaryText text={s.example} />
+                  {s.example}
                 </p>
               </div>
               {s.attack && (
@@ -174,7 +173,7 @@ export default function ElfDiagram() {
                     Attack relevance:{' '}
                   </span>
                   <span style={{ color: '#ffa198', fontSize: '13px' }}>
-                    <GlossaryText text={s.attack} />
+                    {s.attack}
                   </span>
                 </div>
               )}
