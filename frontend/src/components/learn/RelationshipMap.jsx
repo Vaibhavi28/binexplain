@@ -557,6 +557,7 @@ export default function RelationshipMap() {
 
               const isSelected = selectedConnection && selectedConnection.from === c.from && selectedConnection.to === c.to;
               const isHovered = hoveredConnection && hoveredConnection.from === c.from && hoveredConnection.to === c.to;
+              const isHighlighted = isLineConnected(c);
               const isLineHighlighted = isHighlighted || isSelected || isHovered;
 
               let opacity = activeNode ? (isHighlighted ? 0.95 : 0.04) : 0.25;
