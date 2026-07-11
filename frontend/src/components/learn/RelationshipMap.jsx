@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import GlossaryText from '../GlossaryText';
 
 const NODES = {
@@ -212,29 +212,69 @@ const CONNECTIONS = [
 export default function RelationshipMap() {
   const [hoveredNode, setHoveredNode] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
+  const containerRef = useRef(null);
+  const [dims, setDims] = useState({ width: 800, height: 600 });
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const { offsetWidth, offsetHeight } = containerRef.current;
+    if (offsetWidth > 0 && offsetHeight > 0) {
+      setDims({ width: offsetWidth, height: offsetHeight });
+    }
+  }, []);
 
   const activeNode = hoveredNode || selectedNode;
 
   const handleNodeClick = (nodeId) => {
-    if (selectedNode === nodeId) {
-      setSelectedNode(null);
-    } else {
-      setSelectedNode(nodeId);
+    try {
+      if (selectedNode === nodeId) {
+        setSelectedNode(null);
+      } else {
+        setSelectedNode(nodeId);
+      }
+    } catch (e) {
+      console.error('[RelationshipMap] Click handler error:', e);
+    }
+  };
+
+  const handleMouseEnter = (nodeId) => {
+    try {
+      setHoveredNode(nodeId);
+    } catch (e) {
+      console.error('[RelationshipMap] MouseEnter handler error:', e);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    try {
+      setHoveredNode(null);
+    } catch (e) {
+      console.error('[RelationshipMap] MouseLeave handler error:', e);
     }
   };
 
   const isNodeConnected = (nodeId) => {
-    if (!activeNode) return true;
-    if (nodeId === activeNode) return true;
-    return CONNECTIONS.some(c => 
-      (c.from === activeNode && c.to === nodeId) || 
-      (c.from === nodeId && c.to === activeNode)
-    );
+    try {
+      if (!activeNode) return true;
+      if (nodeId === activeNode) return true;
+      return (CONNECTIONS || []).some(c => 
+        (c.from === activeNode && c.to === nodeId) || 
+        (c.from === nodeId && c.to === activeNode)
+      );
+    } catch (e) {
+      console.error('[RelationshipMap] isNodeConnected error:', e);
+      return true;
+    }
   };
 
   const isLineConnected = (c) => {
-    if (!activeNode) return false;
-    return c.from === activeNode || c.to === activeNode;
+    try {
+      if (!activeNode) return false;
+      return c.from === activeNode || c.to === activeNode;
+    } catch (e) {
+      console.error('[RelationshipMap] isLineConnected error:', e);
+      return false;
+    }
   };
 
   const getLineColor = (type) => {
@@ -250,7 +290,7 @@ export default function RelationshipMap() {
   };
 
   const activeConnections = activeNode 
-    ? CONNECTIONS.filter(c => c.from === activeNode || c.to === activeNode)
+    ? (CONNECTIONS || []).filter(c => c.from === activeNode || c.to === activeNode)
     : [];
 
   return (
@@ -266,14 +306,20 @@ export default function RelationshipMap() {
 
       {/* Main Diagram Area with scroll on narrow screens */}
       <div style={{ overflowX: 'auto', background: '#0d1117', border: '1px solid #30363d', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
-        <div style={{ width: '900px', height: '500px', position: 'relative', margin: '0 auto' }}>
+        <div ref={containerRef} style={{ width: '900px', height: '500px', position: 'relative', margin: '0 auto' }}>
           
           {/* SVG Overlay for Connection Lines */}
-          <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
-            {CONNECTIONS.map((c, idx) => {
-              const fromNode = NODES[c.from];
-              const toNode = NODES[c.to];
+          <svg
+            viewBox={`0 0 ${dims.width || 900} ${dims.height || 500}`}
+            width={dims.width || 900}
+            height={dims.height || 500}
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}
+          >
+            {(CONNECTIONS || []).map((c, idx) => {
+              const fromNode = NODES?.[c.from];
+              const toNode = NODES?.[c.to];
               if (!fromNode || !toNode) return null;
+              if (fromNode.left === undefined || fromNode.top === undefined || toNode.left === undefined || toNode.top === undefined) return null;
 
               // Compute ports based on left-to-right flow or right-to-left flow (mitigations)
               const fromCol = fromNode.col;
@@ -312,7 +358,7 @@ export default function RelationshipMap() {
                     stroke={color}
                     strokeWidth={isHighlighted ? 3 : 1.5}
                     opacity={opacity}
-                    transition="stroke-width 0.15s, opacity 0.15s"
+                    style={{ transition: 'stroke-width 0.15s, opacity 0.15s' }}
                   />
                   {isHighlighted && (
                     <text
@@ -348,7 +394,8 @@ export default function RelationshipMap() {
           </div>
 
           {/* Node Cards */}
-          {Object.values(NODES).map((node) => {
+          {(Object.values(NODES || {}) || []).map((node) => {
+            if (!node) return null;
             const isConnected = isNodeConnected(node.id);
             const isMainActive = activeNode === node.id;
             const opacity = activeNode ? (isConnected ? 1.0 : 0.25) : 1.0;
@@ -376,8 +423,8 @@ export default function RelationshipMap() {
             return (
               <div
                 key={node.id}
-                onMouseEnter={() => setHoveredNode(node.id)}
-                onMouseLeave={() => setHoveredNode(null)}
+                onMouseEnter={() => handleMouseEnter(node.id)}
+                onMouseLeave={() => handleMouseLeave()}
                 onClick={() => handleNodeClick(node.id)}
                 style={{
                   position: 'absolute',
@@ -422,37 +469,38 @@ export default function RelationshipMap() {
         padding: '24px',
         minHeight: '130px'
       }}>
-        {activeNode ? (
+        {activeNode && NODES?.[activeNode] ? (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                {NODES[activeNode].label}
+                {NODES[activeNode]?.label}
               </h3>
               <span style={{ fontSize: '11px', color: '#8b949e', textTransform: 'uppercase', fontWeight: 700 }}>
-                Column {NODES[activeNode].col} Node
+                Column {NODES[activeNode]?.col} Node
               </span>
             </div>
             <p style={{ color: '#c9d1d9', fontSize: '14px', lineHeight: '1.6', margin: '0 0 16px' }}>
-              <GlossaryText text={NODES[activeNode].desc} />
+              <GlossaryText text={NODES[activeNode]?.desc} />
             </p>
 
             {/* List connections */}
-            {activeConnections.length > 0 && (
+            {(activeConnections || []).length > 0 && (
               <div>
                 <h4 style={{ fontSize: '11px', color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }}>
                   Related Connections
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {activeConnections.map((c, i) => {
-                    const fromNode = NODES[c.from];
-                    const toNode = NODES[c.to];
+                  {(activeConnections || []).map((c, i) => {
+                    const fromNode = NODES?.[c.from];
+                    const toNode = NODES?.[c.to];
+                    if (!fromNode || !toNode) return null;
                     const isFrom = c.from === activeNode;
                     const relationColor = getLineColor(c.type);
 
                     return (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#c9d1d9' }}>
                         <span style={{ fontWeight: 600, color: isFrom ? '#58a6ff' : '#8b949e' }}>
-                          {fromNode.label}
+                          {fromNode?.label}
                         </span>
                         <span style={{
                           fontSize: '10px',

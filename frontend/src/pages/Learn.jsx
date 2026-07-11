@@ -6,6 +6,7 @@ import ProtectionsMap from '../components/learn/ProtectionsMap';
 import ExploitFlowchart from '../components/learn/ExploitFlowchart';
 import TechniqueDives from '../components/learn/TechniqueDives';
 import RelationshipMap from '../components/learn/RelationshipMap';
+import LearnErrorBoundary from '../components/learn/LearnErrorBoundary';
 import RealWorldMap from '../components/learn/RealWorldMap';
 import TryItYourself from '../components/learn/TryItYourself';
 
@@ -139,7 +140,9 @@ export default function Learn() {
         )}
         {activeSection === 'relations' && (
           <div id="section-relations">
-            <RelationshipMap />
+            <LearnErrorBoundary>
+              <RelationshipMap />
+            </LearnErrorBoundary>
           </div>
         )}
         {activeSection === 'realworld' && (

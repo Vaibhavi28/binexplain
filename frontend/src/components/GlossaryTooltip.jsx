@@ -7,7 +7,17 @@ const GlossaryTooltip = ({ children, term }) => {
   const triggerRef = useRef(null);
   const tooltipRef = useRef(null);
 
-  const data = GLOSSARY[term.toLowerCase()];
+  // Hide on scroll so the tooltip doesn't drift
+  useEffect(() => {
+    if (!visible) return;
+    const hide = () => setVisible(false);
+    window.addEventListener('scroll', hide, true);
+    return () => window.removeEventListener('scroll', hide, true);
+  }, [visible]);
+
+  const termKey = Object.keys(GLOSSARY).find(k => k.toLowerCase() === term.toLowerCase()) || term;
+  const data = GLOSSARY[termKey];
+
   if (!data) return <>{children}</>;
 
   const updatePosition = () => {
@@ -46,14 +56,6 @@ const GlossaryTooltip = ({ children, term }) => {
     if (tooltipRef.current && tooltipRef.current.contains(e.relatedTarget)) return;
     setVisible(false);
   };
-
-  // Hide on scroll so the tooltip doesn't drift
-  useEffect(() => {
-    if (!visible) return;
-    const hide = () => setVisible(false);
-    window.addEventListener('scroll', hide, true);
-    return () => window.removeEventListener('scroll', hide, true);
-  }, [visible]);
 
   return (
     <>
