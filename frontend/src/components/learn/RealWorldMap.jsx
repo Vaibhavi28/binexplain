@@ -120,9 +120,10 @@ The parsing code freed the same pointer twice, corrupting heap metadata in a way
     technique_label: 'Return-to-libc',
     color: '#3a2a1a',
     border: '#e3b341',
-    cwe: 'CWE-243',
-    cwe_label: 'Creation of chroot Jail Without Changing Working Directory',
-    cwe_desc: 'A return-to-libc (ret2libc) exploit bypasses No-Execute (NX) protections by hijacking stack return pointers to execute pre-existing library functions (like system()) instead of custom shellcode.',
+    cwe: 'CWE-676',
+    cwe_label: 'Use of Potentially Dangerous Function',
+    cwe_desc: 'ret2libc is a consequence of dangerous functions like system() being available in linked libraries combined with a memory corruption bug. CWE-676 captures the root cause: using functions that create exploitable conditions when memory safety is violated.',
+    cwe_explanation: 'ret2libc is a consequence of dangerous functions like system() being available in linked libraries combined with a memory corruption bug. CWE-676 captures the root cause: using functions that create exploitable conditions when memory safety is violated.',
     cases: [
       {
         cve: 'CVE-2010-4221',
@@ -136,6 +137,24 @@ Instead of injecting shellcode, attackers chained calls to existing libc functio
 This was one of the early real-world demonstrations that NX alone is insufficient against ret2libc attacks.`,
         impact: 'Remote code execution on ProFTPD servers. Added to Metasploit framework demonstrating the technique to the broader security community.',
         lesson: 'NX/DEP was supposed to stop code injection attacks. ret2libc showed that reusing existing code bypasses it entirely — leading to the development of ASLR.'
+      },
+      {
+        cve: 'CVE-2015-7547',
+        name: 'glibc getaddrinfo() remote ret2libc',
+        severity: 'Critical (CVSS 8.1)',
+        cvss: 'Critical (CVSS 8.1)',
+        affected: 'All Linux systems using glibc — virtually every Linux device',
+        discovered: '2016',
+        what_happened: `A stack overflow in the glibc DNS resolver was exploited
+using ret2libc technique. When a Linux system made any DNS lookup,
+an attacker who controlled DNS responses could overflow a stack buffer
+and redirect execution to system() in libc.
+This affected sudo, ssh, curl, wget, and any program that resolved hostnames —
+which is almost every networked application. Google and Red Hat
+coordinated disclosure after finding the bug internally.`,
+        impact: 'Every major Linux distribution was affected. Any program making a DNS request was potentially exploitable from the network.',
+        patch: 'glibc 2.23 fixed it. All major distributions released emergency patches.',
+        lesson: 'ret2libc exploits do not require local access when the overflow is in a network-facing library. DNS lookups happen constantly — this made the attack surface enormous.'
       }
     ]
   },
@@ -155,11 +174,22 @@ This was one of the early real-world demonstrations that NX alone is insufficien
         cvss: 'CVSS 10.0',
         affected: '950 million Android devices',
         discovered: '2015',
-        what_happened: `A series of vulnerabilities in Android Stagefright media library allowed remote code execution by sending a malicious MMS message.
-The exploit used ROP chains to bypass both NX and ASLR simultaneously.
-The victim did not need to open or view the MMS — some messaging apps auto-processed media in the background. Receiving a text message was enough to compromise the device.`,
+        what_happened: `Stagefright was a heap corruption vulnerability in Android's
+media processing library. The exploit chain worked in two stages:
+Stage 1 — Heap corruption: A malformed MP4 file triggered an integer
+overflow during parsing, leading to a heap buffer overflow.
+Stage 2 — ROP to bypass NX: Because NX was enabled, the exploit used
+Return-Oriented Programming to chain existing code gadgets from loaded
+libraries, achieving code execution without injecting shellcode.
+The combination of heap corruption + ROP chain is now a standard
+technique for bypassing modern protections. The victim needed only to
+receive a malicious MMS — some apps processed it automatically before
+the user saw it.`,
         impact: 'Every Android phone in the world was potentially vulnerable. Called "the worst Android vulnerabilities discovered to date" at the time.',
-        lesson: 'ROP chains are powerful enough to bypass both NX and ASLR when combined with an information leak. Media processing code is a prime target because it handles untrusted data automatically.'
+        lesson: `Modern exploitation often requires chaining multiple techniques.
+Heap corruption gets you control of execution flow. ROP bypasses NX.
+Neither alone is sufficient on a modern device — but combined they
+defeat both protections. This is why defense requires layered mitigations.`
       },
       {
         cve: 'CVE-2017-5638',
@@ -289,16 +319,26 @@ export default function RealWorldMap() {
             <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: '#f0f6fc' }}>
               {data.technique_label}
             </h3>
-            <span style={{
-              fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px',
-              background: '#21262d', color: '#58a6ff', border: '1px solid #388bfd'
-            }}>
+            <span 
+              title="Common Weakness Enumeration — a standardized catalog of software weakness types maintained by MITRE. Each CWE describes a category of vulnerability, not a specific bug."
+              style={{
+                fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px',
+                background: '#21262d', color: '#58a6ff', border: '1px solid #388bfd',
+                cursor: 'help'
+              }}
+            >
               {data.cwe}
             </span>
           </div>
-          <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 600, color: '#8b949e' }}>
+          <h4 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 600, color: '#8b949e' }}>
             {data.cwe_label}
           </h4>
+          <div 
+            title="Common Weakness Enumeration — a standardized catalog of software weakness types maintained by MITRE. Each CWE describes a category of vulnerability, not a specific bug."
+            style={{ fontSize: '11px', color: '#8b949e', cursor: 'help', marginBottom: '12px' }}
+          >
+            CWE: {data.cwe} — {data.cwe_label}
+          </div>
           <p style={{ color: '#c9d1d9', fontSize: '14px', lineHeight: '1.6', margin: 0 }}>
             <GlossaryText text={data.cwe_desc} />
           </p>
@@ -453,16 +493,26 @@ export default function RealWorldMap() {
                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#f0f6fc' }}>
                   {d.technique_label}
                 </h3>
-                <span style={{
-                  fontSize: '9px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px',
-                  background: '#21262d', color: '#8b949e', border: '1px solid #30363d'
-                }}>
+                <span 
+                  title="Common Weakness Enumeration — a standardized catalog of software weakness types maintained by MITRE. Each CWE describes a category of vulnerability, not a specific bug."
+                  style={{
+                    fontSize: '9px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px',
+                    background: '#21262d', color: '#8b949e', border: '1px solid #30363d',
+                    cursor: 'help'
+                  }}
+                >
                   {d.cwe}
                 </span>
               </div>
-              <h4 style={{ margin: '0 0 12px', fontSize: '11px', color: '#8b949e', fontWeight: 600 }}>
+              <h4 style={{ margin: '0 0 4px', fontSize: '11px', color: '#8b949e', fontWeight: 600 }}>
                 {d.cwe_label}
               </h4>
+              <div 
+                title="Common Weakness Enumeration — a standardized catalog of software weakness types maintained by MITRE. Each CWE describes a category of vulnerability, not a specific bug."
+                style={{ fontSize: '10px', color: '#8b949e', cursor: 'help', marginBottom: '12px' }}
+              >
+                CWE: {d.cwe} — {d.cwe_label}
+              </div>
               <div style={{ fontSize: '12px', color: '#c9d1d9', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span>📁</span>
                 <span>{d.cases.length} real-world case{d.cases.length > 1 ? 's' : ''}</span>
