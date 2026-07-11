@@ -12,6 +12,7 @@
         "deploy": "gh-pages -d dist"
     },
     "dependencies": {
+        "animejs": "^3.2.2",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
         "react-helmet-async": "^3.0.0",

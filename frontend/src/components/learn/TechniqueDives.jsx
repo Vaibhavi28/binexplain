@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import RetwinMemoryAnimation from './RetwinMemoryAnimation';
 
 function Ret2winContent() {
   const [expandedSteps, setExpandedSteps] = useState({});
@@ -47,48 +48,7 @@ function Ret2winContent() {
       </div>
 
       {/* SECTION 2 — MEMORY LAYOUT DIAGRAM */}
-      <div id="ret2win-memory-diagram">
-        <h4 style={{ color: '#f0f6fc', fontSize: '14px', fontWeight: 600, margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Memory Layout Stack Diagram
-        </h4>
-        <div style={{ fontSize: '11px', color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-          STACK (grows downward — high address at top)
-        </div>
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch', background: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', padding: '16px' }}>
-          {/* Stack growth arrow */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', minWidth: '32px' }}>
-            <span style={{ fontSize: '9px', color: '#8b949e', fontWeight: 700 }}>HIGH</span>
-            <div style={{ flex: 1, width: '2px', background: '#30363d', margin: '6px 0', position: 'relative' }}>
-              <div style={{ position: 'absolute', bottom: 0, left: '-4px', width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #8b949e' }} />
-            </div>
-            <span style={{ fontSize: '9px', color: '#8b949e', fontWeight: 700 }}>LOW</span>
-          </div>
-          
-          {/* Stack Boxes */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {/* Box 4: Return Address */}
-            <div style={{ padding: '12px', border: '1px solid #f85149', background: '#3c1e1e', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#f85149', fontSize: '13px' }}>RETURN ADDRESS</span>
-              <span style={{ fontSize: '12px', color: '#ff7b72' }}>← Overwrite with win() address</span>
-            </div>
-            {/* Box 3: Saved RBP */}
-            <div style={{ padding: '12px', border: '1px solid #e3b341', background: '#221e16', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#e3b341', fontSize: '13px' }}>SAVED RBP</span>
-              <span style={{ fontSize: '12px', color: '#f0e042' }}>8 bytes — overwrite with AAAA's</span>
-            </div>
-            {/* Box 2: Buffer Padding */}
-            <div style={{ padding: '12px', border: '1px solid #d29922', background: '#1c1b16', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#d29922', fontSize: '13px' }}>BUFFER PADDING</span>
-              <span style={{ fontSize: '12px', color: '#c9d1d9' }}>Variable bytes — fill with A's</span>
-            </div>
-            {/* Box 1: Local Buffer */}
-            <div style={{ padding: '12px', border: '1px solid #388bfd', background: '#13233c', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#388bfd', fontSize: '13px' }}>LOCAL BUFFER (64 bytes)</span>
-              <span style={{ fontSize: '12px', color: '#58a6ff' }}>← Your input starts here</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <RetwinMemoryAnimation />
 
       {/* SECTION 3 — EXPLOITATION STEPS */}
       <div>
