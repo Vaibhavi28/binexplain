@@ -5176,6 +5176,79 @@ def _analyze_zip(
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
+# Pre-computed demo analysis results
+# These are real analysis results from real CTF binaries
+# Run once offline and hardcoded here for the Learn page
+DEMO_ANALYSES = {
+    "demo_ret2win": {
+        "filename": "demo_ret2win",
+        "architecture": "x86-64",
+        "bits": 64,
+        "ctf_category": {
+            "category": "ret2win",
+            "confidence": "High",
+            "explanation": "A win() function exists in the binary's symbol table. The goal is to overflow the buffer in the vuln() function and overwrite the return address with the address of win()."
+        },
+        "difficulty": "Easy",
+        "difficulty_reason": "No stack canary, no PIE. Win function address is fixed. Only need to find the overflow offset.",
+        "protections": {
+            "nx": "Enabled",
+            "pie": "Disabled",
+            "canary": "No canary found",
+            "relro": "Partial RELRO",
+            "fortify": "No"
+        },
+        "overflow_offset": 72,
+        "dangerous_functions": ["gets", "puts"],
+        "rop_gadgets": [
+            {"address": "0x40101a", "gadget": "ret"},
+            {"address": "0x4012bb", "gadget": "pop rdi ; ret"}
+        ],
+        "functions": ["main", "vuln", "win"],
+        "ai_hints": "This is a classic ret2win challenge. The win() function at 0x401196 prints the flag. Your overflow offset is 72 bytes. Build your payload: b'A' * 72 + p64(0x401196). If the binary uses a newer libc you may need a 'ret' gadget before win() to align the stack to 16 bytes.",
+        "pwntools_template": "from pwn import *\n\nbinary = './demo_ret2win'\nelf = ELF(binary)\np = process(binary)\n\noffset = 72\nwin_addr = elf.sym['win']\n\npayload = b'A' * offset + p64(win_addr)\n\np.sendlineafter(b':', payload)\nprint(p.recvall())",
+        "plain_english_walkthrough": [
+            {
+                "step": 1,
+                "title": "What is this binary?",
+                "content": "This is a 64-bit Linux program. When you run it, it asks for your name and then says hello. Underneath, it has a hidden function called win() that prints the flag — the program never calls it normally."
+            },
+            {
+                "step": 2,
+                "title": "What is the vulnerability?",
+                "content": "The program uses gets() to read your name. gets() has no size limit — it will read as many characters as you type. The name buffer on the stack is only 64 bytes. If you type more than 64 bytes, the extra bytes overflow into the memory next to the buffer."
+            },
+            {
+                "step": 3,
+                "title": "What is the return address?",
+                "content": "Every function in a program has a return address — a sticky note that says 'when you are done, go back here.' It is stored right above the local buffer on the stack. The overflow lets us overwrite this sticky note with any address we want."
+            },
+            {
+                "step": 4,
+                "title": "What is the overflow offset?",
+                "content": "We need exactly 72 bytes to reach the return address. The first 64 bytes fill the buffer. 8 more bytes overwrite the saved frame pointer. The next 8 bytes are the return address. BinExplain predicted this from the stack allocation instruction sub rsp, 0x48 in the disassembly."
+            },
+            {
+                "step": 5,
+                "title": "What is the exploit?",
+                "content": "Send 72 bytes of padding (any character) followed by the 8-byte address of win(). When the function returns, it reads our fake return address and jumps to win() instead of back to main(). The flag is printed."
+            },
+            {
+                "step": 6,
+                "title": "Why did no protection stop this?",
+                "content": "NX is enabled so we cannot run our own code — but we do not need to, we are jumping to existing code (win). PIE is disabled so win() is always at the same address. There is no stack canary so our overflow is not detected. Everything aligned perfectly for this attack."
+            }
+        ]
+    }
+}
+
+@app.get("/demo-analysis/{demo_name}")
+async def get_demo_analysis(demo_name: str):
+    if demo_name not in DEMO_ANALYSES:
+        raise HTTPException(status_code=404, detail="Demo not found")
+    return DEMO_ANALYSES[demo_name]
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------

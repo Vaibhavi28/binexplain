@@ -41,3 +41,12 @@ backend/knowledge_base/scraper_checkpoint.json
 # Category feedback accuracy logs
 backend/logs/category_accuracy.log
 logs/category_accuracy.log
+
+# Filter scripts and temporary logs
+clean_ui_mojibake.py
+fix_encoding.py
+replace_emojis.py
+strip_emojis.py
+tb.txt
+tb_chaos.txt
+scratch_*.py
