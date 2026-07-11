@@ -1,5 +1,337 @@
 import React, { useState } from 'react';
 
+function Ret2winContent() {
+  const [expandedSteps, setExpandedSteps] = useState({});
+  const [expandedMistakes, setExpandedMistakes] = useState({});
+
+  const toggleStep = (idx) => {
+    setExpandedSteps(prev => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const toggleMistake = (idx) => {
+    setExpandedMistakes(prev => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', textAlign: 'left' }}>
+      {/* SECTION 1 — DECISION RULE (when to use ret2win) */}
+      <div>
+        <h4 style={{ color: '#f0f6fc', fontSize: '14px', fontWeight: 600, margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Decision Rule: When to use ret2win
+        </h4>
+        <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '14px', color: '#c9d1d9' }}>
+            <span style={{ color: '#56d364', fontWeight: 'bold' }}>✓</span>
+            <span>
+              <code>nm -a ./binary | grep -i win</code> shows a function like <code>win()</code>, <code>flag()</code>, <code>shell()</code>, or <code>backdoor()</code> that is never called from main
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '14px', color: '#c9d1d9' }}>
+            <span style={{ color: '#56d364', fontWeight: 'bold' }}>✓</span>
+            <span>
+              The binary has a buffer overflow reachable from user input (<code>gets()</code>, unbounded <code>strcpy()</code>, or <code>scanf</code> with too-large size)
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '14px', color: '#c9d1d9' }}>
+            <span style={{ color: '#56d364', fontWeight: 'bold' }}>✓</span>
+            <span>
+              PIE is disabled OR you already have a leaked base address
+            </span>
+          </div>
+
+          <div style={{ borderTop: '1px solid #30363d', paddingTop: '10px', marginTop: '6px', fontSize: '13px', color: '#8b949e', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div>If no win function exists ➔ go to ret2libc</div>
+            <div>If PIE is enabled and you have no leak ➔ you need a leak first</div>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 2 — MEMORY LAYOUT DIAGRAM */}
+      <div id="ret2win-memory-diagram">
+        <h4 style={{ color: '#f0f6fc', fontSize: '14px', fontWeight: 600, margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Memory Layout Stack Diagram
+        </h4>
+        <div style={{ fontSize: '11px', color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
+          STACK (grows downward — high address at top)
+        </div>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch', background: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', padding: '16px' }}>
+          {/* Stack growth arrow */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', minWidth: '32px' }}>
+            <span style={{ fontSize: '9px', color: '#8b949e', fontWeight: 700 }}>HIGH</span>
+            <div style={{ flex: 1, width: '2px', background: '#30363d', margin: '6px 0', position: 'relative' }}>
+              <div style={{ position: 'absolute', bottom: 0, left: '-4px', width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '8px solid #8b949e' }} />
+            </div>
+            <span style={{ fontSize: '9px', color: '#8b949e', fontWeight: 700 }}>LOW</span>
+          </div>
+          
+          {/* Stack Boxes */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Box 4: Return Address */}
+            <div style={{ padding: '12px', border: '1px solid #f85149', background: '#3c1e1e', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#f85149', fontSize: '13px' }}>RETURN ADDRESS</span>
+              <span style={{ fontSize: '12px', color: '#ff7b72' }}>← Overwrite with win() address</span>
+            </div>
+            {/* Box 3: Saved RBP */}
+            <div style={{ padding: '12px', border: '1px solid #e3b341', background: '#221e16', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#e3b341', fontSize: '13px' }}>SAVED RBP</span>
+              <span style={{ fontSize: '12px', color: '#f0e042' }}>8 bytes — overwrite with AAAA's</span>
+            </div>
+            {/* Box 2: Buffer Padding */}
+            <div style={{ padding: '12px', border: '1px solid #d29922', background: '#1c1b16', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#d29922', fontSize: '13px' }}>BUFFER PADDING</span>
+              <span style={{ fontSize: '12px', color: '#c9d1d9' }}>Variable bytes — fill with A's</span>
+            </div>
+            {/* Box 1: Local Buffer */}
+            <div style={{ padding: '12px', border: '1px solid #388bfd', background: '#13233c', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#388bfd', fontSize: '13px' }}>LOCAL BUFFER (64 bytes)</span>
+              <span style={{ fontSize: '12px', color: '#58a6ff' }}>← Your input starts here</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 3 — EXPLOITATION STEPS */}
+      <div>
+        <h4 style={{ color: '#f0f6fc', fontSize: '14px', fontWeight: 600, margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Exploitation Steps
+        </h4>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {/* Step 1 */}
+          <div style={{ border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden' }}>
+            <button
+              onClick={() => toggleStep(1)}
+              style={{ width: '100%', padding: '14px 20px', background: '#161b22', border: 'none', color: '#f0f6fc', textAlign: 'left', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+              <span>Step 1: Find the win function address</span>
+              <span>{expandedSteps[1] ? '▲' : '▼'}</span>
+            </button>
+            {expandedSteps[1] && (
+              <div style={{ padding: '16px 20px', background: '#0d1117', borderTop: '1px solid #30363d', color: '#c9d1d9', fontSize: '14px', lineHeight: '1.6' }}>
+                <div>Command:</div>
+                <pre style={{ background: '#161b22', padding: '10px', borderRadius: '6px', fontFamily: 'monospace', fontSize: '13px', margin: '6px 0 12px', overflowX: 'auto' }}>
+                  nm -a ./binary | grep -i win
+                </pre>
+                <div>What to look for:</div>
+                <div style={{ color: '#58a6ff', margin: '4px 0 12px' }}>
+                  A line like <code>"0000000000401196 T win"</code>
+                </div>
+                <div>The address (0x401196) is what you will write to the return address.</div>
+              </div>
+            )}
+          </div>
+
+          {/* Step 2 */}
+          <div style={{ border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden' }}>
+            <button
+              onClick={() => toggleStep(2)}
+              style={{ width: '100%', padding: '14px 20px', background: '#161b22', border: 'none', color: '#f0f6fc', textAlign: 'left', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+              <span>Step 2: Find the overflow offset</span>
+              <span>{expandedSteps[2] ? '▲' : '▼'}</span>
+            </button>
+            {expandedSteps[2] && (
+              <div style={{ padding: '16px 20px', background: '#0d1117', borderTop: '1px solid #30363d', color: '#c9d1d9', fontSize: '14px', lineHeight: '1.6' }}>
+                <div>Command:</div>
+                <pre style={{ background: '#161b22', padding: '10px', borderRadius: '6px', fontFamily: 'monospace', fontSize: '13px', margin: '6px 0 12px', overflowX: 'auto' }}>
+                  python3 -c "from pwn import *; print(cyclic(200))" | ./binary
+                </pre>
+                <div>Then check the crash address and run:</div>
+                <code style={{ background: '#161b22', padding: '4px 8px', borderRadius: '4px', display: 'inline-block', margin: '6px 0 12px' }}>cyclic_find(crash_address)</code>
+                <div>BinExplain already predicted this — check the "Overflow Offset" card.</div>
+              </div>
+            )}
+          </div>
+
+          {/* Step 3 */}
+          <div style={{ border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden' }}>
+            <button
+              onClick={() => toggleStep(3)}
+              style={{ width: '100%', padding: '14px 20px', background: '#161b22', border: 'none', color: '#f0f6fc', textAlign: 'left', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+              <span>Step 3: Build the payload</span>
+              <span>{expandedSteps[3] ? '▲' : '▼'}</span>
+            </button>
+            {expandedSteps[3] && (
+              <div style={{ padding: '16px 20px', background: '#0d1117', borderTop: '1px solid #30363d', color: '#c9d1d9', fontSize: '14px', lineHeight: '1.6' }}>
+                <div>Command:</div>
+                <pre style={{ background: '#161b22', padding: '10px', borderRadius: '6px', fontFamily: 'monospace', fontSize: '13px', margin: '6px 0', overflowX: 'auto' }}>
+{`python3 -c "
+from pwn import *
+payload = b'A' * OFFSET + p64(WIN_ADDR)
+print(payload)
+" | ./binary`}
+                </pre>
+                <div style={{ marginTop: '12px' }}>Replace <code>OFFSET</code> with your offset number and <code>WIN_ADDR</code> with win() address.</div>
+              </div>
+            )}
+          </div>
+
+          {/* Step 4 */}
+          <div style={{ border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden' }}>
+            <button
+              onClick={() => toggleStep(4)}
+              style={{ width: '100%', padding: '14px 20px', background: '#161b22', border: 'none', color: '#f0f6fc', textAlign: 'left', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+              <span>Step 4: Run the pwntools template</span>
+              <span>{expandedSteps[4] ? '▲' : '▼'}</span>
+            </button>
+            {expandedSteps[4] && (
+              <div style={{ padding: '16px 20px', background: '#0d1117', borderTop: '1px solid #30363d', color: '#c9d1d9', fontSize: '14px', lineHeight: '1.6' }}>
+                <div>Your template <code>exploit_BINARY.py</code> is already generated by BinExplain.</div>
+                <div style={{ marginTop: '8px' }}>Command:</div>
+                <pre style={{ background: '#161b22', padding: '10px', borderRadius: '6px', fontFamily: 'monospace', fontSize: '13px', margin: '6px 0 12px', overflowX: 'auto' }}>
+                  python3 exploit_BINARY.py
+                </pre>
+                <div>Modify the offset and win_addr lines if needed.</div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 4 — COMMON MISTAKES */}
+      <div>
+        <h4 style={{ color: '#f0f6fc', fontSize: '14px', fontWeight: 600, margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Common Mistakes
+        </h4>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {/* Mistake 1 */}
+          <div style={{ border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden' }}>
+            <button
+              onClick={() => toggleMistake(1)}
+              style={{ width: '100%', padding: '14px 20px', background: '#161b22', border: 'none', color: '#f0f6fc', textAlign: 'left', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+              <span>MISTAKE 1: Wrong offset (too short)</span>
+              <span>{expandedMistakes[1] ? '▲' : '▼'}</span>
+            </button>
+            {expandedMistakes[1] && (
+              <div style={{ padding: '16px 20px', background: '#0d1117', borderTop: '1px solid #30363d', color: '#c9d1d9', fontSize: '14px', lineHeight: '1.6' }}>
+                <div><strong>Symptom:</strong> Program runs normally, exits cleanly, no flag printed.</div>
+                <div><strong>Cause:</strong> Padding did not reach the return address.</div>
+                <div><strong>Fix:</strong> Increase offset. Use cyclic pattern instead of guessing.</div>
+              </div>
+            )}
+          </div>
+
+          {/* Mistake 2 */}
+          <div style={{ border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden' }}>
+            <button
+              onClick={() => toggleMistake(2)}
+              style={{ width: '100%', padding: '14px 20px', background: '#161b22', border: 'none', color: '#f0f6fc', textAlign: 'left', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+              <span>MISTAKE 2: Wrong offset (too long)</span>
+              <span>{expandedMistakes[2] ? '▲' : '▼'}</span>
+            </button>
+            {expandedMistakes[2] && (
+              <div style={{ padding: '16px 20px', background: '#0d1117', borderTop: '1px solid #30363d', color: '#c9d1d9', fontSize: '14px', lineHeight: '1.6' }}>
+                <div><strong>Symptom:</strong> Segmentation fault immediately, or "stack smashing detected"</div>
+                <div><strong>Cause:</strong> Wrote past the return address into unrelated memory.</div>
+                <div><strong>Fix:</strong> Use <code>cyclic_find()</code> for the exact number.</div>
+              </div>
+            )}
+          </div>
+
+          {/* Mistake 3 */}
+          <div style={{ border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden' }}>
+            <button
+              onClick={() => toggleMistake(3)}
+              style={{ width: '100%', padding: '14px 20px', background: '#161b22', border: 'none', color: '#f0f6fc', textAlign: 'left', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+              <span>MISTAKE 3: Wrong address format</span>
+              <span>{expandedMistakes[3] ? '▲' : '▼'}</span>
+            </button>
+            {expandedMistakes[3] && (
+              <div style={{ padding: '16px 20px', background: '#0d1117', borderTop: '1px solid #30363d', color: '#c9d1d9', fontSize: '14px', lineHeight: '1.6' }}>
+                <div><strong>Symptom:</strong> Segfault at a weird address like 0x4100 or 0x0000...196</div>
+                <div><strong>Cause:</strong> Used <code>p32()</code> on a 64-bit binary or wrong endianness.</div>
+                <div><strong>Fix:</strong> Check <code>file ./binary</code> — use <code>p64()</code> for 64-bit, <code>p32()</code> for 32-bit.</div>
+              </div>
+            )}
+          </div>
+
+          {/* Mistake 4 */}
+          <div style={{ border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden' }}>
+            <button
+              onClick={() => toggleMistake(4)}
+              style={{ width: '100%', padding: '14px 20px', background: '#161b22', border: 'none', color: '#f0f6fc', textAlign: 'left', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+              <span>MISTAKE 4: PIE is enabled</span>
+              <span>{expandedMistakes[4] ? '▲' : '▼'}</span>
+            </button>
+            {expandedMistakes[4] && (
+              <div style={{ padding: '16px 20px', background: '#0d1117', borderTop: '1px solid #30363d', color: '#c9d1d9', fontSize: '14px', lineHeight: '1.6' }}>
+                <div><strong>Symptom:</strong> Exploit works once then fails randomly every other run.</div>
+                <div><strong>Cause:</strong> PIE randomizes the binary base address each run.</div>
+                <div><strong>Fix:</strong> Check checksec output. If PIE=Enabled you need a leak first.</div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 5 — DIFFICULTY TIERS */}
+      <div>
+        <h4 style={{ color: '#f0f6fc', fontSize: '14px', fontWeight: 600, margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Difficulty Tiers
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+          {/* Tier 1 */}
+          <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#56d364', textTransform: 'uppercase', marginBottom: '8px' }}>Tier 1 — No protections (Easy)</div>
+              <p style={{ color: '#c9d1d9', fontSize: '13px', margin: '0 0 12px', lineHeight: '1.5' }}>
+                NX: disabled, PIE: disabled, Canary: none
+              </p>
+            </div>
+            <div style={{ fontSize: '12px', color: '#8b949e', fontStyle: 'italic' }}>
+              Just find offset + overwrite return address. Done.
+            </div>
+          </div>
+
+          {/* Tier 2 */}
+          <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#f0e042', textTransform: 'uppercase', marginBottom: '8px' }}>Tier 2 — Canary enabled (Medium)</div>
+              <p style={{ color: '#c9d1d9', fontSize: '13px', margin: '0 0 12px', lineHeight: '1.5' }}>
+                Must leak or bypass the canary first.
+              </p>
+            </div>
+            <div style={{ fontSize: '12px', color: '#8b949e', fontStyle: 'italic' }}>
+              Often done via a format string bug in the same binary.
+            </div>
+          </div>
+
+          {/* Tier 3 */}
+          <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#ff7b72', textTransform: 'uppercase', marginBottom: '8px' }}>Tier 3 — Canary + PIE (Hard)</div>
+              <p style={{ color: '#c9d1d9', fontSize: '13px', margin: '0 0 12px', lineHeight: '1.5' }}>
+                Need two leaks: one for canary, one for binary base address.
+              </p>
+            </div>
+            <div style={{ fontSize: '12px', color: '#8b949e', fontStyle: 'italic' }}>
+              Format string or other info leak primitive needed first.
+            </div>
+          </div>
+
+          {/* Tier 4 */}
+          <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#bc8cff', textTransform: 'uppercase', marginBottom: '8px' }}>Tier 4 — Full RELRO + Canary + PIE + NX (Very Hard)</div>
+              <p style={{ color: '#c9d1d9', fontSize: '13px', margin: '0 0 12px', lineHeight: '1.5' }}>
+                Same as Tier 3 but GOT overwrite is also blocked.
+              </p>
+            </div>
+            <div style={{ fontSize: '12px', color: '#8b949e', fontStyle: 'italic' }}>
+              Consider ROP chain or ret2libc instead.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TechniqueDives() {
   const [expandedCard, setExpandedCard] = useState(null);
 
@@ -252,30 +584,36 @@ export default function TechniqueDives() {
                   background: '#0d1117',
                   borderTop: '1px solid #30363d'
                 }}>
-                  {/* Memory layout */}
-                  {d.layout}
+                  {d.id === 'ret2win' ? (
+                    <Ret2winContent />
+                  ) : (
+                    <>
+                      {/* Memory layout */}
+                      {d.layout}
 
-                  {/* Steps */}
-                  <h4 style={{ color: '#f0f6fc', fontSize: '14px', fontWeight: 600, margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Exploitation Steps
-                  </h4>
-                  <ol style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {d.steps.map((step, idx) => (
-                      <li key={idx} style={{ color: '#c9d1d9', fontSize: '14px', lineHeight: '1.5' }}>
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
+                      {/* Steps */}
+                      <h4 style={{ color: '#f0f6fc', fontSize: '14px', fontWeight: 600, margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Exploitation Steps
+                      </h4>
+                      <ol style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {d.steps.map((step, idx) => (
+                          <li key={idx} style={{ color: '#c9d1d9', fontSize: '14px', lineHeight: '1.5' }}>
+                            {step}
+                          </li>
+                        ))}
+                      </ol>
 
-                  <a href="/" style={{
-                    display: 'inline-block', marginTop: '16px',
-                    padding: '10px 20px', background: '#238636',
-                    border: '1px solid #2ea043', color: 'white',
-                    borderRadius: '6px', textDecoration: 'none',
-                    fontSize: '14px', fontWeight: 600
-                  }}>
-                    Try this on a real binary →
-                  </a>
+                      <a href="/" style={{
+                        display: 'inline-block', marginTop: '16px',
+                        padding: '10px 20px', background: '#238636',
+                        border: '1px solid #2ea043', color: 'white',
+                        borderRadius: '6px', textDecoration: 'none',
+                        fontSize: '14px', fontWeight: 600
+                      }}>
+                        Try this on a real binary →
+                      </a>
+                    </>
+                  )}
                 </div>
               )}
             </div>
