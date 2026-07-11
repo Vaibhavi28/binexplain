@@ -1238,7 +1238,7 @@ export default function App() {
                 `}</script>
             </Helmet>
             <TopNav />
-            <div className="content-wrapper" style={{ paddingTop: '72px' }}>
+            <div className="content-wrapper" style={{ paddingTop: '72px', maxWidth: '1200px' }}>
                 {/* Homepage Banner */}
                 <div className="homepage-banner">
                   <img

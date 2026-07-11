@@ -88,12 +88,12 @@ const CARDS = [
 
 export default function TryItYourself({ onSectionChange }) {
   return (
-    <div style={{ maxWidth: '960px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '100%', margin: '0 auto' }}>
       <h2 style={{ color: 'var(--text-primary)', fontSize: '20px',
         fontWeight: 600, marginBottom: '8px', textAlign: 'center' }}>
         Practice Challenges & Targets
       </h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '13px',
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px',
         textAlign: 'center', marginBottom: '32px' }}>
         Ready to take what you have learned and apply it to a real binary? Choose a target, download a challenge, and run it through the BinExplain analyser.
       </p>
@@ -151,7 +151,7 @@ export default function TryItYourself({ onSectionChange }) {
               </div>
 
               {/* Description */}
-              <p style={{ color: '#c9d1d9', fontSize: '13px', lineHeight: '1.5', margin: '0 0 16px' }}>
+              <p style={{ color: '#c9d1d9', fontSize: '14px', lineHeight: '1.5', margin: '0 0 16px' }}>
                 {c.desc}
               </p>
 
@@ -192,7 +192,7 @@ export default function TryItYourself({ onSectionChange }) {
                 borderRadius: '6px',
                 color: '#f0f6fc',
                 textDecoration: 'none',
-                fontSize: '13px',
+                fontSize: '14px',
                 fontWeight: 600,
                 textAlign: 'center',
                 transition: 'all 0.15s'

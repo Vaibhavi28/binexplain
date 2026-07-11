@@ -216,11 +216,22 @@ export default function RelationshipMap() {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const { offsetWidth, offsetHeight } = containerRef.current;
-    if (offsetWidth > 0 && offsetHeight > 0) {
-      setDims({ width: offsetWidth, height: offsetHeight });
-    }
+    const updateDims = () => {
+      const { offsetWidth, offsetHeight } = containerRef.current;
+      if (offsetWidth > 0 && offsetHeight > 0) {
+        setDims({ width: offsetWidth, height: offsetHeight });
+      }
+    };
+    updateDims();
+    window.addEventListener('resize', updateDims);
+    return () => window.removeEventListener('resize', updateDims);
   }, []);
+
+  const getNodeLeft = (node) => {
+    const w = dims.width || 900;
+    const colWidth = w / 4;
+    return (node.col - 1) * colWidth + (colWidth - 160) / 2;
+  };
 
   const activeNode = hoveredNode || selectedNode;
 
@@ -293,24 +304,24 @@ export default function RelationshipMap() {
     : [];
 
   return (
-    <div style={{ maxWidth: '960px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '100%', margin: '0 auto' }}>
       <h2 style={{ color: 'var(--text-primary)', fontSize: '20px',
         fontWeight: 600, marginBottom: '8px', textAlign: 'center' }}>
         What Changes What: Relationship Map
       </h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '13px',
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px',
         textAlign: 'center', marginBottom: '24px' }}>
         Hover or click a node to highlight its relations, showing how compiler choices, vulnerabilities, and protections interconnect.
       </p>
 
       {/* Main Diagram Area with scroll on narrow screens */}
       <div style={{ overflowX: 'auto', background: '#0d1117', border: '1px solid #30363d', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
-        <div ref={containerRef} style={{ width: '900px', height: '500px', position: 'relative', margin: '0 auto' }}>
+        <div ref={containerRef} style={{ width: '100%', height: '500px', position: 'relative', margin: '0 auto' }}>
           
           {/* SVG Overlay for Connection Lines */}
           <svg
             viewBox={`0 0 ${dims.width || 900} ${dims.height || 500}`}
-            width={dims.width || 900}
+            width="100%"
             height={dims.height || 500}
             style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}
           >
@@ -324,19 +335,22 @@ export default function RelationshipMap() {
               const fromCol = fromNode.col;
               const toCol = toNode.col;
               
+              const fromLeft = getNodeLeft(fromNode);
+              const toLeft = getNodeLeft(toNode);
+              
               let startX, startY, endX, endY;
               
               if (fromCol < toCol) {
                 // Left to right
-                startX = fromNode.left + 160;
+                startX = fromLeft + 160;
                 startY = fromNode.top + 25;
-                endX = toNode.left;
+                endX = toLeft;
                 endY = toNode.top + 25;
               } else {
                 // Right to left (Mitigations to Vulns/Techniques)
-                startX = fromNode.left;
+                startX = fromLeft;
                 startY = fromNode.top + 25;
-                endX = toNode.left + 160;
+                endX = toLeft + 160;
                 endY = toNode.top + 25;
               }
 
@@ -379,16 +393,16 @@ export default function RelationshipMap() {
           </svg>
 
           {/* Column Headers */}
-          <div style={{ position: 'absolute', top: '10px', left: '10px', width: '160px', textAlign: 'center', fontSize: '11px', fontWeight: 700, color: '#58a6ff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ position: 'absolute', top: '10px', left: `${getNodeLeft({ col: 1 })}px`, width: '160px', textAlign: 'center', fontSize: '11px', fontWeight: 700, color: '#58a6ff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Dangerous Functions
           </div>
-          <div style={{ position: 'absolute', top: '10px', left: '250px', width: '160px', textAlign: 'center', fontSize: '11px', fontWeight: 700, color: '#ff7b72', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ position: 'absolute', top: '10px', left: `${getNodeLeft({ col: 2 })}px`, width: '160px', textAlign: 'center', fontSize: '11px', fontWeight: 700, color: '#ff7b72', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Vulnerabilities
           </div>
-          <div style={{ position: 'absolute', top: '10px', left: '490px', width: '160px', textAlign: 'center', fontSize: '11px', fontWeight: 700, color: '#f0e042', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ position: 'absolute', top: '10px', left: `${getNodeLeft({ col: 3 })}px`, width: '160px', textAlign: 'center', fontSize: '11px', fontWeight: 700, color: '#f0e042', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Exploit Techniques
           </div>
-          <div style={{ position: 'absolute', top: '10px', left: '730px', width: '160px', textAlign: 'center', fontSize: '11px', fontWeight: 700, color: '#56d364', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ position: 'absolute', top: '10px', left: `${getNodeLeft({ col: 4 })}px`, width: '160px', textAlign: 'center', fontSize: '11px', fontWeight: 700, color: '#56d364', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Mitigations
           </div>
 
@@ -427,7 +441,7 @@ export default function RelationshipMap() {
                 onClick={() => handleNodeClick(node.id)}
                 style={{
                   position: 'absolute',
-                  left: `${node.left}px`,
+                  left: `${getNodeLeft(node)}px`,
                   top: `${node.top}px`,
                   width: '160px',
                   height: '50px',
@@ -446,7 +460,7 @@ export default function RelationshipMap() {
                 }}
               >
                 <div style={{
-                  fontSize: '13px',
+                  fontSize: '14px',
                   fontWeight: 600,
                   color: isMainActive ? '#fff' : '#c9d1d9',
                   textAlign: 'center',

@@ -117,24 +117,19 @@ export default function ProtectionsMap() {
   };
 
   return (
-    <div style={{ maxWidth: '960px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '100%', margin: '0 auto' }}>
       <h2 style={{ color: 'var(--text-primary)', fontSize: '20px',
         fontWeight: 600, marginBottom: '8px', textAlign: 'center' }}>
         Security Protections vs. Exploitation
       </h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '13px',
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px',
         textAlign: 'center', marginBottom: '32px' }}>
         Toggle compiler flags and security controls to see how they defend against CTF exploitation techniques
       </p>
 
-      <div style={{
-        display: 'flex',
-        gap: '24px',
-        flexWrap: 'wrap',
-      }}>
+      <div className="learn-two-col">
         {/* Left Panel: Protections */}
         <div style={{
-          flex: '1 1 350px',
           background: '#161b22',
           padding: '24px',
           borderRadius: '12px',
@@ -289,7 +284,6 @@ export default function ProtectionsMap() {
 
         {/* Right Panel: Attacks */}
         <div style={{
-          flex: '1 2 450px',
           background: '#161b22',
           padding: '24px',
           borderRadius: '12px',
@@ -377,7 +371,7 @@ export default function ProtectionsMap() {
                 {getStatusColor(getStatus(selectedAttack)).label}
               </span>
             </div>
-            <p style={{ color: '#c9d1d9', fontSize: '13px', lineHeight: '1.5', margin: 0 }}>
+            <p style={{ color: '#c9d1d9', fontSize: '14px', lineHeight: '1.5', margin: 0 }}>
               {getExplanation(selectedAttack)}
             </p>
           </div>

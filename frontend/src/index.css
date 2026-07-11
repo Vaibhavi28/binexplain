@@ -2481,7 +2481,7 @@ body {
 
 .result-card-body {
   padding: 20px 24px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.7;
   max-height: 400px;
   overflow-y: auto;
@@ -3304,7 +3304,7 @@ body {
 
 .hero-card-desc {
   color: var(--on-surface-variant);
-  font-size: 0.825rem;
+  font-size: 0.875rem;
   line-height: 1.65;
   margin: 0;
 }
@@ -3473,7 +3473,7 @@ body {
 
 .ccard-stat {
   font-family: 'Courier New', monospace;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--primary);
   line-height: 1.4;
   flex: 1;
@@ -4416,7 +4416,7 @@ body {
 
 /* -- About Page Styling -- */
 .about-container {
-  max-width: 800px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 40px 20px 80px;
 }
@@ -4624,7 +4624,7 @@ body {
 .docs-container {
   display: flex;
   gap: 40px;
-  max-width: 1200px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 40px 20px 80px;
 }
@@ -4719,7 +4719,7 @@ body {
 
 .docs-content {
   flex: 1;
-  max-width: 800px;
+  max-width: 1000px;
 }
 
 .docs-back-link {
@@ -5092,7 +5092,7 @@ body {
 
 /* -- Contact Page Styling -- */
 .contact-container {
-  max-width: 800px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 40px 20px 80px;
 }
@@ -5535,4 +5535,18 @@ body {
     margin-bottom: 20px;
     padding: 0 8px;
   }
+}
+
+/* -- Learn Layouts -- */
+@media (max-width: 768px) {
+  /* Single column on mobile */
+  .learn-two-col { display: flex; flex-direction: column; gap: 16px; }
+  .learn-card-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+}
+
+@media (min-width: 769px) {
+  .learn-two-col { display: flex; gap: 24px; }
+  .learn-two-col > :first-child { flex: 0 0 40%; }
+  .learn-two-col > :last-child { flex: 1; }
+  .learn-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 }

@@ -25,7 +25,7 @@ export default function Learn() {
 
   return (
     <div style={{
-      maxWidth: '1100px', margin: '0 auto',
+      maxWidth: '1400px', margin: '0 auto',
       padding: '40px 24px 80px', minHeight: '100vh'
     }}>
       <Helmet>

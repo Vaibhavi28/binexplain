@@ -296,13 +296,13 @@ export default function RealWorldMap() {
   if (selectedTech) {
     const data = REAL_WORLD_DATA.find(d => d.technique === selectedTech);
     return (
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '100%', margin: '0 auto' }}>
         {/* Back Button */}
         <button
           onClick={() => { setSelectedTech(null); setExpandedCve(null); }}
           style={{
             padding: '8px 16px', borderRadius: '6px', background: '#21262d',
-            border: '1px solid #30363d', color: '#c9d1d9', fontSize: '13px',
+            border: '1px solid #30363d', color: '#c9d1d9', fontSize: '14px',
             cursor: 'pointer', transition: 'all 0.15s', marginBottom: '24px'
           }}
         >
@@ -399,11 +399,11 @@ export default function RealWorldMap() {
                     }}>
                       <div>
                         <div style={{ fontSize: '10px', color: '#8b949e', textTransform: 'uppercase', fontWeight: 700, marginBottom: '2px' }}>Discovered</div>
-                        <div style={{ color: '#c9d1d9', fontSize: '13px' }}>{c.discovered}</div>
+                        <div style={{ color: '#c9d1d9', fontSize: '14px' }}>{c.discovered}</div>
                       </div>
                       <div>
                         <div style={{ fontSize: '10px', color: '#8b949e', textTransform: 'uppercase', fontWeight: 700, marginBottom: '2px' }}>Target / Affected</div>
-                        <div style={{ color: '#c9d1d9', fontSize: '13px' }}>{c.affected}</div>
+                        <div style={{ color: '#c9d1d9', fontSize: '14px' }}>{c.affected}</div>
                       </div>
                     </div>
 
@@ -433,7 +433,7 @@ export default function RealWorldMap() {
                       padding: '12px 16px', borderRadius: '0 6px 6px 0', marginTop: '4px'
                     }}>
                       <div style={{ fontSize: '11px', color: '#79c0ff', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px' }}>Key Security Lesson</div>
-                      <p style={{ color: '#c9d1d9', fontSize: '13px', lineHeight: '1.5', margin: 0 }}>
+                      <p style={{ color: '#c9d1d9', fontSize: '14px', lineHeight: '1.5', margin: 0 }}>
                         {c.lesson}
                       </p>
                     </div>
@@ -449,12 +449,12 @@ export default function RealWorldMap() {
 
   // VIEW 1: Grid of 6 techniques
   return (
-    <div style={{ maxWidth: '960px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '100%', margin: '0 auto' }}>
       <h2 style={{ color: 'var(--text-primary)', fontSize: '20px',
         fontWeight: 600, marginBottom: '8px', textAlign: 'center' }}>
         Real-World Exploits & CVEs
       </h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '13px',
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px',
         textAlign: 'center', marginBottom: '32px' }}>
         Learn how binary exploitation plays out in reality. Select a technique to explore real CVE cases, their impact, code-level details, and mitigation lessons.
       </p>

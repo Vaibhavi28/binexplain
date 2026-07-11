@@ -196,17 +196,17 @@ export default function TechniqueDives() {
   ];
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '100%', margin: '0 auto' }}>
       <h2 style={{ color: 'var(--text-primary)', fontSize: '20px',
         fontWeight: 600, marginBottom: '8px', textAlign: 'center' }}>
         Technique Deep Dives
       </h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '13px',
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px',
         textAlign: 'center', marginBottom: '24px' }}>
         Explore deep exploit mechanics, step-by-step procedures, and visual stack/heap memory layout diagrams
       </p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div className="learn-card-grid">
         {dives.map((d) => {
           const isExpanded = expandedCard === d.id;
           return (
@@ -256,12 +256,12 @@ export default function TechniqueDives() {
                   {d.layout}
 
                   {/* Steps */}
-                  <h4 style={{ color: '#f0f6fc', fontSize: '13px', fontWeight: 600, margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <h4 style={{ color: '#f0f6fc', fontSize: '14px', fontWeight: 600, margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Exploitation Steps
                   </h4>
                   <ol style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {d.steps.map((step, idx) => (
-                      <li key={idx} style={{ color: '#c9d1d9', fontSize: '13px', lineHeight: '1.5' }}>
+                      <li key={idx} style={{ color: '#c9d1d9', fontSize: '14px', lineHeight: '1.5' }}>
                         {step}
                       </li>
                     ))}
