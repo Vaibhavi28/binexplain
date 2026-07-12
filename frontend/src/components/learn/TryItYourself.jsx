@@ -15,7 +15,11 @@ const CARDS = [
       'Win function detected in symbol table',
       'Overflow offset predicted from disassembly',
       'Pwntools template pre-populated with win address'
-    ]
+    ],
+    demoName: 'ret2win_demo',
+    demoSource: 'BinExplain Demo (compiled from source)',
+    demoLicense: 'Freely distributable for educational use',
+    hasDemoPath: '/demos/ret2win_demo'
   },
   {
     id: 'format_string',
@@ -29,7 +33,11 @@ const CARDS = [
       'printf() without format argument detected',
       'Similar writeups from knowledge base',
       'fmtstr_payload usage in AI hints'
-    ]
+    ],
+    demoName: 'schooled',
+    demoSource: 'MetaCTF Flash CTF — "Schooled"',
+    demoLicense: 'Public CTF challenge, freely distributable',
+    hasDemoPath: '/demos/schooled'
   },
   {
     id: 'heap_exploitation',
@@ -44,10 +52,10 @@ const CARDS = [
       'Menu structure detected in strings',
       'AI hints reference specific heap technique'
     ],
-    hasDemoPath: '/demos/schooled',
-    demoName: 'schooled',
-    demoSource: 'MetaCTF Flash CTF — "Schooled"',
-    demoLicense: 'Public CTF challenge, freely distributable'
+    demoName: 'heap_demo',
+    demoSource: 'BinExplain Demo (how2heap pattern)',
+    demoLicense: 'Freely distributable for educational use',
+    hasDemoPath: '/demos/heap_demo'
   },
   {
     id: 'ret2libc',
@@ -61,7 +69,11 @@ const CARDS = [
       'Libc version identified',
       'PLT/GOT table extracted',
       'Pwntools template with libc leak scaffold'
-    ]
+    ],
+    demoName: 'ret2libc_demo',
+    demoSource: 'BinExplain Demo (compiled from source)',
+    demoLicense: 'Freely distributable for educational use',
+    hasDemoPath: '/demos/ret2libc_demo'
   },
   {
     id: 'rop_chain',
@@ -75,7 +87,11 @@ const CARDS = [
       'ROP gadgets detected with addresses',
       'pop rdi gadget highlighted if present',
       'Pwntools template with gadget addresses'
-    ]
+    ],
+    demoName: 'rop_chain_demo',
+    demoSource: 'BinExplain Demo (compiled from source)',
+    demoLicense: 'Freely distributable for educational use',
+    hasDemoPath: '/demos/rop_chain_demo'
   },
   {
     id: 'shellcode',
@@ -88,7 +104,11 @@ const CARDS = [
       'CTF Category: shellcode',
       'NX: Disabled shown in checksec',
       'shellcraft.sh() mentioned in AI hints'
-    ]
+    ],
+    demoName: 'shellcode_demo',
+    demoSource: 'BinExplain Demo (compiled from source)',
+    demoLicense: 'Freely distributable for educational use',
+    hasDemoPath: '/demos/shellcode_demo'
   }
 ];
 
@@ -102,11 +122,13 @@ export default function TryItYourself({ onSectionChange }) {
   const [demoLoading, setDemoLoading] = useState(null);
   const [demoResult, setDemoResult] = useState(null);
   const [demoError, setDemoError] = useState(null);
+  const [activeDemoCard, setActiveDemoCard] = useState(null);
 
   const handleAnalyzeDemo = async (demoName) => {
     setDemoLoading(demoName);
     setDemoResult(null);
     setDemoError(null);
+    setActiveDemoCard(demoName);
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
       const resp = await fetch(`${backendUrl}/demo-analysis/${demoName}`);
@@ -243,29 +265,7 @@ export default function TryItYourself({ onSectionChange }) {
             </div>
 
             {/* Action */}
-            {c.id === 'ret2win' ? (
-              <button
-                onClick={() => handleAnalyzeRet2winDemo(c.id)}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '10px 14px',
-                  background: '#238636',
-                  border: '1px solid #2ea043',
-                  borderRadius: '6px',
-                  color: '#fff',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#2ea043'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = '#238636'; }}
-              >
-                Analyze demo binary →
-              </button>
-            ) : c.hasDemoPath ? (
+            {c.hasDemoPath ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
                 <div style={{
                   padding: '14px',
@@ -276,11 +276,9 @@ export default function TryItYourself({ onSectionChange }) {
                 }}>
                   <div style={{ fontSize: '12px', color: '#8b949e', marginBottom: '10px' }}>
                     <strong style={{ color: '#79c0ff' }}>Demo binary available</strong>
-                    {' — '}{c.demoSource}
-                    <span style={{ marginLeft: '8px', fontSize: '11px',
-                      color: '#484f58', fontStyle: 'italic' }}>
-                      ({c.demoLicense})
-                    </span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#8b949e', marginBottom: '8px', textAlign: 'left' }}>
+                    Binary: {c.demoSource} — {c.demoLicense}
                   </div>
                   <button
                     onClick={() => handleAnalyzeDemo(c.demoName)}
@@ -299,7 +297,7 @@ export default function TryItYourself({ onSectionChange }) {
                       : `▶ Analyze ${c.demoName} — see BinExplain in action`}
                   </button>
                 </div>
-                {demoResult && demoResult.demoName === c.demoName && (
+                {demoResult && activeDemoCard === c.demoName && (
                   <DemoResultPanel result={demoResult} />
                 )}
                 {demoError && demoLoading !== c.demoName && (
