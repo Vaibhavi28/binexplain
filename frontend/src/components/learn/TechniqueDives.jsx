@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import RetwinMemoryAnimation from './RetwinMemoryAnimation';
 
-function Ret2winContent() {
+function Ret2winContent({ setActiveSection, setExpandedCard }) {
   const [expandedSteps, setExpandedSteps] = useState({});
   const [expandedMistakes, setExpandedMistakes] = useState({});
 
@@ -41,7 +41,19 @@ function Ret2winContent() {
           </div>
 
           <div style={{ borderTop: '1px solid #30363d', paddingTop: '10px', marginTop: '6px', fontSize: '13px', color: '#8b949e', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div>If no win function exists ➔ go to ret2libc</div>
+            <div>
+              If no win function exists ➔{' '}
+              <button
+                onClick={() => {
+                  if (setActiveSection) setActiveSection('techniques');
+                  if (setExpandedCard) setExpandedCard('ret2libc');
+                }}
+                style={{ background: 'none', border: 'none', color: '#388bfd',
+                  textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit', padding: 0}}
+              >
+                go to ret2libc card
+              </button>
+            </div>
             <div>If PIE is enabled and you have no leak ➔ you need a leak first</div>
           </div>
         </div>
@@ -283,7 +295,29 @@ print(payload)
               </p>
             </div>
             <div style={{ fontSize: '12px', color: '#8b949e', fontStyle: 'italic' }}>
-              Consider ROP chain or ret2libc instead.
+              Consider{' '}
+              <button
+                onClick={() => {
+                  if (setActiveSection) setActiveSection('techniques');
+                  if (setExpandedCard) setExpandedCard('rop_chain');
+                }}
+                style={{ background: 'none', border: 'none', color: '#388bfd',
+                  textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit', padding: 0}}
+              >
+                ROP chain
+              </button>
+              {' or '}
+              <button
+                onClick={() => {
+                  if (setActiveSection) setActiveSection('techniques');
+                  if (setExpandedCard) setExpandedCard('ret2libc');
+                }}
+                style={{ background: 'none', border: 'none', color: '#388bfd',
+                  textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit', padding: 0}}
+              >
+                ret2libc
+              </button>
+              {' instead.'}
             </div>
           </div>
         </div>
@@ -292,7 +326,7 @@ print(payload)
   );
 }
 
-export default function TechniqueDives() {
+export default function TechniqueDives({ setActiveSection }) {
   const [expandedCard, setExpandedCard] = useState(null);
 
   const toggleCard = (id) => {
@@ -545,7 +579,7 @@ export default function TechniqueDives() {
                   borderTop: '1px solid #30363d'
                 }}>
                   {d.id === 'ret2win' ? (
-                    <Ret2winContent />
+                    <Ret2winContent setActiveSection={setActiveSection} setExpandedCard={setExpandedCard} />
                   ) : (
                     <>
                       {/* Memory layout */}

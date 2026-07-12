@@ -124,7 +124,7 @@ export default function Learn() {
         )}
         {activeSection === 'techniques' && (
           <div id="section-techniques">
-            <TechniqueDives />
+            <TechniqueDives setActiveSection={setActiveSection} />
           </div>
         )}
         {activeSection === 'relations' && (
