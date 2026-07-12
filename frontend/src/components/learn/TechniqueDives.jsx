@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
 import RetwinMemoryAnimation from './RetwinMemoryAnimation';
+import RetwinAnimation from './animations/RetwinAnimation';
+import FormatStringAnimation from './animations/FormatStringAnimation';
+import HeapAnimation from './animations/HeapAnimation';
+import Ret2libcAnimation from './animations/Ret2libcAnimation';
+import RopChainAnimation from './animations/RopChainAnimation';
+import ShellcodeAnimation from './animations/ShellcodeAnimation';
 
 function Ret2winContent({ setActiveSection, setExpandedCard }) {
   const [expandedSteps, setExpandedSteps] = useState({});
@@ -344,29 +350,7 @@ export default function TechniqueDives({ setActiveSection }) {
         'Craft your exploit payload: `\'A\' * offset + p64(win_address)`',
         'Send the payload: piping directly `payload | ./binary` or via a socket using pwntools'
       ],
-      layout: (
-        <div style={{ fontFamily: 'monospace', fontSize: '12px', color: '#c9d1d9', background: '#0d1117', border: '1px solid #30363d', borderRadius: '6px', overflow: 'hidden', width: '100%', maxWidth: '450px', margin: '0 auto 16px' }}>
-          <div style={{ background: '#21262d', padding: '6px 12px', borderBottom: '1px solid #30363d', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', color: '#8b949e' }}>Memory Layout (Stack grows down)</div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #21262d', background: '#3c1e1e', display: 'flex', justifyContent: 'space-between' }}>
-              <span>[Return Address]</span>
-              <span style={{ color: '#ff7b72' }}>➔ Overwritten with win() addr</span>
-            </div>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #21262d', background: '#161b22', display: 'flex', justifyContent: 'space-between' }}>
-              <span>[Saved RBP]</span>
-              <span style={{ color: '#8b949e' }}>8 Bytes (A\'s)</span>
-            </div>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #21262d', background: '#161b22', display: 'flex', justifyContent: 'space-between' }}>
-              <span>[Buffer Padding]</span>
-              <span style={{ color: '#8b949e' }}>N Bytes (A\'s)</span>
-            </div>
-            <div style={{ padding: '10px 14px', background: '#1c2d4a', display: 'flex', justifyContent: 'space-between' }}>
-              <span>[Local Buffer (64B)]</span>
-              <span style={{ color: '#79c0ff' }}>➔ Your Input Starts Here</span>
-            </div>
-          </div>
-        </div>
-      )
+      layout: <RetwinAnimation />
     },
     {
       id: 'format_string',
@@ -378,25 +362,7 @@ export default function TechniqueDives({ setActiveSection }) {
         'Leak sensitive stack data or address pointers: use specific selector position indices `%Ns$p`',
         'Overwrite dynamic link tables or target addresses: use pwntools helper function `fmtstr_payload`'
       ],
-      layout: (
-        <div style={{ fontFamily: 'monospace', fontSize: '12px', color: '#c9d1d9', background: '#0d1117', border: '1px solid #30363d', borderRadius: '6px', overflow: 'hidden', width: '100%', maxWidth: '450px', margin: '0 auto 16px' }}>
-          <div style={{ background: '#21262d', padding: '6px 12px', borderBottom: '1px solid #30363d', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', color: '#8b949e' }}>Stack Frame Arguments Mapping</div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #21262d', background: '#161b22', display: 'flex', justifyContent: 'space-between' }}>
-              <span>printf(buf)</span>
-              <span style={{ color: '#58a6ff' }}>vulnerable printf call</span>
-            </div>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #21262d', background: '#271b3b', display: 'flex', justifyContent: 'space-between' }}>
-              <span>Stack Index 1</span>
-              <span style={{ color: '#d2a8ff' }}>Format specifier arg 1 (%p)</span>
-            </div>
-            <div style={{ padding: '10px 14px', background: '#271b3b', display: 'flex', justifyContent: 'space-between' }}>
-              <span>Stack Index N</span>
-              <span style={{ color: '#d2a8ff' }}>Location of format string "buf" (0x70252e70 = "%p.")</span>
-            </div>
-          </div>
-        </div>
-      )
+      layout: <FormatStringAnimation />
     },
     {
       id: 'heap_exploitation',
@@ -408,25 +374,7 @@ export default function TechniqueDives({ setActiveSection }) {
         'Call malloc() to trigger allocation: the heap allocator returns your poisoned target pointer',
         'Overwrite target pointers or values: write control blocks to hijack program execution flow'
       ],
-      layout: (
-        <div style={{ fontFamily: 'monospace', fontSize: '12px', color: '#c9d1d9', background: '#0d1117', border: '1px solid #30363d', borderRadius: '6px', overflow: 'hidden', width: '100%', maxWidth: '450px', margin: '0 auto 16px' }}>
-          <div style={{ background: '#21262d', padding: '6px 12px', borderBottom: '1px solid #30363d', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', color: '#8b949e' }}>Heap Chunk Layout</div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #21262d', background: '#161b22', display: 'flex', justifyContent: 'space-between' }}>
-              <span>prev_size</span>
-              <span style={{ color: '#8b949e' }}>Previous chunk size (if free)</span>
-            </div>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #21262d', background: '#281515', display: 'flex', justifyContent: 'space-between' }}>
-              <span>size + flags</span>
-              <span style={{ color: '#ff7b72' }}>Metadata showing chunk size and flags</span>
-            </div>
-            <div style={{ padding: '10px 14px', background: '#2b1a14', display: 'flex', justifyContent: 'space-between' }}>
-              <span>user data (buffer)</span>
-              <span style={{ color: '#ff8b4d' }}>Where actual variable data lives</span>
-            </div>
-          </div>
-        </div>
-      )
+      layout: <HeapAnimation />
     },
     {
       id: 'ret2libc',
@@ -439,25 +387,7 @@ export default function TechniqueDives({ setActiveSection }) {
         'Locate matching payload command argument: find "/bin/sh" string address inside the library mapped boundaries',
         'Construct and deliver call sequence: hijack return address to launch system(\'/bin/sh\')'
       ],
-      layout: (
-        <div style={{ fontFamily: 'monospace', fontSize: '12px', color: '#c9d1d9', background: '#0d1117', border: '1px solid #30363d', borderRadius: '6px', overflow: 'hidden', width: '100%', maxWidth: '450px', margin: '0 auto 16px' }}>
-          <div style={{ background: '#21262d', padding: '6px 12px', borderBottom: '1px solid #30363d', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', color: '#8b949e' }}>ret2libc Stack Layout</div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #21262d', background: '#162c1e', display: 'flex', justifyContent: 'space-between' }}>
-              <span>[Argument]</span>
-              <span style={{ color: '#56d364' }}>Address of "/bin/sh" string</span>
-            </div>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #21262d', background: '#2b2214', display: 'flex', justifyContent: 'space-between' }}>
-              <span>[Dummy Return]</span>
-              <span style={{ color: '#f0e042' }}>Address to return after system() (4/8 bytes)</span>
-            </div>
-            <div style={{ padding: '10px 14px', background: '#3c1e1e', display: 'flex', justifyContent: 'space-between' }}>
-              <span>[Return Address]</span>
-              <span style={{ color: '#ff7b72' }}>Address of system() function</span>
-            </div>
-          </div>
-        </div>
-      )
+      layout: <Ret2libcAnimation />
     },
     {
       id: 'rop_chain',
@@ -469,25 +399,7 @@ export default function TechniqueDives({ setActiveSection }) {
         'Chain multiple parameters load gadgets: pop values into registers (e.g. pop rdi; ret to set first argument)',
         'Hijack stack return pointer: arrange gadget address chain followed by target execution systems'
       ],
-      layout: (
-        <div style={{ fontFamily: 'monospace', fontSize: '12px', color: '#c9d1d9', background: '#0d1117', border: '1px solid #30363d', borderRadius: '6px', overflow: 'hidden', width: '100%', maxWidth: '450px', margin: '0 auto 16px' }}>
-          <div style={{ background: '#21262d', padding: '6px 12px', borderBottom: '1px solid #30363d', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', color: '#8b949e' }}>ROP Gadgets Sequence</div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #21262d', background: '#1c2d4a', display: 'flex', justifyContent: 'space-between' }}>
-              <span>0x401234: pop rdi ; ret</span>
-              <span style={{ color: '#79c0ff' }}>Pulls "/bin/sh" into RDI</span>
-            </div>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #21262d', background: '#161b22', display: 'flex', justifyContent: 'space-between' }}>
-              <span>[bin_sh Address]</span>
-              <span style={{ color: '#8b949e' }}>Argument value loading into register</span>
-            </div>
-            <div style={{ padding: '10px 14px', background: '#3c1e1e', display: 'flex', justifyContent: 'space-between' }}>
-              <span>[system Address]</span>
-              <span style={{ color: '#ff7b72' }}>Executes system("/bin/sh")</span>
-            </div>
-          </div>
-        </div>
-      )
+      layout: <RopChainAnimation />
     },
     {
       id: 'shellcode',
@@ -499,25 +411,7 @@ export default function TechniqueDives({ setActiveSection }) {
         'Generate code machine instructions: create assembly payload (e.g. pwntools shellcraft.sh())',
         'Deliver payload: write shellcode to the target buffer and overwrite the stack return address to jump to it'
       ],
-      layout: (
-        <div style={{ fontFamily: 'monospace', fontSize: '12px', color: '#c9d1d9', background: '#0d1117', border: '1px solid #30363d', borderRadius: '6px', overflow: 'hidden', width: '100%', maxWidth: '450px', margin: '0 auto 16px' }}>
-          <div style={{ background: '#21262d', padding: '6px 12px', borderBottom: '1px solid #30363d', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', color: '#8b949e' }}>Executable Buffer Stack Layout</div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #21262d', background: '#3c1e1e', display: 'flex', justifyContent: 'space-between' }}>
-              <span>[Return Address]</span>
-              <span style={{ color: '#ff7b72' }}>Points to Start of Shellcode (below)</span>
-            </div>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #21262d', background: '#161b22', display: 'flex', justifyContent: 'space-between' }}>
-              <span>[Saved RBP + Padding]</span>
-              <span style={{ color: '#8b949e' }}>Overflow padding bytes</span>
-            </div>
-            <div style={{ padding: '10px 14px', background: '#162c1e', display: 'flex', justifyContent: 'space-between' }}>
-              <span>[Shellcode (23B)]</span>
-              <span style={{ color: '#56d364' }}>Executes execve("/bin/sh")</span>
-            </div>
-          </div>
-        </div>
-      )
+      layout: <ShellcodeAnimation />
     }
   ];
 
