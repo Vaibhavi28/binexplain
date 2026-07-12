@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ElfDiagram from '../components/learn/ElfDiagram';
+import BinaryRuntimeWalkthrough from '../components/learn/BinaryRuntimeWalkthrough';
 import ProtectionsMap from '../components/learn/ProtectionsMap';
 import ExploitFlowchart from '../components/learn/ExploitFlowchart';
 import TechniqueDives from '../components/learn/TechniqueDives';
@@ -109,7 +110,17 @@ export default function Learn() {
       <div>
         {activeSection === 'binary' && (
           <div id="section-binary">
-            <ElfDiagram />
+            <LearnErrorBoundary>
+              <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+                <ElfDiagram />
+                <div style={{ borderTop: '1px solid #21262d', margin: '48px 0 32px' }} />
+                <h3 style={{ color: '#f0f6fc', fontSize: '18px', fontWeight: 600,
+                  marginBottom: '20px', textAlign: 'center' }}>
+                  What Happens When You Run a Binary?
+                </h3>
+                <BinaryRuntimeWalkthrough onNavigate={setActiveSection} />
+              </div>
+            </LearnErrorBoundary>
           </div>
         )}
         {activeSection === 'protections' && (
