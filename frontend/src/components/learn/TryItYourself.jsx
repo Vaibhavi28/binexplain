@@ -29,7 +29,11 @@ const CARDS = [
       'printf() without format argument detected',
       'Similar writeups from knowledge base',
       'fmtstr_payload usage in AI hints'
-    ]
+    ],
+    hasDemoPath: '/demos/schooled',
+    demoName: 'schooled',
+    demoSource: 'picoCTF 2022',
+    demoLicense: 'Public CTF challenge, freely distributable'
   },
   {
     id: 'heap_exploitation',
@@ -95,7 +99,28 @@ export default function TryItYourself({ onSectionChange }) {
   const [error, setError] = useState(null);
   const [expandedSteps, setExpandedSteps] = useState({});
 
-  const handleAnalyzeDemo = async (cardId) => {
+  const [demoLoading, setDemoLoading] = useState(null);
+  const [demoResult, setDemoResult] = useState(null);
+  const [demoError, setDemoError] = useState(null);
+
+  const handleAnalyzeDemo = async (demoName) => {
+    setDemoLoading(demoName);
+    setDemoResult(null);
+    setDemoError(null);
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      const resp = await fetch(`${backendUrl}/demo-analysis/${demoName}`);
+      if (!resp.ok) throw new Error(`Status ${resp.status}`);
+      const data = await resp.json();
+      setDemoResult(data);
+    } catch (err) {
+      setDemoError('Could not load demo analysis. Is the backend running?');
+    } finally {
+      setDemoLoading(null);
+    }
+  };
+
+  const handleAnalyzeRet2winDemo = async (cardId) => {
     setLoading(true);
     setLoadingMsg(`Analyzing demo_${cardId}...`);
     setError(null);
@@ -220,7 +245,7 @@ export default function TryItYourself({ onSectionChange }) {
             {/* Action */}
             {c.id === 'ret2win' ? (
               <button
-                onClick={() => handleAnalyzeDemo(c.id)}
+                onClick={() => handleAnalyzeRet2winDemo(c.id)}
                 style={{
                   display: 'block',
                   width: '100%',
@@ -240,6 +265,67 @@ export default function TryItYourself({ onSectionChange }) {
               >
                 Analyze demo binary →
               </button>
+            ) : c.hasDemoPath ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                <div style={{
+                  padding: '14px',
+                  border: '1px solid #388bfd',
+                  borderRadius: '8px',
+                  background: '#1c2d4a22',
+                  textAlign: 'left'
+                }}>
+                  <div style={{ fontSize: '12px', color: '#8b949e', marginBottom: '10px' }}>
+                    <strong style={{ color: '#79c0ff' }}>Demo binary available</strong>
+                    {' — '}{c.demoSource}
+                    <span style={{ marginLeft: '8px', fontSize: '11px',
+                      color: '#484f58', fontStyle: 'italic' }}>
+                      ({c.demoLicense})
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleAnalyzeDemo(c.demoName)}
+                    disabled={demoLoading === c.demoName}
+                    style={{
+                      width: '100%', padding: '10px', borderRadius: '6px',
+                      fontSize: '13px', fontWeight: 600,
+                      cursor: demoLoading === c.demoName ? 'not-allowed' : 'pointer',
+                      background: demoLoading === c.demoName ? '#21262d' : '#238636',
+                      border: '1px solid #2ea043', color: 'white',
+                      opacity: demoLoading === c.demoName ? 0.6 : 1,
+                    }}
+                  >
+                    {demoLoading === c.demoName
+                      ? 'Loading analysis...'
+                      : `▶ Analyze ${c.demoName} — see BinExplain in action`}
+                  </button>
+                </div>
+                {demoResult && demoResult.demoName === c.demoName && (
+                  <DemoResultPanel result={demoResult} />
+                )}
+                {demoError && demoLoading !== c.demoName && (
+                  <div style={{ color: '#ff7b72', fontSize: '12px', marginTop: '8px' }}>{demoError}</div>
+                )}
+                <a
+                  href="/"
+                  style={{
+                    display: 'block',
+                    padding: '8px 12px',
+                    background: 'transparent',
+                    border: '1px solid #30363d',
+                    borderRadius: '6px',
+                    color: '#58a6ff',
+                    textDecoration: 'none',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    textAlign: 'center',
+                    transition: 'background 0.15s'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(56, 139, 253, 0.1)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  Try your own binary → upload it to BinExplain
+                </a>
+              </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <button
@@ -523,6 +609,128 @@ export default function TryItYourself({ onSectionChange }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DemoResultPanel({ result }) {
+  const [expandedStep, setExpandedStep] = useState(null);
+
+  return (
+    <div style={{ marginTop: '16px' }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', gap: '8px', flexWrap: 'wrap',
+        marginBottom: '14px', alignItems: 'center',
+      }}>
+        <span style={{
+          padding: '4px 10px', borderRadius: '12px', fontSize: '12px',
+          background: '#1c2d4a', border: '1px solid #388bfd',
+          color: '#79c0ff', fontWeight: 700,
+        }}>
+          {result.ctf_category?.category}
+        </span>
+        <span style={{
+          padding: '4px 10px', borderRadius: '12px', fontSize: '12px',
+          background: '#382a17', border: '1px solid #d29922', color: '#f0e042',
+        }}>
+          {result.difficulty}
+        </span>
+        {Object.entries(result.protections || {}).map(([k, v]) => (
+          <span key={k} style={{
+            padding: '3px 8px', borderRadius: '10px', fontSize: '11px',
+            background: v === 'Enabled' || v === 'Full RELRO' ? '#3a0000' : '#162c1e',
+            border: `1px solid ${v === 'Enabled' || v === 'Full RELRO' ? '#f85149' : '#3fb950'}`,
+            color: v === 'Enabled' || v === 'Full RELRO' ? '#f85149' : '#56d364',
+          }}>
+            {k.toUpperCase()}: {v === 'Enabled' ? 'ON' : v === 'No' ? 'OFF' : v}
+          </span>
+        ))}
+      </div>
+
+      {/* AI Hints */}
+      <div style={{
+        background: '#161b22', border: '1px solid #30363d',
+        borderRadius: '6px', padding: '12px 14px', marginBottom: '14px',
+        fontSize: '13px', color: '#c9d1d9', lineHeight: '1.6',
+        textAlign: 'left'
+      }}>
+        <div style={{ fontSize: '11px', color: '#8b949e', marginBottom: '6px',
+          textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          BinExplain AI Hints
+        </div>
+        {result.ai_hints}
+      </div>
+
+      {/* Walkthrough steps */}
+      <div style={{ fontSize: '12px', color: '#8b949e', marginBottom: '10px',
+        textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left' }}>
+        Plain English Walkthrough
+      </div>
+      {(result.plain_english_walkthrough || []).map(step => (
+        <div key={step.step} style={{ marginBottom: '6px' }}>
+          <div
+            onClick={() => setExpandedStep(expandedStep === step.step ? null : step.step)}
+            style={{
+              display: 'flex', justifyContent: 'space-between',
+              padding: '10px 14px', cursor: 'pointer',
+              background: expandedStep === step.step ? '#1c2d4a' : '#161b22',
+              border: '1px solid #30363d',
+              borderRadius: expandedStep === step.step ? '6px 6px 0 0' : '6px',
+              textAlign: 'left'
+            }}
+          >
+            <span style={{ color: '#c9d1d9', fontSize: '13px', fontWeight: 600 }}>
+              Step {step.step}: {step.title}
+            </span>
+            <span style={{ color: '#8b949e' }}>
+              {expandedStep === step.step ? '▲' : '▼'}
+            </span>
+          </div>
+          {expandedStep === step.step && (
+            <div style={{
+              padding: '12px 14px', background: '#0d1117',
+              border: '1px solid #30363d', borderTop: 'none',
+              borderRadius: '0 0 6px 6px',
+              fontSize: '13px', color: '#c9d1d9', lineHeight: '1.6',
+              textAlign: 'left'
+            }}>
+              {step.content}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* Pwntools template */}
+      {result.pwntools_template && (
+        <div style={{ marginTop: '14px', textAlign: 'left' }}>
+          <div style={{ fontSize: '12px', color: '#8b949e', marginBottom: '6px',
+            textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Starter Exploit Script
+          </div>
+          <div style={{
+            background: '#0d1117', border: '1px solid #30363d',
+            borderRadius: '6px', padding: '12px 14px', position: 'relative',
+          }}>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(result.pwntools_template);
+                alert("Copied to clipboard!");
+              }}
+              style={{
+                position: 'absolute', top: '8px', right: '8px',
+                background: '#21262d', border: '1px solid #30363d',
+                color: '#8b949e', borderRadius: '4px', padding: '2px 8px',
+                fontSize: '11px', cursor: 'pointer',
+              }}
+            >⎘ Copy</button>
+            <pre style={{ color: '#79c0ff', fontSize: '12px', margin: 0,
+              whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+              {result.pwntools_template}
+            </pre>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

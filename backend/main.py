@@ -5242,20 +5242,84 @@ DEMO_ANALYSES = {
     }
 }
 
-@app.get("/demo-analysis/{demo_name}")
-async def get_demo_analysis(demo_name: str):
-    if demo_name not in DEMO_ANALYSES:
-        raise HTTPException(status_code=404, detail="Demo not found")
-    return DEMO_ANALYSES[demo_name]
+
+# Merge the schooled analysis details into DEMO_ANALYSES
+DEMO_ANALYSES["schooled"] = {
+    "demoName": "schooled",
+    "filename": "schooled",
+    "source": "picoCTF 2022",
+    "source_url": "https://picoctf.org",
+    "category_label": "format_string",
+    "competition": "picoCTF 2022",
+    "year": "2022",
+    "license": "Public CTF challenge binary, freely distributable",
+    "architecture": "x86-64",
+    "bits": 64,
+    "ctf_category": {
+        "category": "format_string",
+        "confidence": "High",
+        "explanation": "The binary calls printf() with user-controlled input directly as the format string argument — a classic format string vulnerability."
+    },
+    "difficulty": "Medium",
+    "difficulty_reason": "NX and PIE are both enabled. Requires leaking a stack address and computing offsets before arbitrary write.",
+    "protections": {
+        "nx": "Enabled",
+        "pie": "Enabled",
+        "canary": "Enabled",
+        "relro": "Full RELRO",
+        "fortify": "No"
+    },
+    "overflow_offset": None,
+    "dangerous_functions": ["printf", "gets"],
+    "strings_found": ["flag.txt", "You win!", "picoCTF{test_flag_1234}"],
+    "ai_hints": "This is a format string challenge. The vulnerable call is printf(buf) where buf contains your input. Step 1: leak the canary and PIE base using %p format specifiers. Step 2: calculate the win() function address using PIE base + offset. Step 3: use %n to overwrite the return address or GOT entry with the win() address.",
+    "pwntools_template": "from pwn import *\n\nbinary = './schooled'\nelf = ELF(binary)\ncontext.binary = elf\np = process(binary)\n\n# Step 1: Leak stack values\np.sendline(b'%p.' * 20)\nleak = p.recvline()\nprint('Leak:', leak)\n\n# TODO: parse leak to find PIE base and canary\n# pie_base = leaked_addr - elf.sym['main']\n# win_addr = pie_base + elf.sym['win']\n\np.interactive()",
+    "plain_english_walkthrough": [
+        {
+            "step": 1,
+            "title": "What is this binary?",
+            "content": "This is a 64-bit Linux program from picoCTF 2022. When you run it, it asks for your name and uses printf() to display it back. The dangerous part: it calls printf(your_input) instead of printf('%s', your_input). This one missing '%s' is the entire vulnerability."
+        },
+        {
+            "step": 2,
+            "title": "What is the vulnerability?",
+            "content": "printf() reads special codes called format specifiers from its first argument. %p prints a memory address. %n writes a number to memory. When user input IS the format string, you control what printf reads and writes. This is called a format string vulnerability."
+        },
+        {
+            "step": 3,
+            "title": "How do you find your position?",
+            "content": "Send %p.%p.%p.%p (format specifiers separated by dots). Each %p reads one value off the stack. Look for your input buffer in the output — it will appear as the ASCII hex of '%p.' which is 0x70252e70. That position number is your format string offset."
+        },
+        {
+            "step": 4,
+            "title": "How do you do with it?",
+            "content": "Once you know your offset, you can read specific stack values (%N$p reads position N), including the stack canary and a binary address that reveals the PIE base. Knowing the PIE base lets you calculate where win() is in memory at runtime."
+        },
+        {
+            "step": 5,
+            "title": "What is the exploit?",
+            "content": "Use pwntools fmtstr_payload() to write the win() function address over the return address or a GOT entry. When the vulnerable function returns, execution jumps to win() which reads and prints the flag file."
+        },
+        {
+            "step": 6,
+            "title": "Why do protections matter here?",
+            "content": "PIE is enabled so win() is at a different address every run — you must leak a binary address first. The canary must be preserved in your write payload. Full RELRO means GOT is read-only — target the return address instead. All three protections are bypassed by the format string primitive alone."
+        }
+    ]
+}
 
 
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
 @app.get("/health")
 async def health():
     """Lightweight health-check — returns ``{"status": "ok"}``."""
     return {"status": "ok"}
+
+
+@app.get("/demo-analysis/{demo_name}")
+async def get_demo_analysis(demo_name: str):
+    if demo_name not in DEMO_ANALYSES:
+        raise HTTPException(status_code=404, detail=f"Demo '{demo_name}' not found")
+    return DEMO_ANALYSES[demo_name]
 
 
 @app.post("/analyze")
