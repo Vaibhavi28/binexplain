@@ -5247,63 +5247,63 @@ DEMO_ANALYSES = {
 DEMO_ANALYSES["schooled"] = {
     "demoName": "schooled",
     "filename": "schooled",
-    "source": "picoCTF 2022",
-    "source_url": "https://picoctf.org",
-    "category_label": "format_string",
-    "competition": "picoCTF 2022",
-    "year": "2022",
+    "source": "MetaCTF Flash CTF — \"Schooled\"",
+    "source_url": "https://metactf.com/blog/flash-ctf-schooled/",
+    "category_label": "heap_exploitation",
+    "competition": "MetaCTF Flash CTF",
+    "year": "2021",
     "license": "Public CTF challenge binary, freely distributable",
-    "architecture": "x86-64",
-    "bits": 64,
+    "architecture": "i386",
+    "bits": 32,
     "ctf_category": {
-        "category": "format_string",
+        "category": "heap_exploitation",
         "confidence": "High",
-        "explanation": "The binary calls printf() with user-controlled input directly as the format string argument — a classic format string vulnerability."
+        "explanation": "The binary has a heap buffer overflow in modify_name() that allows overwriting an adjacent pointer field on the heap, leading to a GOT overwrite when modifying grade level."
     },
     "difficulty": "Medium",
-    "difficulty_reason": "NX and PIE are both enabled. Requires leaking a stack address and computing offsets before arbitrary write.",
+    "difficulty_reason": "Heap overflow into adjacent pointer. Requires overwriting printf's GOT entry with win()'s address to hijack execution.",
     "protections": {
         "nx": "Enabled",
-        "pie": "Enabled",
+        "pie": "Disabled",
         "canary": "Enabled",
-        "relro": "Full RELRO",
+        "relro": "Partial RELRO",
         "fortify": "No"
     },
     "overflow_offset": None,
     "dangerous_functions": ["printf", "gets"],
-    "strings_found": ["flag.txt", "You win!", "picoCTF{test_flag_1234}"],
-    "ai_hints": "This is a format string challenge. The vulnerable call is printf(buf) where buf contains your input. Step 1: leak the canary and PIE base using %p format specifiers. Step 2: calculate the win() function address using PIE base + offset. Step 3: use %n to overwrite the return address or GOT entry with the win() address.",
-    "pwntools_template": "from pwn import *\n\nbinary = './schooled'\nelf = ELF(binary)\ncontext.binary = elf\np = process(binary)\n\n# Step 1: Leak stack values\np.sendline(b'%p.' * 20)\nleak = p.recvline()\nprint('Leak:', leak)\n\n# TODO: parse leak to find PIE base and canary\n# pie_base = leaked_addr - elf.sym['main']\n# win_addr = pie_base + elf.sym['win']\n\np.interactive()",
+    "strings_found": ["flag.txt", "Student", "win", "MetaCTF{example_flag}"],
+    "ai_hints": "This is a heap overflow vulnerability leading to a GOT overwrite. The modify_name() function reads too many bytes, overflowing the adjacent gradelevel pointer on the heap. Step 1: Overwrite the gradelevel pointer with the GOT entry of printf. Step 2: Use the 'modify grade level' option to write the address of the win() function to the hijacked printf GOT entry. Step 3: Trigger the exploit by displaying the menu (which calls printf).",
+    "pwntools_template": "from pwn import *\n\nbinary = './schooled'\nelf = ELF(binary)\np = process(binary)\n\n# printf GOT entry and win() address\nprintf_got = elf.got['printf']\nwin_addr = elf.sym['win']\n\n# Step 1: Overwrite gradelevel pointer with printf GOT address\n# Padding to gradelevel pointer is 36 bytes\npayload = b'A' * 36 + p32(printf_got)\n\n# Navigate menu to modify name\np.sendlineafter(b'>', b'2') # Modify option\np.sendlineafter(b'>', b'1') # Modify name\np.sendlineafter(b':', payload)\n\n# Step 2: Modify grade level to write win address into printf GOT\np.sendlineafter(b'>', b'2') # Modify option\np.sendlineafter(b'>', b'2') # Modify grade level\np.sendlineafter(b':', p32(win_addr))\n\n# Step 3: Trigger printf and print flag\np.interactive()",
     "plain_english_walkthrough": [
         {
             "step": 1,
             "title": "What is this binary?",
-            "content": "This is a 64-bit Linux program from picoCTF 2022. When you run it, it asks for your name and uses printf() to display it back. The dangerous part: it calls printf(your_input) instead of printf('%s', your_input). This one missing '%s' is the entire vulnerability."
+            "content": "This is a 32-bit Linux program from MetaCTF Flash CTF named 'Schooled'. It is a student management system that presents a menu to create, modify, remove, and view student records on the heap."
         },
         {
             "step": 2,
             "title": "What is the vulnerability?",
-            "content": "printf() reads special codes called format specifiers from its first argument. %p prints a memory address. %n writes a number to memory. When user input IS the format string, you control what printf reads and writes. This is called a format string vulnerability."
+            "content": "The modify_name() function uses the size of the entire student struct (sizeof(struct student)) as the read limit instead of the actual name field size (34 bytes). This allows us to write past the name field and overflow adjacent memory on the heap."
         },
         {
             "step": 3,
-            "title": "How do you find your position?",
-            "content": "Send %p.%p.%p.%p (format specifiers separated by dots). Each %p reads one value off the stack. Look for your input buffer in the output — it will appear as the ASCII hex of '%p.' which is 0x70252e70. That position number is your format string offset."
+            "title": "What is the heap target?",
+            "content": "Right next to the 34-byte student name buffer on the heap is a pointer to the student's grade level. By overflowing the name buffer with 36 bytes of padding, we can overwrite this gradelevel pointer with a target address of our choice."
         },
         {
             "step": 4,
-            "title": "How do you do with it?",
-            "content": "Once you know your offset, you can read specific stack values (%N$p reads position N), including the stack canary and a binary address that reveals the PIE base. Knowing the PIE base lets you calculate where win() is in memory at runtime."
+            "title": "How do we target the GOT?",
+            "content": "We overwrite the gradelevel pointer with the GOT (Global Offset Table) entry address of printf(). You can find this address using: objdump -R ./schooled | grep printf. This makes the program think the grade level string is stored at printf's GOT address."
         },
         {
             "step": 5,
-            "title": "What is the exploit?",
-            "content": "Use pwntools fmtstr_payload() to write the win() function address over the return address or a GOT entry. When the vulnerable function returns, execution jumps to win() which reads and prints the flag file."
+            "title": "How do we hijack execution?",
+            "content": "We find the win() function address using: objdump -d ./schooled | grep win. Then we use the 'modify grade level' menu option to write win()'s address directly into printf()'s GOT entry. The next time printf() is called to redisplay the menu, it jumps to win() and prints the flag."
         },
         {
             "step": 6,
             "title": "Why do protections matter here?",
-            "content": "PIE is enabled so win() is at a different address every run — you must leak a binary address first. The canary must be preserved in your write payload. Full RELRO means GOT is read-only — target the return address instead. All three protections are bypassed by the format string primitive alone."
+            "content": "NX is enabled, so we cannot run shellcode on the heap or stack. PIE is disabled, meaning GOT addresses and the win() function are at fixed locations. A heap overflow allows us to bypass the stack canary entirely by overwriting pointers on the heap rather than the stack."
         }
     ]
 }
