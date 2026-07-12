@@ -299,13 +299,13 @@ class TestChatCaching:
         original_testing = main._is_testing
         main._is_testing = lambda: False
         import unittest.mock as mock
-        with mock.patch("main._try_groq", return_value="Fresh AI hints: This is a high quality AI generated hint that is longer than fifty characters."):
+        with mock.patch("main._try_groq", return_value="Fresh AI hints for vuln.elf: gets is vulnerable. Run: ```bash\n./vuln.elf\n```"):
             try:
                 response = client.post("/chat", json=payload)
                 assert response.status_code == 200
                 data = response.json()
                 assert data["response_source"] == "ai"
-                assert data["response"] == "Fresh AI hints: This is a high quality AI generated hint that is longer than fifty characters."
+                assert data["response"] == "Fresh AI hints for vuln.elf: gets is vulnerable. Run: ```bash\n./vuln.elf\n```"
             finally:
                 main._is_testing = original_testing
 

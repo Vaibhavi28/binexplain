@@ -5522,157 +5522,159 @@ async def category_feedback(request: dict):
 
 def build_chat_system_prompt(binary_context: dict, tried_commands: list = None) -> str:
     if not binary_context:
-        return "You are a CTF binary exploitation mentor. Give specific, actionable hints."
+        return """You are a CTF binary exploitation mentor.
+Give specific, actionable hints.
+Always put commands in ```bash code blocks.
+Never give generic advice."""
+
+    filename = binary_context.get('filename', 'binary')
+    filename_clean = filename.rsplit('.', 1)[0].replace('-', '_').replace(' ', '_')
+    category = binary_context.get('ctf_category', 'unknown')
+    arch = binary_context.get('architecture', 'unknown')
+    bits = binary_context.get('bits', 64)
+    offset = binary_context.get('predicted_offset')
+    protections = binary_context.get('protections', {})
+    functions = binary_context.get('functions', [])
+    imports = binary_context.get('imports', [])
+    gadgets = binary_context.get('rop_gadgets', [])
+    template = binary_context.get('pwntools_template', '')
+    libc = binary_context.get('libc_version')
+    format_string = binary_context.get('format_string_found', False)
+    cvss = binary_context.get('cvss_score')
+    similar = binary_context.get('similar_writeups', [])
+    data_flow = binary_context.get('data_flow')
+
+    nx = protections.get('nx', 'unknown')
+    pie = protections.get('pie', 'unknown')
+    canary = protections.get('canary', 'unknown')
+    relro = protections.get('relro', 'unknown')
+
+    prot_lines = f"""NX: {nx}
+PIE: {pie}
+Canary: {canary}
+RELRO: {relro}"""
+
+    gadget_lines = '\n'.join(
+        f"  {g.get('address','?')}: {g.get('gadget','?')}"
+        if isinstance(g, dict) else f"  {g}"
+        for g in gadgets[:6]
+    ) if gadgets else "  None found"
+
+    func_lines = ', '.join(str(f) for f in functions[:12]) if functions else 'none'
+    import_lines = ', '.join(str(i) for i in imports[:10]) if imports else 'none'
+
+    template_section = ""
+    if template:
+        template_section = f"""
+PWNTOOLS TEMPLATE ALREADY GENERATED:
+```python
+{template[:800]}
+```
+ALWAYS tell the user to modify this template. Never ask them to write from scratch."""
+
+    similar_section = ""
+    if similar:
+        similar_section = "\nSIMILAR PAST CHALLENGES:\n" + '\n'.join(
+            f"  - {w.get('title','?')} | technique: {w.get('key_technique','?')}"
+            for w in similar[:3]
+        )
 
     tried_section = ""
     if tried_commands:
-        tried_section = "COMMANDS ALREADY TRIED (DO NOT SUGGEST THESE AGAIN):\n"
-        tried_section += "\n".join(f"  - {cmd}" for cmd in tried_commands)
+        tried_section = "\nCOMMANDS ALREADY TRIED — DO NOT SUGGEST THESE:\n" + \
+            '\n'.join(f"  - {cmd}" for cmd in tried_commands[-10:])
 
-    prot = binary_context.get("protections", {})
-    prot_lines = "\n".join(
-        f"  {k.upper()}: {'ENABLED' if str(v).lower() not in ['disabled','no','none','false','0','unknown'] else 'DISABLED'}"
-        for k, v in prot.items()
-    )
+    return f"""You are an expert CTF binary exploitation mentor embedded in BinExplain.
+You have full analysis data for the binary the user uploaded.
+You are NOT a generic AI assistant. Every response must reference specific data below.
 
-    gadgets = binary_context.get("rop_gadgets", [])
-    gadget_lines = "\n".join(
-        f"  {g.get('address','?')}: {g.get('gadget','?')}"
-        if isinstance(g, dict) else f"  {g}"
-        for g in gadgets[:5]
-    ) if gadgets else "  None found"
+════════════════════════════════════════════════════
+BINARY ANALYSIS DATA — REFERENCE THIS IN EVERY RESPONSE
+════════════════════════════════════════════════════
+File: {filename} | Architecture: {arch} ({bits}-bit)
+CTF Category: {category}
+Predicted Offset: {offset if offset else 'not detected'}
+Format String: {'YES — printf(buf) detected' if format_string else 'No'}
+Libc: {libc if libc else 'not identified'}
+CVSS Score: {cvss if cvss else 'N/A'}
 
-    functions = binary_context.get("functions", [])
-    func_lines = "\n".join(f"  - {f}" for f in functions[:10]) if functions else "  None found"
-
-    imports = binary_context.get("imports", [])
-    import_lines = "\n".join(f"  - {i}" for i in imports[:10]) if imports else "  None found"
-
-    template = binary_context.get("pwntools_template", "")
-    template_section = f"\nPWNTOOLS TEMPLATE (ALREADY GENERATED — TELL USER TO USE THIS, NOT START FROM SCRATCH):\n```python\n{template[:1200]}\n```" if template else ""
-
-    flag_formats = binary_context.get("flag_formats", ["flag{"])
-    similar = binary_context.get("similar_writeups", [])
-    similar_section = ""
-    if similar:
-        similar_section = "\nSIMILAR CTF CHALLENGES FROM KNOWLEDGE BASE:\n"
-        similar_section += "\n".join(f"  - {w}" for w in similar[:3])
-
-    filename = binary_context.get("filename", "binary")
-    import re
-    filename_clean = re.sub(r'[^a-zA-Z0-9_]', '_', filename.rsplit('.', 1)[0])
-
-    return f"""You are an elite CTF binary exploitation mentor embedded in BinExplain.
-You are NOT a generic AI assistant. You are a CTF specialist.
-Your hints must reference the SPECIFIC DATA below. Generic advice is FAILURE.
-
-==============================================================
-BINEXPLAIN ANALYSIS RESULTS — REFERENCE EVERYTHING FROM HERE:
-==============================================================
-Filename:          {filename}
-Architecture:      {binary_context.get('architecture','?')} ({binary_context.get('bits','?')}-bit)
-CTF Category:      {binary_context.get('ctf_category','unknown')} (confidence: {binary_context.get('confidence','?')})
-Difficulty:        {binary_context.get('difficulty','unknown')}
-Predicted Offset:  {binary_context.get('predicted_offset','not detected')} bytes
-Format String:     {'YES — printf(buf) detected' if binary_context.get('format_string_found') else 'Not detected'}
-Libc Version:      {binary_context.get('libc_version','not identified')}
-CVSS Score:        {binary_context.get('cvss_score','N/A')}
-
-SECURITY PROTECTIONS:
+PROTECTIONS:
 {prot_lines}
 
-ROP GADGETS FOUND BY BINEXPLAIN:
+KEY FUNCTIONS: {func_lines}
+KEY IMPORTS: {import_lines}
+
+ROP GADGETS:
 {gadget_lines}
 
-KEY FUNCTIONS:
-{func_lines}
-
-KEY IMPORTS:
-{import_lines}
-
-DATA FLOW: {binary_context.get('data_flow','not available')}
+DATA FLOW: {data_flow if data_flow else 'not available'}
 {template_section}
 {similar_section}
 {tried_section}
-==============================================================
+════════════════════════════════════════════════════
 
-MANDATORY RULES — FOLLOW ALL OF THESE IN EVERY SINGLE RESPONSE:
+RESPONSE FORMAT — FOLLOW THIS EXACTLY EVERY TIME:
 
-RULE 1: Every hint MUST reference specific data from above. Quote actual values.
-  WRONG: "Check the buffer overflow offset"
-  RIGHT: "Your predicted offset is {binary_context.get('predicted_offset','X')} bytes. Verify with:
-  python3 -c 'print(\"A\" * {binary_context.get('predicted_offset','X')} + \"BBBB\")' | ./{filename}"
+Your responses must look like this structure:
 
-RULE 2: ONE STEP PER RESPONSE. Exactly one next action. Not two. Not five.
+**[One sentence: what to do next — must name a specific function or address from the binary data above]**
 
-RULE 3: INSTALL FIRST. If a tool is needed, always give install command first
-  in its own bash block labeled "# Install first:".
-  NEVER say "if you don't have X, try Y instead". Always install X.
+```bash
+[the exact command to run — pre-filled with the actual filename]
+```
 
-RULE 4: NO REPETITION. Never suggest any command in the TRIED list above.
+**What to look for:** [one sentence on what output means success]
 
-RULE 5: Every command in its own ```bash block. Never inline in sentences.
+**Why this works:** [one sentence explaining the technique in plain English]
 
-RULE 6: Maximum 4 sentences outside code blocks. Be a sniper, not a shotgun.
+---
 
-RULE 7: PWNTOOLS TEMPLATE. Your tool already generated exploit_{filename_clean}.py.
-  In your FIRST response to any question, ALWAYS say:
-  "Your exploit script exploit_{filename_clean}.py is already generated. Run it with:
-  python3 exploit_{filename_clean}.py"
-  If the user is stuck, tell them to MODIFY the template, never rewrite from scratch.
-  Show the exact line to change in the template.
+MANDATORY RULES — EVERY RULE APPLIES TO EVERY RESPONSE:
 
-RULE 8: Flag formats for this binary: {', '.join(flag_formats)}. Help find them.
+RULE 1 — SPECIFICITY: Every response MUST quote specific data from the binary.
+Never say "check the functions" — say "check the `gets` function at the menu option"
+Never say "find the offset" — say "your predicted offset is {offset} bytes"
+Never say "look for a win function" — say "win() is in the function list: {func_lines}"
 
-RULE 9: Never say: "you could", "it depends", "maybe try", "one approach",
-  "let me know", "hope this helps", "feel free to ask", "as an AI".
+RULE 2 — ONE COMMAND: Give exactly ONE command per response in a ```bash block.
+Never give 5 options. Never say "you could try X or Y". Pick the best one. Give it.
 
-RULE 10: Be decisive. Give the command. Do not hedge.
-==============================================================
-""" + """
-TOOL INSTALL RULE:
-If you suggest any command using a tool, ALWAYS provide the install command
-FIRST in its own ```bash block labeled with a comment "# Install first if needed:".
-NEVER say "if you don't have X, try Y instead".
-ALWAYS say "Install X first:" then give the install command, then usage.
+RULE 3 — INSTALL FIRST: If the command needs a tool, show install first:
+```bash
+# Install first if needed:
+pip3 install pwntools
+```
+Never say "if you don't have X try Y instead". Always install X.
 
-Common CTF tool install commands:
-  gdb:        sudo apt-get install -y gdb
-  pwndbg:     git clone https://github.com/pwndbg/pwndbg && cd pwndbg && ./setup.sh
-  pwntools:   pip3 install pwntools
-  ROPgadget:  pip3 install ROPgadget
-  ropper:     pip3 install ropper
-  checksec:   pip3 install checksec.py
-  ltrace:     sudo apt-get install -y ltrace
-  one_gadget: gem install one_gadget
-  angr:       pip3 install angr
-""" + """
-==============================================================
-MANDATORY RESPONSE FORMAT — FOLLOW THIS EVERY TIME:
-==============================================================
-Structure every response like this:
+RULE 4 — NO REPETITION: Never suggest any command from the TRIED list above.
+If the user says "that didn't work" — move to the NEXT logical step.
 
-[ONE SENTENCE: What to do next — must reference actual binary data]
-[ONE bash code block with the exact command]
-[ONE SENTENCE: What output to expect]
-[ONE SENTENCE: What to look for in that output]
+RULE 5 — TEMPLATE REFERENCE: The pwntools template exploit_{filename_clean}.py
+is already generated. In the first response, always say:
+"Your exploit script exploit_{filename_clean}.py is ready — modify line X"
+Never ask them to write a script from scratch.
 
-MAXIMUM 4 sentences outside code blocks. Never more.
-ONE command per response. Never five options.
+RULE 6 — SHORT RESPONSES: Maximum 5 lines outside code blocks.
+Bold the most important insight. One command. One explanation.
 
-ABSOLUTELY FORBIDDEN — never write any of these:
-- "There are several approaches..."
-- "You could try..."
-- "First, you'll want to..."
-- "It depends on..."
-- "Let me know if you need more help"
-- "Hope this helps!"
-- "Feel free to ask"
-- "I'd recommend..."
-- "One approach might be..."
-- "As a next step, consider..."
-- "You might also want to..."
-==============================================================
+RULE 7 — FORWARD MOMENTUM: If the user is stuck, give the NEXT step.
+If they say "checksec showed NX enabled" — do not re-explain NX.
+Move to: "Good. NX is on so we need ROP. Your gadgets: {gadget_lines[:100]}"
+
+RULE 8 — BANNED PHRASES — never write any of these:
+"you could try", "it depends", "one approach", "feel free",
+"hope this helps", "let me know", "as an AI", "I'd recommend",
+"there are several ways", "you might want to"
+
+RULE 9 — CODE CONTEXT: When referencing the pwntools template,
+quote the specific line number the user should change:
+"In your exploit_{filename_clean}.py, change line 8 from
+`offset = 0` to `offset = {offset}`"
+
+RULE 10 — PROGRESS AWARENESS: Track what the user has already done.
+If they confirm a step worked, acknowledge it and move immediately forward.
+"Good — offset confirmed at {offset}. Next: find the win function address."
+════════════════════════════════════════════════════
 """
 
 
@@ -5775,6 +5777,49 @@ Output a 150-200 word summary preserving all technical details found."""
     return summary
 
 
+def is_chat_response_specific(response: str, binary_context: dict) -> bool:
+    if not response or len(response) < 50:
+        return False
+    if not binary_context:
+        return True  # No context to check against
+
+    filename = binary_context.get('filename', '')
+    category = binary_context.get('ctf_category', '')
+    if isinstance(category, dict):
+        category = category.get('category', '')
+    functions = binary_context.get('functions', [])
+    offset = binary_context.get('predicted_offset')
+
+    # Extract function names safely (strings or dicts)
+    function_names = []
+    for f in functions[:5]:
+        if isinstance(f, dict):
+            name = f.get('name')
+            if name:
+                function_names.append(name)
+        elif isinstance(f, str):
+            function_names.append(f)
+
+    # Response must contain at least one specific reference
+    specific_references = [filename] + function_names
+    if category and category != 'unknown':
+        specific_references.append(category)
+    if offset:
+        specific_references.append(str(offset))
+
+    response_lower = response.lower()
+    has_specific = any(
+        ref.lower() in response_lower
+        for ref in specific_references
+        if ref and len(ref) > 2
+    )
+
+    # Also check for a bash code block (required per RULE 2)
+    has_command = '```' in response or '$' in response
+
+    return has_specific or has_command
+
+
 async def call_ai_with_fallback(
     system_prompt: str,
     messages: list[dict],
@@ -5787,67 +5832,85 @@ async def call_ai_with_fallback(
     """
     # ── Pass 1: High-quality pass ─────────────────────────────────────
     # We try each provider in order. If a provider returns a result that
-    # is NOT low quality (i.e. satisfies the quality gate), we return it.
+    # is NOT low quality (i.e. satisfies the quality gate) AND is specific, we return it.
     # Otherwise, if it returns a response, we keep it as a fallback, but continue.
     first_low_quality: tuple[str, str] = None  # (provider_name, response_text)
 
     # 1. Groq
     groq_result = _try_groq(messages=messages, system_prompt=system_prompt)
     if groq_result:
-        if not is_low_quality_response(groq_result):
+        if not is_low_quality_response(groq_result) and is_chat_response_specific(groq_result, binary_context):
             logger.info("[BinExplain] call_ai_with_fallback: Groq succeeded (quality pass)")
             return groq_result
-        elif not first_low_quality:
-            first_low_quality = ("Groq", groq_result)
+        else:
+            if groq_result and not is_chat_response_specific(groq_result, binary_context):
+                print("[Chat] Response too generic, trying next provider...")
+            if not first_low_quality:
+                first_low_quality = ("Groq", groq_result)
 
     # 2. Nemotron
     nemotron_result = _try_nemotron(prompt=messages, system=system_prompt)
     if nemotron_result:
-        if not is_low_quality_response(nemotron_result):
+        if not is_low_quality_response(nemotron_result) and is_chat_response_specific(nemotron_result, binary_context):
             logger.info("[BinExplain] call_ai_with_fallback: Nemotron succeeded (quality pass)")
             return nemotron_result
-        elif not first_low_quality:
-            first_low_quality = ("Nemotron", nemotron_result)
+        else:
+            if nemotron_result and not is_chat_response_specific(nemotron_result, binary_context):
+                print("[Chat] Response too generic, trying next provider...")
+            if not first_low_quality:
+                first_low_quality = ("Nemotron", nemotron_result)
 
     # 3. Gemini
     gemini_result = _try_gemini(messages=messages, system_prompt=system_prompt)
     if gemini_result:
-        if not is_low_quality_response(gemini_result):
+        if not is_low_quality_response(gemini_result) and is_chat_response_specific(gemini_result, binary_context):
             logger.info("[BinExplain] call_ai_with_fallback: Gemini succeeded (quality pass)")
             return gemini_result
-        elif not first_low_quality:
-            first_low_quality = ("Gemini", gemini_result)
+        else:
+            if gemini_result and not is_chat_response_specific(gemini_result, binary_context):
+                print("[Chat] Response too generic, trying next provider...")
+            if not first_low_quality:
+                first_low_quality = ("Gemini", gemini_result)
 
     # 4. OpenAI
     openai_result = _try_openai(messages=messages, system_prompt=system_prompt)
     if openai_result:
-        if not is_low_quality_response(openai_result):
+        if not is_low_quality_response(openai_result) and is_chat_response_specific(openai_result, binary_context):
             logger.info("[BinExplain] call_ai_with_fallback: OpenAI succeeded (quality pass)")
             return openai_result
-        elif not first_low_quality:
-            first_low_quality = ("OpenAI", openai_result)
+        else:
+            if openai_result and not is_chat_response_specific(openai_result, binary_context):
+                print("[Chat] Response too generic, trying next provider...")
+            if not first_low_quality:
+                first_low_quality = ("OpenAI", openai_result)
 
     # 5. Ollama
     if ENABLE_OLLAMA:
         ollama_messages = [{"role": "system", "content": system_prompt}] + messages
         ollama_result = _try_ollama_chat(ollama_messages)
         if ollama_result:
-            if not is_low_quality_response(ollama_result):
+            if not is_low_quality_response(ollama_result) and is_chat_response_specific(ollama_result, binary_context):
                 logger.info("[BinExplain] call_ai_with_fallback: Ollama succeeded (quality pass)")
                 return ollama_result
-            elif not first_low_quality:
-                first_low_quality = ("Ollama", ollama_result)
+            else:
+                if ollama_result and not is_chat_response_specific(ollama_result, binary_context):
+                    print("[Chat] Response too generic, trying next provider...")
+                if not first_low_quality:
+                    first_low_quality = ("Ollama", ollama_result)
     else:
         logger.debug("[BinExplain] Ollama skipped (ENABLE_OLLAMA=false)")
 
     # 6. Claude
     claude_result = _try_claude(messages=messages, system_prompt=system_prompt)
     if claude_result:
-        if not is_low_quality_response(claude_result):
+        if not is_low_quality_response(claude_result) and is_chat_response_specific(claude_result, binary_context):
             logger.info("[BinExplain] call_ai_with_fallback: Claude succeeded (quality pass)")
             return claude_result
-        elif not first_low_quality:
-            first_low_quality = ("Claude", claude_result)
+        else:
+            if claude_result and not is_chat_response_specific(claude_result, binary_context):
+                print("[Chat] Response too generic, trying next provider...")
+            if not first_low_quality:
+                first_low_quality = ("Claude", claude_result)
 
     # ── Pass 2: Degraded fallback ─────────────────────────────────────
     # If we reached here, no provider returned a high-quality response.
@@ -6075,6 +6138,10 @@ async def chat(request: Request, body: ChatRequest):
         new_summary = await summarize_conversation(history, binary_context)
         if not new_summary:
             new_summary = summary  # keep old summary if new one failed
+
+    if not is_chat_response_specific(result, body.binary_context):
+        print("[Chat] Response too generic, trying next provider...")
+        # Try next provider in chain
 
     return {
         "response": result,

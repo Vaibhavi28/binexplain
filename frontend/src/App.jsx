@@ -204,17 +204,80 @@ function CardModal({ title, icon, accent, onClose, children }) {
 }
 
 /* -- Render AI Message Content (parses segment arrays) ------------------ */
+const parseInlineMarkdown = (text) => {
+  if (!text) return '';
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      const boldText = part.slice(2, -2);
+      return (
+        <strong key={idx} style={{ color: '#e6edf3', fontWeight: '600' }}>
+          {boldText}
+        </strong>
+      );
+    }
+    return part;
+  });
+};
+
+const renderProseMarkdown = (text) => {
+  if (!text) return null;
+  const lines = text.split('\n');
+  const elements = [];
+  let currentList = [];
+
+  const flushList = (key) => {
+    if (currentList.length > 0) {
+      elements.push(
+        <ul key={`list-${key}`} style={{ margin: '0 0 12px 0', paddingLeft: '20px', listStyleType: 'disc' }}>
+          {currentList}
+        </ul>
+      );
+      currentList = [];
+    }
+  };
+
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    if (trimmed === '---') {
+      flushList(index);
+      elements.push(
+        <hr key={`hr-${index}`} style={{ border: 'none', borderTop: '1px solid #21262d', margin: '12px 0' }} />
+      );
+    } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      const content = trimmed.slice(2);
+      currentList.push(
+        <li key={`li-${index}`} style={{ color: '#c9d1d9', fontSize: '14px', lineHeight: '1.7', marginBottom: '4px' }}>
+          {parseInlineMarkdown(content)}
+        </li>
+      );
+    } else if (trimmed === '') {
+      flushList(index);
+    } else {
+      flushList(index);
+      elements.push(
+        <p key={`p-${index}`} style={{
+          color: '#c9d1d9', fontSize: '14px', lineHeight: '1.7',
+          margin: '0 0 12px 0', padding: '0 4px'
+        }}>
+          {parseInlineMarkdown(line)}
+        </p>
+      );
+    }
+  });
+
+  flushList(lines.length);
+  return elements;
+};
+
 const renderAIMessage = (content, binaryContext) => {
   const segments = parseAIResponse(content);
   return segments.map((seg, i) => {
     if (seg.type === 'prose') {
       return (
-        <p key={i} style={{
-          color: '#c9d1d9', fontSize: '14px', lineHeight: '1.7',
-          margin: '0 0 12px 0', padding: '0 4px'
-        }}>
-          {seg.content}
-        </p>
+        <div key={i}>
+          {renderProseMarkdown(seg.content)}
+        </div>
       );
     }
     if (seg.type === 'command') {
@@ -237,11 +300,11 @@ const renderAIMessage = (content, binaryContext) => {
             </button>
           </div>
           <pre style={{
-            background: '#0d1117', padding: '12px', margin: 0,
+            background: '#0d1117', padding: '12px 16px', margin: 0,
             borderRadius: '0 0 6px 6px', border: '1px solid #30363d',
             borderTop: 'none', overflow: 'auto'
           }}>
-            <code style={{color: '#e6edf3', fontSize: '13px'}}>{seg.content}</code>
+            <code style={{color: '#7ee787', fontSize: '13px', fontFamily: 'monospace'}}>{seg.content}</code>
           </pre>
         </div>
       );
@@ -990,6 +1053,8 @@ export default function App() {
                 imageBase64 = parts[1];
                 imageMediaType = pastedImage.dataUrl.match(/data:([^;]+);/)?.[1] || 'image/png';
             }
+
+            console.log('Sending context:', JSON.stringify(binaryContext).slice(0, 200));
 
             const res = await fetch(`${BACKEND_URL}/chat`, {
                 method: 'POST',
@@ -1912,7 +1977,44 @@ export default function App() {
                                 </div>
                             )}
                             <div className="chat-messages" id="chat-messages" style={{ padding: '16px', gap: '16px' }}>
-                                {chatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i} style={{ padding: '16px' }}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}{msg.role === 'assistant' && msg.response_source === 'cache' && (<span className="response-source-badge response-source-badge--cache" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(46, 160, 67, 0.15)', color: '#3fb950', border: '1px solid rgba(46, 160, 67, 0.4)', display: 'inline-flex', alignItems: 'center' }}>⚡ Instant</span>)}{msg.role === 'assistant' && msg.response_source === 'ai' && (<span className="response-source-badge response-source-badge--ai" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(56, 139, 253, 0.15)', color: '#58a6ff', border: '1px solid rgba(56, 139, 253, 0.4)', display: 'inline-flex', alignItems: 'center' }}>🤖 AI</span>)}</span>{msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}<div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div></div>))}
+                                {chatMessages.map((msg,i)=>(
+                                  <div
+                                    className={`chat-bubble chat-bubble--${msg.role}`}
+                                    key={i}
+                                    style={{
+                                      padding: '16px 20px',
+                                      marginBottom: '20px',
+                                      borderLeft: msg.role === 'assistant' 
+                                        ? '3px solid rgba(56, 139, 253, 0.3)' 
+                                        : '3px solid rgba(63, 185, 80, 0.3)'
+                                    }}
+                                  >
+                                    {msg.role === 'assistant' && (
+                                      <button
+                                        onClick={() => navigator.clipboard.writeText(msg.content)}
+                                        style={{
+                                          background: 'none', border: '1px solid #30363d',
+                                          color: '#6e7681', fontSize: '11px', borderRadius: '4px',
+                                          padding: '2px 8px', cursor: 'pointer', float: 'right',
+                                          marginLeft: '8px'
+                                        }}
+                                      >
+                                        ⎘ Copy
+                                      </button>
+                                    )}
+                                    <span className="chat-bubble-label">
+                                      {msg.role==='user'?'You':'AI Mentor'}
+                                      {msg.role === 'assistant' && msg.response_source === 'cache' && (
+                                        <span className="response-source-badge response-source-badge--cache" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(46, 160, 67, 0.15)', color: '#3fb950', border: '1px solid rgba(46, 160, 67, 0.4)', display: 'inline-flex', alignItems: 'center' }}>⚡ Instant</span>
+                                      )}
+                                      {msg.role === 'assistant' && msg.response_source === 'ai' && (
+                                        <span className="response-source-badge response-source-badge--ai" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(56, 139, 253, 0.15)', color: '#58a6ff', border: '1px solid rgba(56, 139, 253, 0.4)', display: 'inline-flex', alignItems: 'center' }}>🤖 AI</span>
+                                      )}
+                                    </span>
+                                    {msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}
+                                    <div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div>
+                                  </div>
+                                ))}
                                 {chatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={chatEndRef}/>
                             </div>
@@ -2367,7 +2469,43 @@ export default function App() {
                                 </div>
                             )}
                             <div className="chat-messages" id="src-chat-messages" style={{ padding: '16px', gap: '16px' }}>
-                                {srcChatMessages.map((msg,i)=>(<div className={`chat-bubble chat-bubble--${msg.role}`} key={i} style={{ padding: '16px' }}><span className="chat-bubble-label">{msg.role==='user'?'You':'AI Mentor'}{msg.role === 'assistant' && msg.response_source === 'cache' && (<span className="response-source-badge response-source-badge--cache" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(46, 160, 67, 0.15)', color: '#3fb950', border: '1px solid rgba(46, 160, 67, 0.4)', display: 'inline-flex', alignItems: 'center' }}>⚡ Instant</span>)}{msg.role === 'assistant' && msg.response_source === 'ai' && (<span className="response-source-badge response-source-badge--ai" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(56, 139, 253, 0.15)', color: '#58a6ff', border: '1px solid rgba(56, 139, 253, 0.4)', display: 'inline-flex', alignItems: 'center' }}>🤖 AI</span>)}</span><div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div></div>))}
+                                {srcChatMessages.map((msg,i)=>(
+                                  <div
+                                    className={`chat-bubble chat-bubble--${msg.role}`}
+                                    key={i}
+                                    style={{
+                                      padding: '16px 20px',
+                                      marginBottom: '20px',
+                                      borderLeft: msg.role === 'assistant' 
+                                        ? '3px solid rgba(56, 139, 253, 0.3)' 
+                                        : '3px solid rgba(63, 185, 80, 0.3)'
+                                    }}
+                                  >
+                                    {msg.role === 'assistant' && (
+                                      <button
+                                        onClick={() => navigator.clipboard.writeText(msg.content)}
+                                        style={{
+                                          background: 'none', border: '1px solid #30363d',
+                                          color: '#6e7681', fontSize: '11px', borderRadius: '4px',
+                                          padding: '2px 8px', cursor: 'pointer', float: 'right',
+                                          marginLeft: '8px'
+                                        }}
+                                      >
+                                        ⎘ Copy
+                                      </button>
+                                    )}
+                                    <span className="chat-bubble-label">
+                                      {msg.role==='user'?'You':'AI Mentor'}
+                                      {msg.role === 'assistant' && msg.response_source === 'cache' && (
+                                        <span className="response-source-badge response-source-badge--cache" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(46, 160, 67, 0.15)', color: '#3fb950', border: '1px solid rgba(46, 160, 67, 0.4)', display: 'inline-flex', alignItems: 'center' }}>⚡ Instant</span>
+                                      )}
+                                      {msg.role === 'assistant' && msg.response_source === 'ai' && (
+                                        <span className="response-source-badge response-source-badge--ai" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(56, 139, 253, 0.15)', color: '#58a6ff', border: '1px solid rgba(56, 139, 253, 0.4)', display: 'inline-flex', alignItems: 'center' }}>🤖 AI</span>
+                                      )}
+                                    </span>
+                                    <div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div>
+                                  </div>
+                                ))}
                                 {srcChatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
                                 <div ref={srcChatEndRef}/>
                             </div>
