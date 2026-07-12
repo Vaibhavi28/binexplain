@@ -6,7 +6,7 @@
 
 [![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-binexplain.com-brightgreen?style=for-the-badge)](https://binexplain.com)
 [![License: CC BY-NC-ND 4.0](https://img.shields.io/badge/License-CC_BY--NC--ND_4.0-lightgrey?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-230%2B_passing-brightgreen?style=for-the-badge&logo=pytest&logoColor=white)](backend/tests)
+[![Tests](https://img.shields.io/badge/Tests-235_passing-brightgreen?style=for-the-badge&logo=pytest&logoColor=white)](backend/tests)
 [![GitHub Stars](https://img.shields.io/github/stars/Vaibhavi28/binexplain?style=for-the-badge&logo=github&logoColor=white&color=yellow)](https://github.com/Vaibhavi28/binexplain/stargazers)
 [![Last Commit](https://img.shields.io/github/last-commit/Vaibhavi28/binexplain?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Vaibhavi28/binexplain/commits/master)
 
@@ -105,8 +105,8 @@ Every CTF beginner downloads their first binary and has no idea what to do next.
 |---------|---------|
 | 🧠 **Parallel AI Inference** | Groq + Nemotron called simultaneously, responses merged |
 | ✅ **Quality Gate** | Filters generic responses, retries with next provider |
-| 🌐 **RAG Knowledge Base** | 2200+ real CTF writeups from 13 curated sources |
-| 🏷️ **Technique Tagging** | 24 technique tags for hybrid vector + semantic retrieval |
+| 🌐 **RAG Knowledge Base** | 2229 real CTF writeups from 13 curated sources |
+| 🏷️ **Technique Tagging** | 22 technique tags for hybrid vector + semantic retrieval |
 | ⚡ **CAG Caching** | Common patterns served instantly without LLM calls |
 | 💬 **Unlimited Chat** | Auto-summarization keeps sessions going without token limits |
 | 📷 **Screenshot Analysis** | Paste terminal screenshots directly with Ctrl+V |
@@ -147,9 +147,9 @@ ir0nstone ────┤──→ Scraper ──→ ChromaDB ──→ Hybrid R
 how2heap ─────┤         ↑          ↑
 CTF-pwn-tips ─┤    Technique   Vector +
 nobodyisnobody┤    Tagging     Tag Overlap
-GitHub repos ─┘    (24 tags)   Scoring
+GitHub repos ─┘    (22 tags)   Scoring
 ↓
-2200+ indexed writeups
+2229 indexed writeups
 
 ---
 
@@ -166,7 +166,7 @@ GitHub repos ─┘    (24 tags)   Scoring
 | **Input validation** | Pydantic field validators with length caps |
 | **CORS restricted** | Configured domain only, never wildcard |
 | **Security headers** | X-Content-Type-Options, X-Frame-Options |
-| **230+ automated tests** | Unit, integration, CTF scenarios, chaos testing |
+| **235 automated tests** | Unit, integration, CTF scenarios, chaos testing |
 
 ---
 
@@ -221,8 +221,8 @@ python knowledge_base/scraper.py
 ## Project Stats
 Backend:        Python 3.11, FastAPI
 Frontend:       React 18, Vite
-Tests:          230+ passing
-Knowledge Base: 2200+ real CTF writeups across 24 technique categories
+Tests:          235 passing
+Knowledge Base: 2229 real CTF writeups across 22 technique categories
 AI Providers:   5 providers, parallel inference, quality gate, RAG + CAG
 Development:    Months of active development and iteration
 
