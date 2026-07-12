@@ -64,8 +64,52 @@ const CommandBlock = ({ command, binaryContext }) => {
       padding: '6px 14px', background: '#1a1200',
       borderTop: '1px solid #30363d', fontSize: '12px'
     },
-    explanationPanel: { padding: '14px', background: '#0d1117', borderTop: '1px solid #30363d' },
-    explanationText: { color: '#c9d1d9', fontSize: '13px', lineHeight: '1.6', margin: 0 }
+    explanationPanel: {
+      padding: '16px', background: '#0d1117', borderTop: '1px solid #30363d'
+    }
+  };
+
+  // Split explanation into clean lines/sentences for readability
+  const renderExplanation = (text) => {
+    if (!text) return null;
+    // Split by newline first, then by sentence-ending period+space within a line
+    const lines = text.split('\n').flatMap(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return [];
+      // Split numbered list items like "1. ... 2. ..."
+      const numSplit = trimmed.split(/(?=\d+\.\s)/);
+      if (numSplit.length > 1) return numSplit.map(s => s.trim()).filter(Boolean);
+      return [trimmed];
+    });
+
+    return lines.map((line, i) => {
+      const trimmed = line.trim();
+      if (!trimmed) return null;
+      const isNumbered = /^\d+\./.test(trimmed);
+      const isBullet = /^[•\-\+\*]/.test(trimmed);
+      const isSubBullet = /^\s+[•\-\+]/.test(line);
+      return (
+        <div key={i} style={{
+          display: 'flex', gap: '8px', alignItems: 'flex-start',
+          marginBottom: '8px',
+          paddingLeft: isSubBullet ? '16px' : '0'
+        }}>
+          {(isNumbered || isBullet || isSubBullet) ? (
+            <span style={{
+              flexShrink: 0, color: '#58a6ff',
+              fontSize: '12px', marginTop: '2px', minWidth: '16px'
+            }}>
+              {isNumbered ? trimmed.match(/^\d+/)[0] + '.' : '•'}
+            </span>
+          ) : (
+            <span style={{ flexShrink: 0, color: '#388bfd', fontSize: '14px', marginTop: '1px' }}>›</span>
+          )}
+          <span style={{ color: '#c9d1d9', fontSize: '13px', lineHeight: '1.6' }}>
+            {isNumbered ? trimmed.replace(/^\d+\.\s*/, '') : isBullet ? trimmed.slice(1).trim() : trimmed}
+          </span>
+        </div>
+      );
+    }).filter(Boolean);
   };
 
   return (
@@ -105,12 +149,17 @@ const CommandBlock = ({ command, binaryContext }) => {
       )}
 
       {explanation && (
-        <div style={{...styles.explanationPanel, borderTop: '1px solid #30363d'}}>
-          <div style={{fontSize: '11px', color: '#8b949e', marginBottom: '8px',
-            textTransform: 'uppercase', letterSpacing: '0.08em'}}>
-            Command Explanation
+        <div style={styles.explanationPanel}>
+          <div style={{
+            fontSize: '10px', color: '#58a6ff', marginBottom: '12px',
+            textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700,
+            display: 'flex', alignItems: 'center', gap: '6px'
+          }}>
+            <span>💡</span> Command Breakdown
           </div>
-          <p style={styles.explanationText}>{explanation}</p>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {renderExplanation(explanation)}
+          </div>
         </div>
       )}
     </div>
@@ -118,3 +167,4 @@ const CommandBlock = ({ command, binaryContext }) => {
 };
 
 export default CommandBlock;
+

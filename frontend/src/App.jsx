@@ -205,16 +205,14 @@ function CardModal({ title, icon, accent, onClose, children }) {
 
 /* -- Render AI Message Content (parses segment arrays) ------------------ */
 const parseInlineMarkdown = (text) => {
-  if (!text) return '';
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  if (!text) return text;
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
   return parts.map((part, idx) => {
     if (part.startsWith('**') && part.endsWith('**')) {
-      const boldText = part.slice(2, -2);
-      return (
-        <strong key={idx} style={{ color: '#e6edf3', fontWeight: '600' }}>
-          {boldText}
-        </strong>
-      );
+      return <strong key={idx} style={{ color: '#e6edf3' }}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return <code key={idx} style={{ background: '#21262d', padding: '1px 4px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.9em' }}>{part.slice(1, -1)}</code>;
     }
     return part;
   });
@@ -224,93 +222,96 @@ const renderProseMarkdown = (text) => {
   if (!text) return null;
   const lines = text.split('\n');
   const elements = [];
-  let currentList = [];
-
-  const flushList = (key) => {
-    if (currentList.length > 0) {
-      elements.push(
-        <ul key={`list-${key}`} style={{ margin: '0 0 12px 0', paddingLeft: '20px', listStyleType: 'disc' }}>
-          {currentList}
-        </ul>
-      );
-      currentList = [];
-    }
-  };
 
   lines.forEach((line, index) => {
     const trimmed = line.trim();
+    if (!trimmed) return;
+
     if (trimmed === '---') {
-      flushList(index);
-      elements.push(
-        <hr key={`hr-${index}`} style={{ border: 'none', borderTop: '1px solid #21262d', margin: '12px 0' }} />
-      );
-    } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-      const content = trimmed.slice(2);
-      currentList.push(
-        <li key={`li-${index}`} style={{ color: '#c9d1d9', fontSize: '14px', lineHeight: '1.7', marginBottom: '4px' }}>
-          {parseInlineMarkdown(content)}
-        </li>
-      );
-    } else if (trimmed === '') {
-      flushList(index);
-    } else {
-      flushList(index);
-      elements.push(
-        <p key={`p-${index}`} style={{
-          color: '#c9d1d9', fontSize: '14px', lineHeight: '1.7',
-          margin: '0 0 12px 0', padding: '0 4px'
-        }}>
-          {parseInlineMarkdown(line)}
-        </p>
-      );
+      elements.push(<hr key={index} style={{ border: 'none', borderTop: '1px solid #30363d', margin: '16px 0' }} />);
+      return;
     }
+
+    // List item (- * + 1.)
+    const listMatch = trimmed.match(/^([-+*]|\d+\.)\s+(.*)/);
+    if (listMatch) {
+      const indent = line.search(/\S/);
+      const isSubBullet = indent >= 2;
+      elements.push(
+        <div key={index} style={{
+          display: 'flex', gap: '6px', alignItems: 'flex-start',
+          paddingLeft: isSubBullet ? '20px' : '0',
+          color: isSubBullet ? '#8b949e' : '#c9d1d9',
+          fontSize: '14px', lineHeight: '1.7', marginBottom: '6px'
+        }}>
+          <span style={{ flexShrink: 0, marginTop: '2px', color: isSubBullet ? '#6e7681' : '#58a6ff' }}>
+            {isSubBullet ? '◦' : '•'}
+          </span>
+          <span>{parseInlineMarkdown(listMatch[2])}</span>
+        </div>
+      );
+      return;
+    }
+
+    elements.push(
+      <p key={`p-${index}`} style={{
+        color: '#c9d1d9', fontSize: '14px', lineHeight: '1.7',
+        margin: '0 0 10px 0'
+      }}>
+        {parseInlineMarkdown(line)}
+      </p>
+    );
   });
 
-  flushList(lines.length);
-  return elements;
+  return elements.length > 0 ? elements : null;
 };
 
 const renderAIMessage = (content, binaryContext) => {
   const segments = parseAIResponse(content);
-  return segments.map((seg, i) => {
-    if (seg.type === 'prose') {
-      return (
-        <div key={i}>
-          {renderProseMarkdown(seg.content)}
-        </div>
-      );
-    }
-    if (seg.type === 'command') {
-      return <CommandBlock key={i} command={seg.content} binaryContext={binaryContext} />;
-    }
-    if (seg.type === 'code') {
-      return (
-        <div key={i} style={{margin: '8px 0'}}>
-          <div style={{
-            display: 'flex', justifyContent: 'space-between',
-            background: '#161b22', padding: '4px 12px',
-            borderRadius: '6px 6px 0 0', borderBottom: '1px solid #30363d'
-          }}>
-            <span style={{color: '#8b949e', fontSize: '11px'}}>{seg.language}</span>
-            <button
-              style={{background: 'none', border: 'none', color: '#8b949e',
-                fontSize: '12px', cursor: 'pointer'}}
-              onClick={() => navigator.clipboard.writeText(seg.content)}>
-              ⎘ Copy
-            </button>
-          </div>
-          <pre style={{
-            background: '#0d1117', padding: '12px 16px', margin: 0,
-            borderRadius: '0 0 6px 6px', border: '1px solid #30363d',
-            borderTop: 'none', overflow: 'auto'
-          }}>
-            <code style={{color: '#7ee787', fontSize: '13px', fontFamily: 'monospace'}}>{seg.content}</code>
-          </pre>
-        </div>
-      );
-    }
-    return null;
-  });
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      {segments.map((seg, i) => {
+        if (seg.type === 'prose') {
+          return (
+            <div key={i}>
+              {renderProseMarkdown(seg.content)}
+            </div>
+          );
+        }
+        if (seg.type === 'command') {
+          return <CommandBlock key={i} command={seg.content} binaryContext={binaryContext} />;
+        }
+        if (seg.type === 'code') {
+          return (
+            <div key={i} style={{ margin: '4px 0' }}>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between',
+                background: '#161b22', padding: '6px 12px',
+                borderRadius: '6px 6px 0 0', borderBottom: '1px solid #30363d'
+              }}>
+                <span style={{ color: '#8b949e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {seg.language || 'code'}
+                </span>
+                <button
+                  style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: '12px', cursor: 'pointer' }}
+                  onClick={() => navigator.clipboard.writeText(seg.content)}>
+                  ⎘ Copy
+                </button>
+              </div>
+              <pre style={{
+                background: '#0d1117', padding: '14px 16px', margin: 0,
+                borderRadius: '0 0 6px 6px', border: '1px solid #30363d',
+                borderTop: 'none', overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all'
+              }}>
+                <code style={{ color: '#7ee787', fontSize: '13px', fontFamily: "'JetBrains Mono', monospace" }}>{seg.content}</code>
+              </pre>
+            </div>
+          );
+        }
+        return null;
+      })}
+    </div>
+  );
 };
 
 /* -- App ------------------------------------------------------------- */
