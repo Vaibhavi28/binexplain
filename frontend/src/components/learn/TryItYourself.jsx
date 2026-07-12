@@ -29,11 +29,7 @@ const CARDS = [
       'printf() without format argument detected',
       'Similar writeups from knowledge base',
       'fmtstr_payload usage in AI hints'
-    ],
-    hasDemoPath: '/demos/schooled',
-    demoName: 'schooled',
-    demoSource: 'picoCTF 2022',
-    demoLicense: 'Public CTF challenge, freely distributable'
+    ]
   },
   {
     id: 'heap_exploitation',
@@ -47,7 +43,11 @@ const CARDS = [
       'Heap functions detected (malloc/free)',
       'Menu structure detected in strings',
       'AI hints reference specific heap technique'
-    ]
+    ],
+    hasDemoPath: '/demos/schooled',
+    demoName: 'schooled',
+    demoSource: 'MetaCTF Flash CTF — "Schooled"',
+    demoLicense: 'Public CTF challenge, freely distributable'
   },
   {
     id: 'ret2libc',
