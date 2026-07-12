@@ -4656,6 +4656,48 @@ body {
   }
 }
 
+/* ── TryItYourself sidebar layout ─────────────────────────────────── */
+.tiy-layout {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.tiy-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 80px;
+  height: fit-content;
+  border-right: 1px solid #21262d;
+  padding-right: 24px;
+}
+
+.tiy-content {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .tiy-layout {
+    flex-direction: column;
+    gap: 20px;
+  }
+  .tiy-sidebar {
+    width: 100%;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid #21262d;
+    padding-right: 0;
+    padding-bottom: 16px;
+  }
+  .tiy-sidebar nav {
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+}
+
 .docs-sidebar {
   width: 260px;
   position: sticky;
