@@ -733,16 +733,10 @@ function CategoryDetail({ cat, onSectionChange }) {
         background: 'rgba(56,139,253,0.06)', border: '1px solid rgba(56,139,253,0.3)',
         borderRadius: '10px', padding: '20px', marginBottom: '28px'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap', marginBottom: '14px' }}>
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#79c0ff', marginBottom: '4px' }}>
-              🎯 Demo Binary Available
-            </div>
-            <div style={{ fontSize: '12px', color: '#8b949e' }}>
-              {cat.demoSource} — {cat.demoLicense}
-            </div>
-          </div>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: '#79c0ff', marginBottom: '14px' }}>
+          🎯 Demo Binary — try BinExplain on a real challenge binary
         </div>
+
         <button
           onClick={handleAnalyzeDemo}
           disabled={demoLoading}
@@ -774,7 +768,7 @@ function CategoryDetail({ cat, onSectionChange }) {
           Try your own binary on BinExplain →
         </a>
         <button
-          onClick={() => { if (onSectionChange) onSectionChange('flowchart'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          onClick={() => { if (onSectionChange) onSectionChange('flowchart'); }}
           style={{
             flex: '1 1 160px', padding: '11px 16px', borderRadius: '8px',
             background: 'transparent', color: '#8b949e',

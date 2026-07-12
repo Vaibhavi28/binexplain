@@ -78,35 +78,7 @@ export default function Learn() {
         ))}
       </div>
 
-      {/* Progress Breadcrumb */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '40px' }}>
-        <div style={{
-          fontSize: '13px',
-          color: 'var(--text-secondary)',
-          padding: '10px 18px',
-          background: '#161b22',
-          borderRadius: '8px',
-          border: '1px solid #21262d',
-          lineHeight: '1.5',
-          textAlign: 'center',
-          maxWidth: '700px'
-        }}>
-          You are in:{' '}
-          <strong style={{ color: '#58a6ff' }}>
-            {sections.find(s => s.id === activeSection)?.label}
-          </strong>
-          {' — '}
-          <span>
-            {activeSection === 'binary' && 'Visual interactive guide to standard ELF binary layouts, headers, and sections.'}
-            {activeSection === 'protections' && 'Explore active memory protection switches like NX, PIE, Canaries, and RELRO.'}
-            {activeSection === 'flowchart' && 'Step through decision-tree classification paths to identify vulnerabilities.'}
-            {activeSection === 'techniques' && 'In-depth analysis of core exploitation categories, payloads, and steps.'}
-            {activeSection === 'relations' && 'Interactive map connecting dangerous functions, security flaws, techniques, and counters.'}
-            {activeSection === 'realworld' && 'Real-world exploits, CVEs, impacts, and developer lessons mapped to each pwn technique.'}
-            {activeSection === 'tryit' && 'Target practice suggestions, pwn checklists, and templates to start exploiting binaries.'}
-          </span>
-        </div>
-      </div>
+
 
       {/* Section content */}
       <div>
@@ -177,10 +149,7 @@ export default function Learn() {
             }}>
               {prevSection ? (
                 <button
-                  onClick={() => {
-                    setActiveSection(prevSection.id);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
+                  onClick={() => setActiveSection(prevSection.id)}
                   style={{
                     padding: '10px 20px', borderRadius: '8px', background: '#21262d',
                     border: '1px solid #30363d', color: '#c9d1d9', fontSize: '13px',
@@ -197,10 +166,7 @@ export default function Learn() {
 
               {nextSection ? (
                 <button
-                  onClick={() => {
-                    setActiveSection(nextSection.id);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
+                  onClick={() => setActiveSection(nextSection.id)}
                   style={{
                     padding: '10px 20px', borderRadius: '8px', background: '#388bfd',
                     border: 'none', color: '#fff', fontSize: '13px',

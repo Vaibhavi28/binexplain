@@ -664,10 +664,7 @@ export default function BinaryRuntimeWalkthrough({ onNavigate }) {
           flexWrap: 'wrap'
         }}>
           <button
-            onClick={() => {
-              if (onNavigate) onNavigate('flowchart');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
+            onClick={() => { if (onNavigate) onNavigate('flowchart'); }}
             style={{
               background: '#388bfd',
               border: 'none',
@@ -684,10 +681,7 @@ export default function BinaryRuntimeWalkthrough({ onNavigate }) {
             ➔ See Exploitation Flowchart
           </button>
           <button
-            onClick={() => {
-              if (onNavigate) onNavigate('tryit');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
+            onClick={() => { if (onNavigate) onNavigate('tryit'); }}
             style={{
               background: 'transparent',
               border: '1px solid #30363d',
