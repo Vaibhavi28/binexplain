@@ -45,22 +45,9 @@
 
 ---
 
-## Detection Accuracy
-
-Category detection is evaluated automatically on every commit against
-labeled binaries compiled from [shellphish/how2heap](https://github.com/shellphish/how2heap).
-
-See [full evaluation report](backend/evaluation/results/evaluation_report.md).
-
-<!-- METRICS_BADGE_START -->
-*Run CI to generate live metrics*
-<!-- METRICS_BADGE_END -->
-
----
-
 ## What Problem Does This Solve
 
-Every CTF beginner downloads their first binary and has no idea what to do next. Professional tools like Ghidra cost hundreds of dollars or assume expert knowledge. No free tool explains what the analysis **means** or tells you what to do next.
+Every CTF beginner downloads their first binary and has no idea what to do next. Professional tools like Ghidra assume expert knowledge. No free tool explains what the analysis **means** or tells you what to do next.
 
 **BinExplain acts like a senior CTF player sitting next to you.**
 
@@ -103,53 +90,72 @@ Every CTF beginner downloads their first binary and has no idea what to do next.
 
 | Feature | Details |
 |---------|---------|
-| 🧠 **Parallel AI Inference** | Groq + Nemotron called simultaneously, responses merged |
-| ✅ **Quality Gate** | Filters generic responses, retries with next provider |
-| 🌐 **RAG Knowledge Base** | 2229 real CTF writeups from 13 curated sources |
-| 🏷️ **Technique Tagging** | 22 technique tags for hybrid vector + semantic retrieval |
-| ⚡ **CAG Caching** | Common patterns served instantly without LLM calls |
-| 💬 **Unlimited Chat** | Auto-summarization keeps sessions going without token limits |
+| 🧠 **Parallel AI Inference** | Groq + Nemotron called simultaneously via asyncio, responses merged |
+| ✅ **Quality Gate** | Two-pass filter rejects generic responses, retries with next provider |
+| 🌐 **RAG Knowledge Base** | 6,400+ real CTF writeups from 8 curated sources |
+| 🏷️ **Technique Tagging** | 24 technique tags for hybrid vector + tag-overlap retrieval |
+| ⚡ **CAG Caching** | Common patterns served instantly — 80%+ cache hit rate |
+| 💬 **Unlimited Chat** | Auto-summarization every 10 messages — no context loss |
 | 📷 **Screenshot Analysis** | Paste terminal screenshots directly with Ctrl+V |
-| 🔧 **Visual Command Explainer** | Word-by-word command breakdown diagram |
+| 🔧 **Visual Command Explainer** | Word-by-word command breakdown with inline diagram |
 | 📖 **Interactive Glossary** | Hover over technical terms for plain English explanations |
+
+### Learn Page
+
+| Feature | Details |
+|---------|---------|
+| 📚 **Zero-Knowledge Explainer** | Teaches binary analysis from absolute beginner level |
+| 🏗️ **ELF Structure Diagram** | Interactive clickable sections — .text, stack, heap, GOT/PLT |
+| 🔒 **Protections Toggle Map** | Live toggle NX/PIE/Canary/RELRO — see which attacks survive |
+| 🌳 **Exploitation Flowchart** | Decision tree: answer 5 questions, arrive at your technique |
+| 🎬 **Animated Technique Dives** | 6 animated memory diagrams — one per exploitation category |
+| 🌍 **Real World CVE Map** | Each technique mapped to real CVEs with full attack story |
+| 🔗 **Relationship Map** | Function → vulnerability → technique → mitigation, all connected |
+| 🧪 **Try It Yourself** | Pre-loaded demo binaries — click Analyze, see results instantly |
 
 ---
 
 ## AI Architecture
 
 ### Parallel Inference
+
+```
 Binary uploaded → Static analysis (2-3 seconds)
-↓
+        ↓
 ┌─────────────────────┐    ┌──────────────────────────────┐
 │ Groq llama-3.3-70b  │    │ Nemotron 3 Ultra (550B MoE)  │
 │ Fast — 1-3 seconds  │    │ Deep — 8-15 seconds          │
 └─────────────────────┘    └──────────────────────────────┘
-↓                              ↓
-Quick hints shown            Enhanced hints ready
-immediately                        ↓
-✅ Quality gate filters generic responses
-↓
-Groq merges both into one answer
+         ↓                              ↓
+   Quick hints shown            Deep hints ready
+   immediately                        ↓
+                        ✅ Quality gate — rejects generic responses
+                                      ↓
+                          Groq merges both into one answer
+```
 
 ### Sequential Fallback Chain
 
-Groq (llama-3.3-70b)       — Free, fastest
-Nemotron 3 Ultra            — Free via OpenRouter, deepest reasoning
-Gemini 2.5 Flash            — Free, strong capability
-OpenAI GPT-4o-mini          — Paid fallback
-Claude                      — Last resort
-
+```
+1. Groq (llama-3.3-70b)    — Free, fastest
+2. Nemotron 3 Ultra         — Free via OpenRouter, 550B MoE
+3. Gemini 2.5 Flash         — Free, strong capability
+4. OpenAI GPT-4o-mini       — Paid fallback
+5. Claude                   — Last resort
+```
 
 ### RAG Pipeline
+
+```
 CTFtime ──────┐
 Nightmare ────┤
-ir0nstone ────┤──→ Scraper ──→ ChromaDB ──→ Hybrid Retrieval
-how2heap ─────┤         ↑          ↑
-CTF-pwn-tips ─┤    Technique   Vector +
-nobodyisnobody┤    Tagging     Tag Overlap
-GitHub repos ─┘    (22 tags)   Scoring
-↓
-2229 indexed writeups
+ir0nstone ────┤
+how2heap ─────┤──→ Scraper → quality filter → ChromaDB → Hybrid Retrieval
+CTF-pwn-tips ─┤              deduplication              vector similarity
+nobodyisnobody┤              credential filter        + technique tag overlap
+GitHub repos ──┤              24 category targets               ↓
+Medium articles┘                                    6,400+ indexed writeups
+```
 
 ---
 
@@ -162,17 +168,18 @@ GitHub repos ─┘    (22 tags)   Scoring
 | **Immediate file deletion** | try/finally — deleted even on crash |
 | **No data storage** | Conversation lives only in browser |
 | **ZIP bomb protection** | Max 20 files, 10MB per archive |
-| **Rate limiting** | Per-IP limits on all expensive endpoints |
+| **Rate limiting** | Per-IP limits on analyze, chat, explain-command |
 | **Input validation** | Pydantic field validators with length caps |
 | **CORS restricted** | Configured domain only, never wildcard |
-| **Security headers** | X-Content-Type-Options, X-Frame-Options |
-| **235 automated tests** | Unit, integration, CTF scenarios, chaos testing |
+| **Security headers** | X-Content-Type-Options, X-Frame-Options, Referrer-Policy |
+| **235+ automated tests** | Unit, integration, CTF scenarios, chaos testing |
 
 ---
 
 ## Quick Start
 
 ### Use the Live Tool
+
 👉 **[binexplain.com](https://binexplain.com)** — No installation. Works in any browser.
 
 ### Run Locally
@@ -207,33 +214,41 @@ python knowledge_base/scraper.py
 
 | Provider | Get Key | Used For | Cost |
 |----------|---------|---------|------|
-| **Groq** | [console.groq.com](https://console.groq.com) | Primary AI (parallel) | Free |
+| **Groq** | [console.groq.com](https://console.groq.com) | Primary AI — parallel inference | Free |
 | **OpenRouter** | [openrouter.ai](https://openrouter.ai) | Nemotron 3 Ultra | Free |
 | **Gemini** | [aistudio.google.com](https://aistudio.google.com) | Fallback + Vision | Free |
 | OpenAI | [platform.openai.com](https://platform.openai.com) | Paid fallback | Paid |
-| VirusTotal | [virustotal.com](https://virustotal.com) | Optional scan | Free |
-| Anthropic | [console.anthropic.com](https://console.anthropic.com) | Last resort | Paid |
+| VirusTotal | [virustotal.com](https://virustotal.com) | Optional malware scan | Free |
+| Anthropic | [console.anthropic.com](https://console.anthropic.com) | Last resort fallback | Paid |
 
 > Full functionality available with only free-tier keys (Groq + OpenRouter + Gemini).
 
 ---
 
 ## Project Stats
-Backend:        Python 3.11, FastAPI
-Frontend:       React 18, Vite
-Tests:          235 passing
-Knowledge Base: 2229 real CTF writeups across 22 technique categories
-AI Providers:   5 providers, parallel inference, quality gate, RAG + CAG
-Development:    Months of active development and iteration
+
+| | |
+|--|--|
+| **Backend** | Python 3.11, FastAPI, 6,400+ line main.py |
+| **Frontend** | React 18, Vite, anime.js |
+| **Tests** | 235+ passing (unit, integration, CTF scenarios, chaos) |
+| **Knowledge Base** | 6,400+ real CTF writeups across 24 technique categories |
+| **AI Providers** | 5 providers, parallel inference, quality gate, RAG + CAG |
+| **Development** | Months of active development and iteration |
 
 ---
 
 ## Roadmap
-v1  ✅  Web app — live at binexplain.com
-v2  🔄  CLI tool (pip install binexplain)
-v2  🔄  Dynamic analysis sandbox
-v3  📋  MCP server for AI assistant integration
-v3  📋  Browser extension for CTFtime and HackTheBox
+
+| Status | Version | Feature |
+|--------|---------|---------|
+| ✅ | v1 | Web app — live at binexplain.com |
+| ✅ | v1 | Interactive Learn page with 6 animated technique dives |
+| ✅ | v1 | Pre-loaded demo binaries for all 6 CTF categories |
+| 🔄 | v2 | CLI tool — `pip install binexplain` |
+| 🔄 | v2 | Dynamic analysis sandbox (strace, ltrace automation) |
+| 📋 | v3 | MCP server for AI assistant integration |
+| 📋 | v3 | Browser extension for CTFtime and HackTheBox |
 
 ---
 
@@ -267,7 +282,7 @@ Only analyze files you own or have explicit permission to analyze.
 
 Built with ❤️ for the CTF community
 
-⭐ **If BinExplain helped you solve a challenge, please star this repo!** ⭐
+⭐ **If BinExplain helped you solve a challenge, please star this repo** ⭐
 
 [binexplain.com](https://binexplain.com) · [GitHub Issues](https://github.com/Vaibhavi28/binexplain/issues) · [hello@binexplain.com](mailto:hello@binexplain.com)
 
