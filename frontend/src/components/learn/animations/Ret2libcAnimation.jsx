@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
 export default function Ret2libcAnimation() {
+  const [speed, setSpeed] = useState(1); // 1 = normal, 0.5 = slow
+  const sleep = ms => new Promise(r => setTimeout(r, ms * (1 / speed)));
   const [phase, setPhase] = useState(0);
   const [libcBase, setLibcBase] = useState('???');
   const [systemAddr, setSystemAddr] = useState('???');
@@ -32,7 +32,7 @@ export default function Ret2libcAnimation() {
   const play = async () => {
     if (playing) return;
     resetAll();
-    await sleep(60);
+    await sleep(108);
     cancelRef.current = false;
     setPlaying(true);
 
@@ -45,30 +45,30 @@ export default function Ret2libcAnimation() {
     }
 
     // Phase 1: Leak
-    setPhase(1); await sleep(800);
+    setPhase(1); await sleep(1440); await sleep(600); // reading pause
     if (cancelRef.current) return;
     setPhase(2);
     const leaked = '0x7f4abc000000';
     setLibcBase(leaked);
-    await sleep(800);
+    await sleep(1440); await sleep(600); // reading pause
     if (cancelRef.current) return;
     setSystemAddr('0x7f4abc052290');
 
     // Phase 2: Build payload
-    await sleep(600);
+    await sleep(1080); await sleep(600); // reading pause
     if (cancelRef.current) return;
     setPhase(3);
     for (let i = 0; i < PAYLOAD.length; i++) {
       if (cancelRef.current) return;
       setPayloadRow(i);
-      await sleep(500);
+      await sleep(900); await sleep(600); // reading pause
     }
 
     const msg = '[+] libc base: 0x7f4abc000000\n[+] system(): 0x7f4abc052290\n[+] Sending payload...\n$ id\nuid=0(root) gid=0(root)';
     for (let i = 0; i <= msg.length; i++) {
       if (cancelRef.current) return;
       setTermText(msg.slice(0, i));
-      await sleep(16);
+      await sleep(35);
     }
     setPlaying(false);
   };
@@ -171,7 +171,18 @@ export default function Ret2libcAnimation() {
           background: playing ? '#21262d' : '#238636',
           border: '1px solid #2ea043', color: 'white', opacity: playing ? 0.6 : 1,
         }}>
-          {playing ? 'Animating...' : phase === 0 ? '▶ Play Animation' : '↺ Replay'}
+          {playing ? '▶ Animating...' : phase === 0 ? '▶ Play Animation' : '↺ Replay'}
+        </button>
+        <button
+          onClick={() => setSpeed(s => s === 1 ? 0.5 : 1)}
+          disabled={playing}
+          style={{
+            padding: '9px 14px', borderRadius: '6px', fontSize: '12px',
+            cursor: playing ? 'not-allowed' : 'pointer', background: '#21262d',
+            border: '1px solid #30363d', color: '#8b949e', opacity: playing ? 0.6 : 1,
+          }}
+        >
+          {speed === 1 ? '🐢 Slow Mode' : '⚡ Normal Speed'}
         </button>
         {phase > 0 && !playing && (
           <button onClick={resetAll} style={{

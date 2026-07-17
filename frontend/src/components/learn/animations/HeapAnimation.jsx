@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
 export default function HeapAnimation() {
+  const [speed, setSpeed] = useState(1); // 1 = normal, 0.5 = slow
   const [phase, setPhase] = useState(0);
+  const sleep = ms => new Promise(r => setTimeout(r, ms * (1 / speed)));
   const [playing, setPlaying] = useState(false);
   const [termText, setTermText] = useState('');
   const [freeList, setFreeList] = useState([]);
@@ -32,7 +32,7 @@ export default function HeapAnimation() {
   const play = async () => {
     if (playing) return;
     resetAll();
-    await sleep(60);
+    await sleep(108);
     cancelRef.current = false;
     setPlaying(true);
 
@@ -45,14 +45,14 @@ export default function HeapAnimation() {
       return;
     }
 
-    setPhase(1); await sleep(700);
+    setPhase(1); await sleep(1260); await sleep(600); // reading pause
     if (cancelRef.current) return;
-    setPhase(2); await sleep(700);
+    setPhase(2); await sleep(1260); await sleep(600); // reading pause
     if (cancelRef.current) return;
-    setPhase(3); setFreeList(['B']); await sleep(900);
+    setPhase(3); setFreeList(['B']); await sleep(1620); await sleep(600); // reading pause
     if (cancelRef.current) return;
     setPhase(4); setFreeList([]);
-    setShowWarning(true); await sleep(700);
+    setShowWarning(true); await sleep(1260); await sleep(600); // reading pause
     if (cancelRef.current) return;
 
     const msg = 'malloc(64) returned 0x5588abc12340\nSame address as freed Chunk B!\nChunk C overlaps Chunk B — attacker data written';
@@ -60,7 +60,7 @@ export default function HeapAnimation() {
     for (let i = 0; i <= msg.length; i++) {
       if (cancelRef.current) return;
       setTermText(msg.slice(0, i));
-      await sleep(16);
+      await sleep(35);
     }
     setPhase(5);
     setPlaying(false);
@@ -154,7 +154,18 @@ export default function HeapAnimation() {
           background: playing ? '#21262d' : '#238636',
           border: '1px solid #2ea043', color: 'white', opacity: playing ? 0.6 : 1,
         }}>
-          {playing ? 'Animating...' : phase === 0 ? '▶ Play Animation' : '↺ Replay'}
+          {playing ? '▶ Animating...' : phase === 0 ? '▶ Play Animation' : '↺ Replay'}
+        </button>
+        <button
+          onClick={() => setSpeed(s => s === 1 ? 0.5 : 1)}
+          disabled={playing}
+          style={{
+            padding: '9px 14px', borderRadius: '6px', fontSize: '12px',
+            cursor: playing ? 'not-allowed' : 'pointer', background: '#21262d',
+            border: '1px solid #30363d', color: '#8b949e', opacity: playing ? 0.6 : 1,
+          }}
+        >
+          {speed === 1 ? '🐢 Slow Mode' : '⚡ Normal Speed'}
         </button>
         {phase > 0 && !playing && (
           <button onClick={resetAll} style={{

@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
 export default function RopChainAnimation() {
+  const [speed, setSpeed] = useState(1); // 1 = normal, 0.5 = slow
+  const sleep = ms => new Promise(r => setTimeout(r, ms * (1 / speed)));
   const [phase, setPhase] = useState(0);
   const [activeGadget, setActiveGadget] = useState(-1);
   const [registers, setRegisters] = useState({ rdi: '???', rip: '???' });
@@ -34,7 +34,7 @@ export default function RopChainAnimation() {
   const play = async () => {
     if (playing) return;
     resetAll();
-    await sleep(60);
+    await sleep(108);
     cancelRef.current = false;
     setPlaying(true);
 
@@ -46,7 +46,7 @@ export default function RopChainAnimation() {
       return;
     }
 
-    setPhase(1); await sleep(600);
+    setPhase(1); await sleep(1080); await sleep(600); // reading pause
     if (cancelRef.current) return;
 
     setPhase(2);
@@ -56,7 +56,7 @@ export default function RopChainAnimation() {
       if (i === 0) setRegisters(r => ({ ...r, rip: '0x401234' }));
       if (i === 1) setRegisters({ rdi: '0x7fabc1b3e1a', rip: '0x7f...1b3e' });
       if (i === 2) setRegisters(r => ({ ...r, rip: '0x7f...5229' }));
-      await sleep(900);
+      await sleep(1620); await sleep(600); // reading pause
     }
 
     if (cancelRef.current) return;
@@ -65,7 +65,7 @@ export default function RopChainAnimation() {
     for (let i = 0; i <= msg.length; i++) {
       if (cancelRef.current) return;
       setTermText(msg.slice(0, i));
-      await sleep(15);
+      await sleep(35);
     }
     setPlaying(false);
   };
@@ -174,7 +174,18 @@ export default function RopChainAnimation() {
           background: playing ? '#21262d' : '#238636',
           border: '1px solid #2ea043', color: 'white', opacity: playing ? 0.6 : 1,
         }}>
-          {playing ? 'Animating...' : phase === 0 ? '▶ Play Animation' : '↺ Replay'}
+          {playing ? '▶ Animating...' : phase === 0 ? '▶ Play Animation' : '↺ Replay'}
+        </button>
+        <button
+          onClick={() => setSpeed(s => s === 1 ? 0.5 : 1)}
+          disabled={playing}
+          style={{
+            padding: '9px 14px', borderRadius: '6px', fontSize: '12px',
+            cursor: playing ? 'not-allowed' : 'pointer', background: '#21262d',
+            border: '1px solid #30363d', color: '#8b949e', opacity: playing ? 0.6 : 1,
+          }}
+        >
+          {speed === 1 ? '🐢 Slow Mode' : '⚡ Normal Speed'}
         </button>
         {phase > 0 && !playing && (
           <button onClick={resetAll} style={{

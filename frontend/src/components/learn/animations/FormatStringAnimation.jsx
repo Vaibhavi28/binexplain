@@ -15,6 +15,7 @@ const LEAKED_VALUES = [
 ];
 
 export default function FormatStringAnimation() {
+  const [speed, setSpeed] = useState(1); // 1 = normal, 0.5 = slow
   const [phase, setPhase] = useState(0);
   const [inputText, setInputText] = useState('');
   const [revealed, setRevealed] = useState([false, false, false, false]);
@@ -33,12 +34,12 @@ export default function FormatStringAnimation() {
     setPlaying(false); setTermText(''); setHighlight4(false);
   };
 
-  const sleep = ms => new Promise(r => (timerRef.current = setTimeout(r, ms)));
+  const sleep = ms => new Promise(r => (timerRef.current = setTimeout(r, ms * (1 / speed))));
 
   const play = async () => {
     if (playing) return;
     resetAll();
-    await sleep(50);
+    await sleep(90);
     setPlaying(true);
 
     if (reducedMotion.current) {
@@ -53,22 +54,22 @@ export default function FormatStringAnimation() {
 
     // Phase 1 — show stack
     setPhase(1);
-    await sleep(600);
+    await sleep(1080); await sleep(600); // reading pause
 
     // Phase 2 — type the format string
     setPhase(2);
     const fmt = '%p.%p.%p.%p';
     for (let i = 0; i <= fmt.length; i++) {
       setInputText(fmt.slice(0, i));
-      await sleep(80);
+      await sleep(144);
     }
-    await sleep(400);
+    await sleep(720); await sleep(600); // reading pause
 
     // Phase 3 — reveal each stack value one by one
     setPhase(3);
     for (let i = 0; i < 4; i++) {
       setRevealed(prev => { const n = [...prev]; n[i] = true; return n; });
-      await sleep(500);
+      await sleep(900); await sleep(600); // reading pause
     }
 
     // Terminal output typewriter
@@ -76,10 +77,10 @@ export default function FormatStringAnimation() {
     setTermText('');
     for (let i = 0; i <= output.length; i++) {
       setTermText(output.slice(0, i));
-      await sleep(18);
+      await sleep(35);
     }
 
-    await sleep(600);
+    await sleep(1080);
     // Phase 4 — highlight the buffer position
     setHighlight4(true);
     setPlaying(false);
@@ -176,7 +177,18 @@ export default function FormatStringAnimation() {
           background: playing ? '#21262d' : '#238636',
           border: '1px solid #2ea043', color: 'white', opacity: playing ? 0.6 : 1,
         }}>
-          {playing ? 'Animating...' : phase === 0 ? '▶ Play Animation' : '↺ Replay'}
+          {playing ? '▶ Animating...' : phase === 0 ? '▶ Play Animation' : '↺ Replay'}
+        </button>
+        <button
+          onClick={() => setSpeed(s => s === 1 ? 0.5 : 1)}
+          disabled={playing}
+          style={{
+            padding: '9px 14px', borderRadius: '6px', fontSize: '12px',
+            cursor: playing ? 'not-allowed' : 'pointer', background: '#21262d',
+            border: '1px solid #30363d', color: '#8b949e', opacity: playing ? 0.6 : 1,
+          }}
+        >
+          {speed === 1 ? '🐢 Slow Mode' : '⚡ Normal Speed'}
         </button>
         {phase > 0 && !playing && (
           <button onClick={resetAll} style={{

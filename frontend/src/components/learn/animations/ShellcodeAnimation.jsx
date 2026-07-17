@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
 const SHELLCODE_BYTES = [
   '\\x48', '\\x31', '\\xff', '\\x48', '\\x31', '\\xd2',
   '\\x48', '\\x31', '\\xf6', '\\x0f', '\\x05', '...',
 ];
 
 export default function ShellcodeAnimation() {
+  const [speed, setSpeed] = useState(1);
+  const sleep = ms => new Promise(r => setTimeout(r, ms * (1 / speed)));
   const [phase, setPhase] = useState(0);
   const [bytesFilled, setBytesFilled] = useState(0);
   const [retHijacked, setRetHijacked] = useState(false);
@@ -30,7 +30,7 @@ export default function ShellcodeAnimation() {
   const play = async () => {
     if (playing) return;
     resetAll();
-    await sleep(60);
+    await sleep(108);
     cancelRef.current = false;
     setPlaying(true);
 
@@ -42,7 +42,7 @@ export default function ShellcodeAnimation() {
       return;
     }
 
-    setPhase(1); await sleep(700);
+    setPhase(1); await sleep(1260); await sleep(600); // reading pause
     if (cancelRef.current) return;
 
     // Phase 2: write shellcode bytes
@@ -50,25 +50,25 @@ export default function ShellcodeAnimation() {
     for (let i = 0; i <= SHELLCODE_BYTES.length; i++) {
       if (cancelRef.current) return;
       setBytesFilled(i);
-      await sleep(120);
+      await sleep(216);
     }
 
     // Phase 3: overwrite return address
-    await sleep(300);
+    await sleep(540); await sleep(600); // reading pause
     if (cancelRef.current) return;
     setPhase(3); setRetHijacked(true);
-    await sleep(700);
+    await sleep(1260); await sleep(600); // reading pause
 
     // Phase 4: execute
     if (cancelRef.current) return;
     setPhase(4); setExecuting(true);
-    await sleep(400);
+    await sleep(720); await sleep(600); // reading pause
 
     const msg = 'execve("/bin/sh", NULL, NULL) called\n\nsh: $ id\nuid=0(root) gid=0(root)\nsh: $ cat flag.txt\nflag{shellc0de_runs_when_NX_is_0ff}';
     for (let i = 0; i <= msg.length; i++) {
       if (cancelRef.current) return;
       setTermText(msg.slice(0, i));
-      await sleep(15);
+      await sleep(35);
     }
     setPlaying(false);
   };
@@ -162,7 +162,18 @@ export default function ShellcodeAnimation() {
           background: playing ? '#21262d' : '#238636',
           border: '1px solid #2ea043', color: 'white', opacity: playing ? 0.6 : 1,
         }}>
-          {playing ? 'Animating...' : phase === 0 ? '▶ Play Animation' : '↺ Replay'}
+          {playing ? '▶ Animating...' : phase === 0 ? '▶ Play Animation' : '↺ Replay'}
+        </button>
+        <button
+          onClick={() => setSpeed(s => s === 1 ? 0.5 : 1)}
+          disabled={playing}
+          style={{
+            padding: '9px 14px', borderRadius: '6px', fontSize: '12px',
+            cursor: playing ? 'not-allowed' : 'pointer', background: '#21262d',
+            border: '1px solid #30363d', color: '#8b949e', opacity: playing ? 0.6 : 1,
+          }}
+        >
+          {speed === 1 ? '🐢 Slow Mode' : '⚡ Normal Speed'}
         </button>
         {phase > 0 && !playing && (
           <button onClick={resetAll} style={{

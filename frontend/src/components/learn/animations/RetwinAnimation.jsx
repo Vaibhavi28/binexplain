@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 export default function RetwinAnimation() {
+  const [speed, setSpeed] = useState(1); // 1 = normal, 0.5 = slow
   const [stage, setStage] = useState(0);
   const [byteCount, setByteCount] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -61,7 +62,7 @@ export default function RetwinAnimation() {
       onChar(text.slice(0, i + 1));
       i++;
       if (i >= text.length) clearInterval(id);
-    }, 22);
+    }, 35 * (1 / speed));
     counterRef.current = id;
   };
 
@@ -92,6 +93,9 @@ export default function RetwinAnimation() {
     if (reducedMotion.current) { jumpToFinal(); return; }
     setPlaying(true);
 
+    const scale = (val) => val * 1.8 * (1 / speed);
+    const scaleWithPause = (val) => (val * 1.8 + 600) * (1 / speed);
+
     const anime = (await import('animejs')).default;
     const tl = anime.timeline({ easing: 'easeOutQuad', autoplay: true });
     timelineRef.current = tl;
@@ -101,7 +105,7 @@ export default function RetwinAnimation() {
       targets: boxRefs.buffer.current,
       backgroundColor: ['#0d1117', '#1c2d4a'],
       borderColor: ['#388bfd', '#79c0ff'],
-      duration: 900,
+      duration: scale(900),
       begin: () => setStage(1),
       update: a => setByteCount(Math.floor((a.progress / 100) * 64)),
       complete: () => setByteCount(64),
@@ -112,26 +116,26 @@ export default function RetwinAnimation() {
       targets: boxRefs.padding.current,
       backgroundColor: ['#0d1117', '#3a2a00'],
       borderColor: ['#30363d', '#e3b341'],
-      duration: 500,
+      duration: scale(500),
       begin: () => setStage(2),
       update: a => setByteCount(64 + Math.floor((a.progress / 100) * 8)),
-    }, '+=80');
+    }, '+=' + scaleWithPause(80));
 
     // Stage 2b — overflow into saved rbp (orange)
     tl.add({
       targets: boxRefs.rbp.current,
       backgroundColor: ['#0d1117', '#3a1500'],
       borderColor: ['#30363d', '#f0883e'],
-      duration: 400,
+      duration: scale(400),
       update: a => setByteCount(72 + Math.floor((a.progress / 100) * 8)),
-    }, '+=40');
+    }, '+=' + scale(40));
 
     // Stage 3 — hijack return address (red)
     tl.add({
       targets: boxRefs.retAddr.current,
       backgroundColor: ['#0d1117', '#3a0000'],
       borderColor: ['#30363d', '#f85149'],
-      duration: 600,
+      duration: scale(600),
       begin: () => {
         setStage(3); setByteCount(80);
         const label = boxRefs.retAddr.current?.querySelector('.box-label');
@@ -139,21 +143,21 @@ export default function RetwinAnimation() {
         if (label) label.textContent = '0x401196 → win()';
         if (sub)   { sub.textContent = '← Return Address Hijacked'; sub.style.color = '#f85149'; }
       },
-    }, '+=60');
+    }, '+=' + scaleWithPause(60));
 
     // Shake the hijacked box
     tl.add({
       targets: boxRefs.retAddr.current,
       translateX: [0, -5, 5, -4, 4, -2, 2, 0],
-      duration: 450,
+      duration: scale(450),
       easing: 'linear',
-    }, '+=40');
+    }, '+=' + scale(40));
 
     // Stage 4 — terminal typewriter
     tl.add({
       targets: boxRefs.terminal.current,
       opacity: [0, 1],
-      duration: 350,
+      duration: scale(350),
       begin: () => {
         setStage(4);
         typewriter(
@@ -165,7 +169,7 @@ export default function RetwinAnimation() {
         );
       },
       complete: () => setPlaying(false),
-    }, '+=500');
+    }, '+=' + scaleWithPause(500));
   };
 
   useEffect(() => () => {
@@ -247,6 +251,17 @@ export default function RetwinAnimation() {
           border: '1px solid #2ea043', color: 'white', opacity: playing ? 0.6 : 1,
         }}>
           {playing ? '▶ Animating...' : stage === 0 ? '▶ Play Animation' : '↺ Replay'}
+        </button>
+        <button
+          onClick={() => setSpeed(s => s === 1 ? 0.5 : 1)}
+          disabled={playing}
+          style={{
+            padding: '9px 14px', borderRadius: '6px', fontSize: '12px',
+            cursor: playing ? 'not-allowed' : 'pointer', background: '#21262d',
+            border: '1px solid #30363d', color: '#8b949e', opacity: playing ? 0.6 : 1,
+          }}
+        >
+          {speed === 1 ? '🐢 Slow Mode' : '⚡ Normal Speed'}
         </button>
         {stage > 0 && !playing && (
           <button onClick={resetAll} style={{
