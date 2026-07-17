@@ -10,19 +10,21 @@ import RelationshipMap from '../components/learn/RelationshipMap';
 import LearnErrorBoundary from '../components/learn/LearnErrorBoundary';
 import RealWorldMap from '../components/learn/RealWorldMap';
 import TryItYourself from '../components/learn/TryItYourself';
+import CoreVocabulary from '../components/learn/CoreVocabulary';
 
 export default function Learn() {
-  const [activeSection, setActiveSection] = useState('binary');
+  const [activeSection, setActiveSection] = useState('vocabulary');
   const [refOpen, setRefOpen] = useState(false);
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
 
   const sections = [
+    { id: 'vocabulary',  label: '0. Key Terms First' },
     { id: 'binary',      label: '1. What is a Binary' },
     { id: 'protections', label: '2. Security Protections' },
     { id: 'flowchart',   label: '3. Exploitation Flowchart' },
     { id: 'techniques',  label: '4. Technique Deep Dives' },
-    { id: 'relations',   label: '5. What Changes What' },
-    { id: 'realworld',   label: '6. Real World Impact' },
-    { id: 'tryit',       label: '7. Try It Yourself' },
+    { id: 'realworld',   label: '5. Real World Impact' },
+    { id: 'tryit',       label: '6. Try It Yourself' },
   ];
 
   return (
@@ -82,6 +84,13 @@ export default function Learn() {
 
       {/* Section content */}
       <div>
+        {activeSection === 'vocabulary' && (
+          <div id="section-vocabulary">
+            <LearnErrorBoundary>
+              <CoreVocabulary />
+            </LearnErrorBoundary>
+          </div>
+        )}
         {activeSection === 'binary' && (
           <div id="section-binary">
             <LearnErrorBoundary>
@@ -261,6 +270,138 @@ export default function Learn() {
           </div>
         )}
       </div>
+
+      {/* Floating Term Glossary Button */}
+      <button
+        className="floating-glossary-btn"
+        onClick={() => setGlossaryOpen(true)}
+      >
+        📖 Term Glossary
+      </button>
+
+      {/* Glossary Backdrop */}
+      <div
+        onClick={() => setGlossaryOpen(false)}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 1000,
+          opacity: glossaryOpen ? 1 : 0,
+          pointerEvents: glossaryOpen ? 'auto' : 'none',
+          transition: 'opacity 0.3s ease-in-out',
+        }}
+      />
+
+      {/* Glossary Slide-out Panel */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: '400px',
+        maxWidth: '100vw',
+        background: '#161b22',
+        borderLeft: '1px solid #30363d',
+        boxShadow: '-8px 0 24px rgba(0, 0, 0, 0.5)',
+        zIndex: 1001,
+        transform: glossaryOpen ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform 0.3s ease-in-out',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '16px 20px',
+          background: '#21262d',
+          borderBottom: '1px solid #30363d',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <h3 style={{ margin: 0, color: '#f0f6fc', fontSize: '16px', fontWeight: 600 }}>
+            📖 Term Glossary
+          </h3>
+          <button
+            onClick={() => setGlossaryOpen(false)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#8b949e',
+              fontSize: '18px',
+              cursor: 'pointer',
+              padding: '4px 8px',
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{
+          padding: '20px',
+          overflowY: 'auto',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+        }}>
+          {[
+            { title: 'STACK', desc: 'A pile of memory where your program keeps track of what function called what, and what to do next.' },
+            { title: 'RETURN ADDRESS', desc: "A note on the stack telling the CPU 'go back here when this function finishes.'" },
+            { title: 'BUFFER OVERFLOW', desc: 'Writing more data into a memory box than it was built to hold, so the extra data spills into the box next to it.' },
+            { title: 'NX (No-Execute)', desc: 'A rule that says: this piece of memory can be run as code, OR written to as data — never both at once.' },
+            { title: 'GADGET', desc: "A tiny 2-3 instruction fragment already inside the program's own code, ending in 'return.'" },
+            { title: 'ROP (Return-Oriented Programming)', desc: 'Chaining multiple gadgets together, one after another, to make the CPU do something useful — without injecting any new code.' },
+            { title: 'PIE (Position Independent Executable)', desc: 'A setting that makes the program load at a random memory address every single time it runs.' },
+            { title: 'CANARY', desc: 'A random secret value placed right before the return address. If it changes, the program knows it was attacked and crashes on purpose.' },
+            { title: 'GOT (Global Offset Table)', desc: 'A lookup table the program uses to find the real memory address of functions like printf() or system() at runtime.' },
+            { title: 'RELRO (Relocation Read-Only)', desc: 'A setting that makes the GOT table read-only after the program starts, so it can never be changed again.' },
+            { title: 'HEAP', desc: 'A separate area of memory for data your program asks for while it\'s running, using malloc(). You give it back with free().' },
+            { title: 'LIBC', desc: 'A shared library of common functions — printf, malloc, system — that almost every program on Linux uses.' },
+          ].map((item, i) => (
+            <div key={i} style={{ borderBottom: '1px solid #21262d', paddingBottom: '12px' }}>
+              <div style={{ color: '#79c0ff', fontWeight: 700, fontSize: '13px', marginBottom: '4px' }}>
+                {i + 1}. {item.title}
+              </div>
+              <div style={{ color: '#c9d1d9', fontSize: '12px', lineHeight: '1.4' }}>
+                {item.desc}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <style>{`
+        .floating-glossary-btn {
+          position: fixed;
+          bottom: 24px;
+          right: 360px;
+          z-index: 999;
+          padding: 10px 16px;
+          background: #238636;
+          border: 1px solid #2ea043;
+          border-radius: 20px;
+          color: #fff;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          transition: all 0.15s;
+        }
+        .floating-glossary-btn:hover {
+          background: #2ea043;
+        }
+        @media (max-width: 768px) {
+          .floating-glossary-btn {
+            bottom: 80px;
+            right: 24px;
+          }
+        }
+      `}</style>
     </div>
   );
 }
