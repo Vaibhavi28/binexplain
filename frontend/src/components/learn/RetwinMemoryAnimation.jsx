@@ -4,9 +4,11 @@ import anime from 'animejs';
 const STAGES = ['idle', 'filling', 'overflow', 'hijack', 'result'];
 
 export default function RetwinMemoryAnimation() {
+  const [speed, setSpeed] = useState(1); // 1 = normal, 0.5 = slow
   const [stage, setStage] = useState('idle');
   const [byteCount, setByteCount] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const sleep = ms => new Promise(r => setTimeout(r, ms * (1 / speed)));
   const timelineRef = useRef(null);
   const prefersReducedMotion = useRef(
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -74,6 +76,9 @@ export default function RetwinMemoryAnimation() {
     }
 
     setPlaying(true);
+    const scale = (val) => val * 1.8 * (1 / speed);
+    const scaleWithPause = (val) => (val * 1.8 + 600) * (1 / speed);
+
     const tl = anime.timeline({ easing: 'easeOutQuad' });
     timelineRef.current = tl;
 
@@ -82,7 +87,7 @@ export default function RetwinMemoryAnimation() {
       targets: bufferRef.current,
       backgroundColor: ['transparent', '#1c2d4a'],
       opacity: [0.5, 1],
-      duration: 800,
+      duration: scale(800),
       begin: () => setStage('filling'),
       update: (anim) => {
         const progress = anim.progress / 100;
@@ -100,31 +105,31 @@ export default function RetwinMemoryAnimation() {
       targets: paddingRef.current,
       backgroundColor: ['transparent', '#3a2a00'],
       opacity: [0.5, 1],
-      duration: 500,
+      duration: scale(500),
       begin: () => setStage('overflow'),
       update: (anim) => {
         const progress = anim.progress / 100;
         setByteCount(64 + Math.floor(progress * 8));
       }
-    }, '+=100');
+    }, '+=' + scaleWithPause(100));
 
     tl.add({
       targets: rbpRef.current,
       backgroundColor: ['transparent', '#3a1500'],
       opacity: [0.5, 1],
-      duration: 400,
+      duration: scale(400),
       update: (anim) => {
         const progress = anim.progress / 100;
         setByteCount(72 + Math.floor(progress * 8));
       }
-    }, '+=50');
+    }, '+=' + scale(50));
 
     // Stage 3: Hijack the return address
     tl.add({
       targets: retAddrRef.current,
       backgroundColor: ['transparent', '#3a0000'],
       opacity: [0.5, 1],
-      duration: 600,
+      duration: scale(600),
       begin: () => {
         setStage('hijack');
         setByteCount(80);
@@ -135,21 +140,21 @@ export default function RetwinMemoryAnimation() {
           if (sub) sub.textContent = '← Return Address Hijacked';
         }
       }
-    }, '+=100');
+    }, '+=' + scaleWithPause(100));
 
     // Shake the return address box
     tl.add({
       targets: retAddrRef.current,
       translateX: [0, -4, 4, -4, 4, -3, 3, 0],
-      duration: 400,
+      duration: scale(400),
       easing: 'linear'
-    }, '+=50');
+    }, '+=' + scale(50));
 
     // Stage 4: Show terminal output
     tl.add({
       targets: terminalRef.current,
       opacity: [0, 1],
-      duration: 400,
+      duration: scale(400),
       begin: () => setStage('result'),
       complete: () => {
         // Typewriter effect
@@ -165,9 +170,9 @@ export default function RetwinMemoryAnimation() {
             clearInterval(interval);
             setPlaying(false);
           }
-        }, 22);
+        }, 35 * (1 / speed));
       }
-    }, '+=600');
+    }, '+=' + scaleWithPause(600));
   };
 
   useEffect(() => {
@@ -253,6 +258,17 @@ export default function RetwinMemoryAnimation() {
           }}
         >
           {playing ? '▶ Playing...' : stage === 'idle' ? '▶ Play Animation' : '↺ Replay'}
+        </button>
+        <button
+          onClick={() => setSpeed(s => s === 1 ? 0.5 : 1)}
+          disabled={playing}
+          style={{
+            padding: '8px 14px', borderRadius: '6px', fontSize: '12px',
+            cursor: playing ? 'not-allowed' : 'pointer', background: '#21262d',
+            border: '1px solid #30363d', color: '#8b949e', opacity: playing ? 0.6 : 1,
+          }}
+        >
+          {speed === 1 ? '🐢 Slow Mode' : '⚡ Normal Speed'}
         </button>
         {stage !== 'idle' && !playing && (
           <button

@@ -603,7 +603,7 @@ function CategoryDetail({ cat, onSectionChange }) {
   };
 
   return (
-    <div style={{ animation: 'fadeIn 0.25s ease-out' }}>
+    <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
       <style>{`@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }`}</style>
 
       {/* Category header */}

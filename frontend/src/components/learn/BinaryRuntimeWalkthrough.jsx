@@ -3,7 +3,11 @@ import React, { useState, useEffect, useRef } from 'react';
 export default function BinaryRuntimeWalkthrough({ onNavigate }) {
   const [step, setStep] = useState(1);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(true);
+  const [isHovering, setIsHovering] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(7);
   const timerRef = useRef(null);
+  const hoverTimeoutRef = useRef(null);
 
   // Check prefers-reduced-motion setting
   useEffect(() => {
@@ -14,17 +18,44 @@ export default function BinaryRuntimeWalkthrough({ onNavigate }) {
     return () => mediaQuery.removeEventListener('change', listener);
   }, []);
 
-  // Auto-advance timer (4 seconds)
+  // Auto-advance timer (7 seconds)
   useEffect(() => {
-    resetTimer();
-    return () => clearInterval(timerRef.current);
-  }, [step]);
+    if (timerRef.current) clearInterval(timerRef.current);
+    
+    if (autoAdvanceEnabled && !isHovering) {
+      timerRef.current = setInterval(() => {
+        setStep(prev => (prev < 6 ? prev + 1 : 1));
+      }, 7000);
+    }
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [step, autoAdvanceEnabled, isHovering]);
+
+  // Countdown indicator timer
+  useEffect(() => {
+    if (!autoAdvanceEnabled || isHovering) {
+      return;
+    }
+    setTimeLeft(7);
+    const id = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) return 7;
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [step, autoAdvanceEnabled, isHovering]);
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    };
+  }, []);
 
   const resetTimer = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setStep(prev => (prev < 6 ? prev + 1 : 1));
-    }, 4000);
+    setTimeLeft(7);
   };
 
   const handleNext = () => {
@@ -85,37 +116,37 @@ export default function BinaryRuntimeWalkthrough({ onNavigate }) {
       opacity: 0;
     }
     .anim-flow-1 {
-      animation: flow-section 0.6s 0.2s forwards ease-out;
+      animation: flow-section 0.8s 0.2s forwards ease-out;
       opacity: 0;
     }
     .anim-flow-2 {
-      animation: flow-section 0.6s 0.8s forwards ease-out;
+      animation: flow-section 0.8s 0.8s forwards ease-out;
       opacity: 0;
     }
     .anim-flow-3 {
-      animation: flow-section 0.6s 1.4s forwards ease-out;
+      animation: flow-section 0.8s 1.4s forwards ease-out;
       opacity: 0;
     }
     .anim-cpu {
       animation: cpu-cursor 3s infinite steps(1) ease-in-out;
     }
     .anim-stack-1 {
-      animation: flow-section 0.5s 0.2s forwards ease-out;
+      animation: flow-section 0.8s 0.2s forwards ease-out;
       opacity: 0;
     }
     .anim-stack-2 {
-      animation: flow-section 0.5s 0.7s forwards ease-out;
+      animation: flow-section 0.8s 0.7s forwards ease-out;
       opacity: 0;
     }
     .anim-stack-3 {
-      animation: flow-section 0.5s 1.2s forwards ease-out;
+      animation: flow-section 0.8s 1.2s forwards ease-out;
       opacity: 0;
     }
     .anim-type {
       overflow: hidden;
       white-space: nowrap;
       border-right: 2px solid #58a6ff;
-      animation: typing 2.5s steps(20, end) infinite;
+      animation: typing 1.89s steps(54, end) infinite;
     }
     .anim-overflow {
       animation: fill-and-overflow 3.5s infinite linear;
@@ -123,16 +154,29 @@ export default function BinaryRuntimeWalkthrough({ onNavigate }) {
   `;
 
   return (
-    <div style={{
-      background: '#161b22',
-      border: '1px solid #30363d',
-      borderRadius: '12px',
-      padding: '28px',
-      color: '#c9d1d9',
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-      maxWidth: '850px',
-      margin: '0 auto'
-    }}>
+    <div 
+      onMouseEnter={() => {
+        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+        setIsHovering(true);
+        if (timerRef.current) clearInterval(timerRef.current);
+      }}
+      onMouseLeave={() => {
+        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = setTimeout(() => {
+          setIsHovering(false);
+        }, 2000);
+      }}
+      style={{
+        background: '#161b22',
+        border: '1px solid #30363d',
+        borderRadius: '12px',
+        padding: '28px',
+        color: '#c9d1d9',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+        maxWidth: '850px',
+        margin: '0 auto'
+      }}
+    >
       <style>{animationStyles}</style>
 
       {/* Progress & Navigation Bar */}
@@ -528,8 +572,9 @@ export default function BinaryRuntimeWalkthrough({ onNavigate }) {
         border: '1px solid #30363d',
         borderRadius: '8px',
         padding: '20px',
-        minHeight: '90px',
-        marginBottom: '24px'
+        minHeight: '110px',
+        marginBottom: '24px',
+        position: 'relative'
       }}>
         {step === 1 && (
           <div>
@@ -601,6 +646,22 @@ export default function BinaryRuntimeWalkthrough({ onNavigate }) {
             </p>
           </div>
         )}
+
+        {/* Countdown / Auto-Advance Status */}
+        <div style={{ 
+          fontSize: '11px', 
+          color: '#8b949e', 
+          marginTop: '12px', 
+          fontStyle: 'italic',
+          borderTop: '1px solid #21262d',
+          paddingTop: '8px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span>{autoAdvanceEnabled ? (isHovering ? '⏸️ Auto-advance paused (hovering over area)' : `⏱️ Next step in ${timeLeft}s — hover to pause`) : '⏸️ Auto-advance turned off'}</span>
+          <span style={{ fontSize: '10px', color: '#6e7681' }}>Auto-Advance Status</span>
+        </div>
       </div>
 
       {/* Step Navigation Controls */}
@@ -628,9 +689,23 @@ export default function BinaryRuntimeWalkthrough({ onNavigate }) {
           ← Prev
         </button>
 
-        <span style={{ fontSize: '13px', color: '#8b949e' }}>
-          Interactive Story
-        </span>
+        <button
+          onClick={() => setAutoAdvanceEnabled(p => !p)}
+          style={{
+            background: 'transparent',
+            border: '1px solid #30363d',
+            borderRadius: '6px',
+            color: '#8b949e',
+            padding: '6px 14px',
+            fontSize: '12px',
+            cursor: 'pointer',
+            transition: 'all 0.15s'
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#8b949e'; e.currentTarget.style.color = '#c9d1d9'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#30363d'; e.currentTarget.style.color = '#8b949e'; }}
+        >
+          {autoAdvanceEnabled ? '⏸ Pause Auto-Advance' : '▶ Resume Auto-Advance'}
+        </button>
 
         <button
           onClick={handleNext}

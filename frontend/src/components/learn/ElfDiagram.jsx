@@ -39,7 +39,7 @@ export default function ElfDiagram() {
   };
 
   const stageStyle = {
-    animation: prefersReducedMotion ? 'none' : 'fadeIn 0.4s ease-in-out',
+    animation: prefersReducedMotion ? 'none' : 'fadeIn 0.5s ease-in-out',
     opacity: 1
   };
 
@@ -205,7 +205,7 @@ export default function ElfDiagram() {
                   border: '1px solid #30363d',
                   borderRadius: '6px',
                   textAlign: 'left',
-                  animation: prefersReducedMotion ? 'none' : 'fadeIn 0.3s ease-out'
+                  animation: prefersReducedMotion ? 'none' : 'fadeIn 0.5s ease-out'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                     <div style={{ flex: 1, minWidth: '200px' }}>
@@ -306,7 +306,7 @@ export default function ElfDiagram() {
                   Select a section card on the left to learn what resides in that memory region.
                 </div>
               ) : (
-                <div style={{ animation: prefersReducedMotion ? 'none' : 'fadeIn 0.3s ease-out' }}>
+                <div style={{ animation: prefersReducedMotion ? 'none' : 'fadeIn 0.5s ease-out' }}>
                   {selectedSection === 'text' && (
                     <>
                       <h4 style={{ margin: '0 0 8px', color: '#58a6ff', fontSize: '16px' }}>The Instructions</h4>
@@ -463,7 +463,7 @@ export default function ElfDiagram() {
                     background: '#161b22',
                     fontSize: '13px',
                     lineHeight: '1.6',
-                    animation: prefersReducedMotion ? 'none' : 'fadeIn 0.25s ease-out'
+                    animation: prefersReducedMotion ? 'none' : 'fadeIn 0.5s ease-out'
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '10px' }}>
                       <div style={{ flex: 1, minWidth: '180px' }}>
