@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
 
+const TECHNIQUE_DEFINITIONS = {
+  shellcode: "Injecting your own tiny machine-code program directly into memory, then jumping to it. Like handing the CPU your own custom instructions to run.",
+  ret2win: "The binary secretly contains a function that prints the flag. You just need to make the program jump there instead of where it normally goes.",
+  ret2libc: "No secret flag function exists, so instead you redirect execution to system() — a function already built into the C library — to open a shell.",
+  format_string: "Tricking printf() into leaking memory addresses or writing to memory, because it was given your input directly as its format instructions.",
+  heap_exploitation: "Exploiting mistakes in how the program manages memory it requested with malloc() — like using memory after giving it back, or freeing it twice.",
+  rop_chain: "Chaining together tiny fragments of the program's own existing code to perform actions, without ever injecting new code.",
+};
+
 export default function ProtectionsMap() {
   const [protections, setProtections] = useState({
     nx: true,
@@ -10,6 +19,7 @@ export default function ProtectionsMap() {
   });
 
   const [selectedAttack, setSelectedAttack] = useState('shellcode');
+  const [activeTooltip, setActiveTooltip] = useState(null);
 
   const toggleProtection = (name) => {
     setProtections((prev) => ({ ...prev, [name]: !prev[name] }));
@@ -127,6 +137,20 @@ export default function ProtectionsMap() {
         Toggle compiler flags and security controls to see how they defend against CTF exploitation techniques
       </p>
 
+      <div style={{
+        background: '#161b22', border: '1px solid #30363d',
+        borderRadius: '8px', padding: '16px 20px', marginBottom: '24px',
+        fontSize: '13px', color: '#c9d1d9', lineHeight: '1.6',
+      }}>
+        <strong style={{color: '#79c0ff'}}>What this page teaches:</strong> Real
+        binaries can have any combination of 5 security protections turned on
+        or off. Each combination changes which attack techniques will actually
+        work. Flip the switches below and watch the technique cards on the
+        right update in real time — this is exactly the reasoning process you
+        go through the moment you run <code style={{background:'#0d1117', padding:'1px 6px', borderRadius:'3px'}}>checksec</code> on
+        a real CTF binary.
+      </div>
+
       <div className="learn-two-col">
         {/* Left Panel: Protections */}
         <div style={{
@@ -146,8 +170,11 @@ export default function ProtectionsMap() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '14px', fontWeight: 600, color: '#c9d1d9' }}>NX (No-Execute)</div>
-              <div style={{ fontSize: '11px', color: '#8b949e', marginTop: '2px' }}>
-                Prevents execution of code on stack/heap
+              <div style={{
+                fontSize: '11px', color: '#6e7681', marginTop: '2px',
+                fontStyle: 'italic', lineHeight: '1.4'
+              }}>
+                Code can't run from data memory. Off = shellcode works. On = need ROP.
               </div>
             </div>
             <button
@@ -172,8 +199,11 @@ export default function ProtectionsMap() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '14px', fontWeight: 600, color: '#c9d1d9' }}>PIE (Position Independent Executable)</div>
-              <div style={{ fontSize: '11px', color: '#8b949e', marginTop: '2px' }}>
-                Randomizes memory address space layout
+              <div style={{
+                fontSize: '11px', color: '#6e7681', marginTop: '2px',
+                fontStyle: 'italic', lineHeight: '1.4'
+              }}>
+                Randomizes where the program loads. On = need a leaked address first.
               </div>
             </div>
             <button
@@ -198,8 +228,11 @@ export default function ProtectionsMap() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '14px', fontWeight: 600, color: '#c9d1d9' }}>Stack Canary</div>
-              <div style={{ fontSize: '11px', color: '#8b949e', marginTop: '2px' }}>
-                Detects stack buffer overflow triggers
+              <div style={{
+                fontSize: '11px', color: '#6e7681', marginTop: '2px',
+                fontStyle: 'italic', lineHeight: '1.4'
+              }}>
+                A secret value that detects buffer overflows. On = simple overflow gets caught.
               </div>
             </div>
             <button
@@ -225,8 +258,11 @@ export default function ProtectionsMap() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 600, color: '#c9d1d9' }}>RELRO (ReLocation Read-Only)</div>
-                <div style={{ fontSize: '11px', color: '#8b949e', marginTop: '2px' }}>
-                  Protects GOT pointers from arbitrary overwrites
+                <div style={{
+                  fontSize: '11px', color: '#6e7681', marginTop: '2px',
+                  fontStyle: 'italic', lineHeight: '1.4'
+                }}>
+                  Controls whether the function lookup table (GOT) can be overwritten. Full = locked.
                 </div>
               </div>
             </div>
@@ -259,8 +295,11 @@ export default function ProtectionsMap() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '14px', fontWeight: 600, color: '#c9d1d9' }}>Fortify Source</div>
-              <div style={{ fontSize: '11px', color: '#8b949e', marginTop: '2px' }}>
-                Replaces risky string functions with safe checks
+              <div style={{
+                fontSize: '11px', color: '#6e7681', marginTop: '2px',
+                fontStyle: 'italic', lineHeight: '1.4'
+              }}>
+                Swaps risky functions (like sprintf) for safer bounded versions automatically.
               </div>
             </div>
             <button
@@ -325,10 +364,34 @@ export default function ProtectionsMap() {
                       minHeight: '80px',
                       transition: 'transform 0.15s, border-color 0.15s',
                       transform: isSelected ? 'scale(1.02)' : 'none',
+                      position: 'relative',
                     }}
                   >
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#f0f6fc', lineHeight: '1.3' }}>
-                      {atk.label}
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#f0f6fc', lineHeight: '1.3', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>{atk.label}</span>
+                      <span 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTooltip(activeTooltip === atk.id ? null : atk.id);
+                        }}
+                        style={{
+                          marginLeft: '6px',
+                          cursor: 'pointer',
+                          fontSize: '10px',
+                          color: '#8b949e',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '14px',
+                          height: '14px',
+                          borderRadius: '50%',
+                          background: '#30363d',
+                          flexShrink: 0
+                        }}
+                        title="What is this?"
+                      >
+                        i
+                      </span>
                     </div>
                     <div style={{
                       fontSize: '9px',
@@ -340,6 +403,39 @@ export default function ProtectionsMap() {
                     }}>
                       {colorMap.label}
                     </div>
+
+                    {activeTooltip === atk.id && (
+                      <div style={{
+                        position: 'absolute',
+                        bottom: '100%',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        marginBottom: '8px',
+                        width: '220px',
+                        background: '#161b22',
+                        border: '1px solid #30363d',
+                        borderRadius: '8px',
+                        padding: '10px 12px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                        zIndex: 10,
+                        fontSize: '11px',
+                        color: '#c9d1d9',
+                        lineHeight: '1.4',
+                        textAlign: 'left',
+                        fontWeight: 'normal',
+                      }}>
+                        <div style={{ fontWeight: 'bold', color: '#79c0ff', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>What is {atk.label}?</span>
+                          <span 
+                            onClick={(e) => { e.stopPropagation(); setActiveTooltip(null); }}
+                            style={{ cursor: 'pointer', color: '#8b949e', padding: '0 2px' }}
+                          >
+                            ✕
+                          </span>
+                        </div>
+                        {TECHNIQUE_DEFINITIONS[atk.id]}
+                      </div>
+                    )}
                   </div>
                 );
               })}
