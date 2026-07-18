@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 /* ──────────────────────────────────────────────────────────────────── */
 /*  Category data — richer content for every category                  */

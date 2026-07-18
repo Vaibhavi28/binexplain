@@ -14,10 +14,10 @@ import CommandBlock from './components/CommandBlock';
 import TopNav from './components/TopNav';
 import { extractCommandsFromHistory, extractFailedCommands } from './utils/commandTracker';
 import { parseAIResponse } from './utils/responseParser';
-import { initDevtoolsDeterrent } from './utils/devtoolsDeterrent';
+
 
 /* -- Config ---------------------------------------------------------- */
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 const ALLOWED_EXTENSIONS = ['.bin', '.elf', '.exe', '.so', '.dll', '.out', '.o', '.zip'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -321,9 +321,7 @@ const MAX_SOURCE_CODE_CHARS = 10000;
 const SOURCE_CODE_EXTENSIONS = ['.c', '.cpp', '.h', '.hpp', '.py', '.js', '.rs', '.go', '.java'];
 
 export default function App() {
-    useEffect(() => {
-        initDevtoolsDeterrent();
-    }, []);
+
 
     const [file, setFile] = useState(null);
     const [dragOver, setDragOver] = useState(false);
@@ -798,7 +796,7 @@ export default function App() {
         if (categoryFeedbackSent) return;
         setCategoryFeedbackSent(true);
         try {
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+            const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
             await fetch(`${backendUrl}/category-feedback`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

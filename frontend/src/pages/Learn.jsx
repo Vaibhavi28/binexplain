@@ -23,8 +23,9 @@ export default function Learn() {
     { id: 'protections', label: '2. Security Protections' },
     { id: 'flowchart',   label: '3. Exploitation Flowchart' },
     { id: 'techniques',  label: '4. Technique Deep Dives' },
-    { id: 'realworld',   label: '5. Real World Impact' },
-    { id: 'tryit',       label: '6. Try It Yourself' },
+    { id: 'relations',   label: '5. Wired Connection Map' },
+    { id: 'realworld',   label: '6. Real World Impact' },
+    { id: 'tryit',       label: '7. Try It Yourself' },
   ];
 
   return (

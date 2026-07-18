@@ -26,7 +26,7 @@ const CommandBlock = ({ command, binaryContext }) => {
     if (explanation) { setExplanation(null); return; }
     setExplaining(true);
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       const res = await fetch(`${backendUrl}/explain-command`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
