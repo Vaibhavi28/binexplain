@@ -11,29 +11,22 @@ except ImportError:
 
 import time as _time
 
-def _gemini_embed(text: str, task_type: str = "retrieval_document") -> list[float] | None:
-    """
-    Generate an embedding vector using Gemini's embedding API.
-    Uses the NEW google-genai SDK (from google import genai).
-    task_type="retrieval_document" for indexing writeups into ChromaDB.
-    task_type="retrieval_query" for embedding the user's search query.
-    Returns a list of floats, or None on failure.
-    """
-    import os
-    from google import genai as _genai
-    api_key = os.getenv("GEMINI_API_KEY", "")
-    if not api_key:
-        print("[RAG] GEMINI_API_KEY not set — cannot generate embedding")
-        return None
+_fastembed_model = None
+
+def _get_fastembed_model():
+    global _fastembed_model
+    if _fastembed_model is None:
+        from fastembed import TextEmbedding
+        _fastembed_model = TextEmbedding("BAAI/bge-small-en-v1.5")
+    return _fastembed_model
+
+def _embed(text: str) -> list[float] | None:
     try:
-        client = _genai.Client(api_key=api_key)
-        result = client.models.embed_content(
-            model="models/text-embedding-004",
-            contents=text,
-        )
-        return list(result.embeddings[0].values)
+        model = _get_fastembed_model()
+        result = list(model.embed([text]))
+        return result[0].tolist()
     except Exception as e:
-        print(f"[RAG] Gemini embedding failed: {e}")
+        print(f"[RAG] Embedding failed: {e}")
         return None
 
 def build_rag_query(binary_context: dict, user_question: str = "") -> str:
@@ -135,13 +128,12 @@ class CTFKnowledgeBase:
                 return
             batch_embeddings = []
             for doc in batch_docs:
-                emb = _gemini_embed(doc, "retrieval_document")
+                emb = _embed(doc)
                 if emb is None:
                     # Use a zero vector as fallback so the batch doesn't fail entirely.
                     # These documents will have poor similarity scores but won't crash indexing.
-                    emb = [0.0] * 768
+                    emb = [0.0] * 384
                 batch_embeddings.append(emb)
-                _time.sleep(0.05)  # 50ms between embedding calls — ~20 docs/sec, safe for Gemini free tier
             self.collection.add(
                 documents=batch_docs,
                 embeddings=batch_embeddings,
@@ -228,7 +220,7 @@ class CTFKnowledgeBase:
             query_str = build_rag_query(binary_analysis)
             
             # 2. Use sentence-transformers to encode the query
-            query_vector = _gemini_embed(query_str, "retrieval_query")
+            query_vector = _embed(query_str)
             if query_vector is None:
                 print("[RAG] Could not generate query embedding — returning empty results")
                 return []
