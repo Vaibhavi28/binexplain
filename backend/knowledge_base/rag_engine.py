@@ -1,6 +1,5 @@
 import os
 import glob as _glob
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 try:
     from knowledge_base.technique_tags import TECHNIQUE_TAGS, extract_technique_tags
@@ -9,6 +8,33 @@ except ImportError:
         from technique_tags import TECHNIQUE_TAGS, extract_technique_tags
     except ImportError:
         from backend.knowledge_base.technique_tags import TECHNIQUE_TAGS, extract_technique_tags
+
+import time as _time
+
+def _gemini_embed(text: str, task_type: str = "retrieval_document") -> list[float] | None:
+    """
+    Generate an embedding vector using Gemini's embedding API.
+    Uses the NEW google-genai SDK (from google import genai).
+    task_type="retrieval_document" for indexing writeups into ChromaDB.
+    task_type="retrieval_query" for embedding the user's search query.
+    Returns a list of floats, or None on failure.
+    """
+    import os
+    from google import genai as _genai
+    api_key = os.getenv("GEMINI_API_KEY", "")
+    if not api_key:
+        print("[RAG] GEMINI_API_KEY not set — cannot generate embedding")
+        return None
+    try:
+        client = _genai.Client(api_key=api_key)
+        result = client.models.embed_content(
+            model="models/text-embedding-004",
+            contents=text,
+        )
+        return list(result.embeddings[0].values)
+    except Exception as e:
+        print(f"[RAG] Gemini embedding failed: {e}")
+        return None
 
 def build_rag_query(binary_context: dict, user_question: str = "") -> str:
     parts = []
@@ -68,8 +94,10 @@ class CTFKnowledgeBase:
             self.client = chromadb.Client()
             print("[BinExplain KB] Using in-memory ChromaDB")
             
-        self.collection = self.client.get_or_create_collection("ctf_writeups")
-        self.model = None
+        self.collection = self.client.get_or_create_collection(
+            name="ctf_writeups",
+            metadata={"hnsw:space": "cosine"},
+        )
         self.load_all_walkthroughs()
         count = self.collection.count()
         print(f"[BinExplain KB] Ready with {count} documents")
@@ -105,7 +133,21 @@ class CTFKnowledgeBase:
             nonlocal new_count
             if not batch_docs:
                 return
-            self.collection.add(documents=batch_docs, metadatas=batch_metas, ids=batch_ids)
+            batch_embeddings = []
+            for doc in batch_docs:
+                emb = _gemini_embed(doc, "retrieval_document")
+                if emb is None:
+                    # Use a zero vector as fallback so the batch doesn't fail entirely.
+                    # These documents will have poor similarity scores but won't crash indexing.
+                    emb = [0.0] * 768
+                batch_embeddings.append(emb)
+                _time.sleep(0.05)  # 50ms between embedding calls — ~20 docs/sec, safe for Gemini free tier
+            self.collection.add(
+                documents=batch_docs,
+                embeddings=batch_embeddings,
+                metadatas=batch_metas,
+                ids=batch_ids,
+            )
             new_count += len(batch_docs)
             batch_docs.clear(); batch_metas.clear(); batch_ids.clear()
 
@@ -186,10 +228,10 @@ class CTFKnowledgeBase:
             query_str = build_rag_query(binary_analysis)
             
             # 2. Use sentence-transformers to encode the query
-            if self.model is None:
-                from sentence_transformers import SentenceTransformer
-                self.model = SentenceTransformer("all-MiniLM-L6-v2")
-            query_vector = self.model.encode(query_str).tolist()
+            query_vector = _gemini_embed(query_str, "retrieval_query")
+            if query_vector is None:
+                print("[RAG] Could not generate query embedding — returning empty results")
+                return []
             
             # 3. Query ChromaDB for n_results * 3 most similar documents
             results = self.collection.query(
