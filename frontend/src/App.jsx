@@ -1690,6 +1690,34 @@ export default function App() {
                                         <span className={`ctf-confidence-badge ctf-confidence-badge--${result.ctf_category.confidence.toLowerCase()}`}>{result.ctf_category.confidence}</span>
                                     </div>
                                     <p className="hero-card-desc">{result.ctf_category.explanation}</p>
+                                    {result.ctf_category.runner_up && (
+                                        <div style={{
+                                            marginTop: '16px',
+                                            paddingTop: '12px',
+                                            borderTop: '1px solid rgba(68, 72, 79, 0.25)',
+                                        }}>
+                                            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                                                Also worth considering:
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                                <span style={{
+                                                    fontSize: '14px',
+                                                    fontWeight: 700,
+                                                    color: 'var(--primary)',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.05em'
+                                                }}>
+                                                    {result.ctf_category.runner_up.category.replace(/_/g, ' ')}
+                                                </span>
+                                                <span className={`ctf-confidence-badge ctf-confidence-badge--${result.ctf_category.runner_up.confidence.toLowerCase()}`} style={{ fontSize: '9px', padding: '2px 6px' }}>
+                                                    {result.ctf_category.runner_up.confidence}
+                                                </span>
+                                            </div>
+                                            <p className="hero-card-desc" style={{ fontSize: '12px', opacity: 0.85 }}>
+                                                {result.ctf_category.runner_up.explanation}
+                                            </p>
+                                        </div>
+                                    )}
                                     {result && result.ctf_category && (
                                       <div style={{
                                         marginTop: '12px', padding: '8px 12px',
@@ -2136,6 +2164,34 @@ export default function App() {
                                             <span className={`ctf-confidence-badge ctf-confidence-badge--${sourceResult.ctf_category.confidence.toLowerCase()}`}>{sourceResult.ctf_category.confidence}</span>
                                         </div>
                                         <p className="hero-card-desc">{sourceResult.ctf_category.explanation}</p>
+                                        {sourceResult.ctf_category.runner_up && (
+                                            <div style={{
+                                                marginTop: '16px',
+                                                paddingTop: '12px',
+                                                borderTop: '1px solid rgba(68, 72, 79, 0.25)',
+                                            }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                                                    Also worth considering:
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                                    <span style={{
+                                                        fontSize: '14px',
+                                                        fontWeight: 700,
+                                                        color: 'var(--primary)',
+                                                        textTransform: 'uppercase',
+                                                        letterSpacing: '0.05em'
+                                                    }}>
+                                                        {sourceResult.ctf_category.runner_up.category.replace(/_/g, ' ')}
+                                                    </span>
+                                                    <span className={`ctf-confidence-badge ctf-confidence-badge--${sourceResult.ctf_category.runner_up.confidence.toLowerCase()}`} style={{ fontSize: '9px', padding: '2px 6px' }}>
+                                                        {sourceResult.ctf_category.runner_up.confidence}
+                                                    </span>
+                                                </div>
+                                                <p className="hero-card-desc" style={{ fontSize: '12px', opacity: 0.85 }}>
+                                                    {sourceResult.ctf_category.runner_up.explanation}
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                                 {sourceResult.difficulty && (

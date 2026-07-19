@@ -147,6 +147,38 @@ class TestCTFCategoryDetection:
         cat = detect_ctf_category(patterns, checksec, [], {})
         assert cat["category"] == "shellcode"
 
+    def test_runner_up_ctf_category(self):
+        # Case 1: Close score (ret2win score 90 vs ret2libc score 85). Both should be present.
+        patterns = {
+            "dangerous_functions": ["gets"],
+            "win_conditions": ["you win"]
+        }
+        checksec = {"pie": False, "canary": False, "nx": True}
+        strings = ["win()"]
+        imports_exports = {"imports": ["system"]}
+        cat = detect_ctf_category(
+            patterns, checksec, strings,
+            format_string_result={}, rop_gadgets=[],
+            imports_exports=imports_exports
+        )
+        assert cat["category"] == "ret2win"
+        assert cat["runner_up"] is not None
+        assert cat["runner_up"]["category"] == "ret2libc"
+        assert cat["runner_up"]["confidence"] == "High"
+
+        # Case 2: Far score (ret2win score 90 vs rop_chain score 60). Runner-up should be None.
+        patterns_far = {"dangerous_functions": ["gets"], "win_conditions": ["you win"]}
+        checksec_far = {"pie": False, "nx": True, "canary": True}
+        strings_far = ["win()"]
+        cat_far = detect_ctf_category(
+            patterns_far, checksec_far, strings_far,
+            format_string_result={}, rop_gadgets=["pop rdi; ret", "ret", "ret"],
+            imports_exports={}
+        )
+        assert cat_far["category"] == "ret2win"
+        assert cat_far["runner_up"] is None
+
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 3. Security Protection Tests

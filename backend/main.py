@@ -4278,16 +4278,30 @@ def detect_ctf_category(
             "category": "unknown",
             "confidence": "Low",
             "explanation": "Could not confidently determine the CTF exploitation category. Try manual analysis with checksec and gdb.",
+            "runner_up": None,
         }
 
-    # Pick the highest-scoring category
-    best_cat = max(scores, key=lambda k: scores[k][0])
-    _, best_conf, best_expl = scores[best_cat]
+    # Sort categories by score in descending order
+    sorted_scores = sorted(scores.items(), key=lambda item: item[1][0], reverse=True)
+    best_cat, (best_score, best_conf, best_expl) = sorted_scores[0]
+
+    runner_up = None
+    if len(sorted_scores) > 1:
+        next_cat, (next_score, next_conf, next_expl) = sorted_scores[1]
+        # Margin: within 25% of the top score (i.e. score >= 0.75 * top_score)
+        # We use a 25% threshold to ensure we don't present low-confidence noise as a runner-up
+        if next_score >= best_score * 0.75:
+            runner_up = {
+                "category": next_cat,
+                "confidence": next_conf,
+                "explanation": next_expl,
+            }
 
     return {
         "category": best_cat,
         "confidence": best_conf,
         "explanation": best_expl,
+        "runner_up": runner_up,
     }
 
 
@@ -4299,7 +4313,8 @@ def detect_ctf_category_from_source(code: str, language: str, vulnerabilities: l
         return {
             "category": "ret2win",
             "confidence": "High",
-            "explanation": "A win/flag function exists in the source code. The exploit goal is to redirect execution to this function."
+            "explanation": "A win/flag function exists in the source code. The exploit goal is to redirect execution to this function.",
+            "runner_up": None
         }
     
     # format_string - printf with variable instead of format string
@@ -4310,7 +4325,8 @@ def detect_ctf_category_from_source(code: str, language: str, vulnerabilities: l
             return {
                 "category": "format_string",
                 "confidence": "High",
-                "explanation": "printf() is called with a variable directly instead of a format string literal. This is a classic format string vulnerability."
+                "explanation": "printf() is called with a variable directly instead of a format string literal. This is a classic format string vulnerability.",
+                "runner_up": None
             }
     
     # ret2libc - system() or execve() called, or referenced as dangerous
@@ -4318,7 +4334,8 @@ def detect_ctf_category_from_source(code: str, language: str, vulnerabilities: l
         return {
             "category": "ret2libc",
             "confidence": "Medium",
-            "explanation": "system() or shell execution is present. Combined with a buffer overflow, this enables ret2libc or direct command execution."
+            "explanation": "system() or shell execution is present. Combined with a buffer overflow, this enables ret2libc or direct command execution.",
+            "runner_up": None
         }
     
     # heap_exploitation - malloc/free patterns suggesting UAF or double-free
@@ -4326,7 +4343,8 @@ def detect_ctf_category_from_source(code: str, language: str, vulnerabilities: l
         return {
             "category": "heap_exploitation",
             "confidence": "Medium",
-            "explanation": "Multiple malloc/free calls detected. Check for use-after-free or double-free vulnerabilities."
+            "explanation": "Multiple malloc/free calls detected. Check for use-after-free or double-free vulnerabilities.",
+            "runner_up": None
         }
     
     # shellcode - check for raw buffer writes without execution protection mentioned
@@ -4334,7 +4352,8 @@ def detect_ctf_category_from_source(code: str, language: str, vulnerabilities: l
         return {
             "category": "shellcode",
             "confidence": "Low",
-            "explanation": "Code suggests direct memory execution may be possible. Verify NX/DEP status."
+            "explanation": "Code suggests direct memory execution may be possible. Verify NX/DEP status.",
+            "runner_up": None
         }
     
     # rop_chain - default for buffer overflow vulnerabilities without other category
@@ -4343,13 +4362,15 @@ def detect_ctf_category_from_source(code: str, language: str, vulnerabilities: l
         return {
             "category": "rop_chain",
             "confidence": "Medium",
-            "explanation": "A buffer overflow exists but no obvious win function or system() call. Likely requires building a ROP chain."
+            "explanation": "A buffer overflow exists but no obvious win function or system() call. Likely requires building a ROP chain.",
+            "runner_up": None
         }
     
     return {
         "category": "unknown",
         "confidence": "Low",
-        "explanation": "Could not determine a specific CTF category from the source code alone."
+        "explanation": "Could not determine a specific CTF category from the source code alone.",
+        "runner_up": None
     }
 
 
