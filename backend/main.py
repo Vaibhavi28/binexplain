@@ -4872,6 +4872,18 @@ def _analyze_single_file(
             disassembly, strings, ctf_category=ctf_category,
         )
 
+        # Compute provenance metadata for initial AI hints
+        binary_ctx = {
+            "filename": filename,
+            "predicted_offset": overflow_hint.get("likely_offset") if overflow_hint else None,
+            "functions": function_list,
+            "protections": checksec_result or {},
+            "disassembly": disassembly,
+            "rop_gadgets": rop_gadgets,
+            "ctf_category": ctf_category,
+        }
+        _, hints_provenance = is_chat_response_specific(hints, binary_ctx)
+
         # Pwntools exploit template — uses predicted offset, ROP gadgets, libc info
         pwn_template = generate_pwn_template(
             filename, content, checksec_result, patterns, strings,
@@ -4892,6 +4904,8 @@ def _analyze_single_file(
             "ai_hints": hints,
             "ai_hints_quick": hints_quick,
             "ai_hints_enhanced": hints_enhanced,
+            "ai_hints_provenance": hints_provenance,
+            "provenance": hints_provenance,
             "cvss_score": cvss["cvss_score"],
             "cvss_severity": cvss["cvss_severity"],
             "encodings": encodings,

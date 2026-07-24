@@ -266,6 +266,105 @@ const renderProseMarkdown = (text) => {
   return elements.length > 0 ? elements : null;
 };
 
+const extractFrontendProvenance = (text, binaryContext) => {
+  if (!text || typeof text !== 'string') return { evidence_type: 'general', evidence_value: null };
+  const textLower = text.toLowerCase();
+  const ctx = binaryContext || {};
+
+  // 1. Disassembly line
+  const disassembly = ctx.disassembly || [];
+  for (const item of disassembly) {
+    const lineStr = (typeof item === 'object' && item?.line) ? item.line : String(item);
+    const stripped = lineStr.trim();
+    if (stripped.length > 5 && textLower.includes(stripped.toLowerCase())) {
+      return { evidence_type: 'disassembly_line', evidence_value: stripped };
+    }
+  }
+
+  // 2. Overflow offset
+  let offsetStr = null;
+  const rawOffset = ctx.predicted_offset ?? ctx.overflow_hint?.likely_offset;
+  if (rawOffset !== null && rawOffset !== undefined) {
+    const num = parseInt(rawOffset, 10);
+    if (!isNaN(num)) {
+      offsetStr = String(num);
+    } else {
+      offsetStr = String(rawOffset).trim();
+    }
+  }
+  if (offsetStr && textLower.includes(offsetStr.toLowerCase())) {
+    return { evidence_type: 'overflow_offset', evidence_value: offsetStr };
+  }
+
+  // 3. ROP gadget
+  const ropGadgets = ctx.rop_gadgets || [];
+  for (const g of ropGadgets) {
+    const gStr = (typeof g === 'object' && g?.gadget) ? g.gadget : String(g);
+    const stripped = gStr.trim();
+    if (stripped.length > 3 && textLower.includes(stripped.toLowerCase())) {
+      return { evidence_type: 'rop_gadget', evidence_value: stripped };
+    }
+  }
+
+  // 4. Protection flag
+  const protections = ctx.protections || ctx.checksec || {};
+  const protAliases = {
+    nx: ['nx', 'no-execute', 'noexecute', 'dep', 'non-executable', 'w^x'],
+    pie: ['pie', 'position independent', 'aslr'],
+    canary: ['canary', 'stack canary', 'stack cookie', '__stack_chk'],
+    relro: ['relro', 'read-only relocations'],
+    fortify: ['fortify', 'fortified']
+  };
+  if (typeof protections === 'object' && protections !== null) {
+    for (const [k, v] of Object.entries(protections)) {
+      if (!k) continue;
+      const kLower = k.toLowerCase();
+      const aliases = protAliases[kLower] || [kLower];
+      if (aliases.some(alias => textLower.includes(alias))) {
+        return { evidence_type: 'protection_flag', evidence_value: `${k.toUpperCase()}: ${v}` };
+      }
+    }
+  }
+
+  // 5. Detected function
+  const functions = ctx.functions || ctx.function_list || [];
+  for (const f of functions.slice(0, 10)) {
+    const fname = (typeof f === 'object' && f?.name) ? f.name : String(f);
+    if (fname && fname.length > 2 && textLower.includes(fname.toLowerCase())) {
+      return { evidence_type: 'detected_function', evidence_value: fname };
+    }
+  }
+
+  return { evidence_type: 'general', evidence_value: null };
+};
+
+const renderProvenanceBadge = (msg, binaryContext) => {
+  if (msg.role !== 'assistant') return null;
+  const prov = msg.provenance || extractFrontendProvenance(msg.content, binaryContext);
+  return (
+    <div className="provenance-badge" style={{ marginTop: '6px', fontSize: '11px', color: prov?.evidence_type === 'general' ? '#8b949e' : '#58a6ff', background: 'rgba(22, 27, 34, 0.6)', border: '1px solid rgba(48, 54, 61, 0.6)', borderRadius: '4px', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+      {prov?.evidence_type === 'detected_function' && (
+        <span>Based on: <strong>{prov.evidence_value}</strong> in the detected functions</span>
+      )}
+      {prov?.evidence_type === 'overflow_offset' && (
+        <span>Based on: the detected overflow offset (<strong>{prov.evidence_value}</strong> bytes)</span>
+      )}
+      {prov?.evidence_type === 'protection_flag' && (
+        <span>Based on: <strong>{prov.evidence_value}</strong> status shown above</span>
+      )}
+      {prov?.evidence_type === 'disassembly_line' && (
+        <span>Based on: the disassembly excerpt shown above</span>
+      )}
+      {prov?.evidence_type === 'rop_gadget' && (
+        <span>Based on: the ROP gadgets listed above</span>
+      )}
+      {(!prov || prov?.evidence_type === 'general') && (
+        <span style={{ fontStyle: 'italic', color: '#8b949e' }}>General guidance — not tied to a specific finding</span>
+      )}
+    </div>
+  );
+};
+
 const renderAIMessage = (content, binaryContext) => {
   const segments = parseAIResponse(content);
   return (
@@ -750,8 +849,9 @@ export default function App() {
         /* Initialize chat with AI hints as first assistant message */
         setConversationSummary('');
         const hints = resultData.ai_hints || resultData.hints || (data.results && data.results[0]?.ai_hints) || (data.results && data.results[0]?.hints);
+        const hintsProv = resultData.ai_hints_provenance || resultData.provenance || (data.results && data.results[0]?.ai_hints_provenance) || extractFrontendProvenance(hints, binaryContext);
         if (hints) {
-            setChatMessages([{ role: 'assistant', content: hints }]);
+            setChatMessages([{ role: 'assistant', content: hints, provenance: hintsProv }]);
         } else {
             setChatMessages([]);
         }
@@ -2038,28 +2138,7 @@ export default function App() {
                                     </span>
                                     {msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}
                                     <div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div>
-                                    {msg.role === 'assistant' && (
-                                       <div className="provenance-badge" style={{ marginTop: '6px', fontSize: '11px', color: msg.provenance?.evidence_type === 'general' ? '#8b949e' : '#58a6ff', background: 'rgba(22, 27, 34, 0.6)', border: '1px solid rgba(48, 54, 61, 0.6)', borderRadius: '4px', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                         {msg.provenance?.evidence_type === 'detected_function' && (
-                                           <span>Based on: <strong>{msg.provenance.evidence_value}</strong> in the detected functions</span>
-                                         )}
-                                         {msg.provenance?.evidence_type === 'overflow_offset' && (
-                                           <span>Based on: the detected overflow offset (<strong>{msg.provenance.evidence_value}</strong> bytes)</span>
-                                         )}
-                                         {msg.provenance?.evidence_type === 'protection_flag' && (
-                                           <span>Based on: <strong>{msg.provenance.evidence_value}</strong> status shown above</span>
-                                         )}
-                                         {msg.provenance?.evidence_type === 'disassembly_line' && (
-                                           <span>Based on: the disassembly excerpt shown above</span>
-                                         )}
-                                         {msg.provenance?.evidence_type === 'rop_gadget' && (
-                                           <span>Based on: the ROP gadgets listed above</span>
-                                         )}
-                                         {(!msg.provenance || msg.provenance?.evidence_type === 'general') && (
-                                           <span style={{ fontStyle: 'italic', color: '#8b949e' }}>General guidance — not tied to a specific finding</span>
-                                         )}
-                                       </div>
-                                     )}
+                                    {renderProvenanceBadge(msg, binaryContext)}
                                   </div>
                                 ))}
                                 {chatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
@@ -2564,26 +2643,7 @@ export default function App() {
                                     </span>
                                     <div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div>
                                     {msg.role === 'assistant' && (
-                                      <div className="provenance-badge" style={{ marginTop: '6px', fontSize: '11px', color: msg.provenance?.evidence_type === 'general' ? '#8b949e' : '#58a6ff', background: 'rgba(22, 27, 34, 0.6)', border: '1px solid rgba(48, 54, 61, 0.6)', borderRadius: '4px', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                        {msg.provenance?.evidence_type === 'detected_function' && (
-                                          <span>Based on: <strong>{msg.provenance.evidence_value}</strong> in the detected functions</span>
-                                        )}
-                                        {msg.provenance?.evidence_type === 'overflow_offset' && (
-                                          <span>Based on: the detected overflow offset (<strong>{msg.provenance.evidence_value}</strong> bytes)</span>
-                                        )}
-                                        {msg.provenance?.evidence_type === 'protection_flag' && (
-                                          <span>Based on: <strong>{msg.provenance.evidence_value}</strong> status shown above</span>
-                                        )}
-                                        {msg.provenance?.evidence_type === 'disassembly_line' && (
-                                          <span>Based on: the disassembly excerpt shown above</span>
-                                        )}
-                                        {msg.provenance?.evidence_type === 'rop_gadget' && (
-                                          <span>Based on: the ROP gadgets listed above</span>
-                                        )}
-                                        {(!msg.provenance || msg.provenance?.evidence_type === 'general') && (
-                                          <span style={{ fontStyle: 'italic', color: '#8b949e' }}>General guidance — not tied to a specific finding</span>
-                                        )}
-                                      </div>
+                                      renderProvenanceBadge(msg, binaryContext)
                                     )}
                                   </div>
                                 ))}
