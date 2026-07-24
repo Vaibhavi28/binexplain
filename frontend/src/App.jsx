@@ -1019,7 +1019,7 @@ export default function App() {
                 }
 
                 setChatMessages(prev => {
-                    const updatedHistory = [...prev, { role: 'assistant', content: data.response }];
+                    const updatedHistory = [...prev, { role: 'assistant', content: data.response, provenance: data.provenance }];
                     const allTried = extractCommandsFromHistory(updatedHistory);
                     const failed = extractFailedCommands(updatedHistory);
                     setTriedCommands([...new Set([...allTried, ...failed])]);
@@ -1084,7 +1084,7 @@ export default function App() {
             }
 
             setChatMessages(prev => {
-                const updatedHistory = [...prev, { role: 'assistant', content: data.response, response_source: data.response_source }];
+                const updatedHistory = [...prev, { role: 'assistant', content: data.response, response_source: data.response_source, provenance: data.provenance }];
                 const allTried = extractCommandsFromHistory(updatedHistory);
                 const failed = extractFailedCommands(updatedHistory);
                 setTriedCommands([...new Set([...allTried, ...failed])]);
@@ -1234,7 +1234,7 @@ export default function App() {
                 return;
             }
             setSrcChatMessages(prev => {
-                const updatedHistory = [...prev, { role: 'assistant', content: data.response, response_source: data.response_source }];
+                const updatedHistory = [...prev, { role: 'assistant', content: data.response, response_source: data.response_source, provenance: data.provenance }];
                 const allTried = extractCommandsFromHistory(updatedHistory);
                 const failed = extractFailedCommands(updatedHistory);
                 setTriedCommands([...new Set([...allTried, ...failed])]);
@@ -2040,6 +2040,28 @@ export default function App() {
                                     </span>
                                     {msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}
                                     <div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div>
+                                    {msg.role === 'assistant' && (
+                                       <div className="provenance-badge" style={{ marginTop: '6px', fontSize: '11px', color: msg.provenance?.evidence_type === 'general' ? '#8b949e' : '#58a6ff', background: 'rgba(22, 27, 34, 0.6)', border: '1px solid rgba(48, 54, 61, 0.6)', borderRadius: '4px', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                         {msg.provenance?.evidence_type === 'detected_function' && (
+                                           <span>Based on: <strong>{msg.provenance.evidence_value}</strong> in the detected functions</span>
+                                         )}
+                                         {msg.provenance?.evidence_type === 'overflow_offset' && (
+                                           <span>Based on: the detected overflow offset (<strong>{msg.provenance.evidence_value}</strong> bytes)</span>
+                                         )}
+                                         {msg.provenance?.evidence_type === 'protection_flag' && (
+                                           <span>Based on: <strong>{msg.provenance.evidence_value}</strong> status shown above</span>
+                                         )}
+                                         {msg.provenance?.evidence_type === 'disassembly_line' && (
+                                           <span>Based on: the disassembly excerpt shown above</span>
+                                         )}
+                                         {msg.provenance?.evidence_type === 'rop_gadget' && (
+                                           <span>Based on: the ROP gadgets listed above</span>
+                                         )}
+                                         {(!msg.provenance || msg.provenance?.evidence_type === 'general') && (
+                                           <span style={{ fontStyle: 'italic', color: '#8b949e' }}>General guidance — not tied to a specific finding</span>
+                                         )}
+                                       </div>
+                                     )}
                                   </div>
                                 ))}
                                 {chatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}
@@ -2559,6 +2581,28 @@ export default function App() {
                                       )}
                                     </span>
                                     <div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div>
+                                    {msg.role === 'assistant' && (
+                                      <div className="provenance-badge" style={{ marginTop: '6px', fontSize: '11px', color: msg.provenance?.evidence_type === 'general' ? '#8b949e' : '#58a6ff', background: 'rgba(22, 27, 34, 0.6)', border: '1px solid rgba(48, 54, 61, 0.6)', borderRadius: '4px', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        {msg.provenance?.evidence_type === 'detected_function' && (
+                                          <span>Based on: <strong>{msg.provenance.evidence_value}</strong> in the detected functions</span>
+                                        )}
+                                        {msg.provenance?.evidence_type === 'overflow_offset' && (
+                                          <span>Based on: the detected overflow offset (<strong>{msg.provenance.evidence_value}</strong> bytes)</span>
+                                        )}
+                                        {msg.provenance?.evidence_type === 'protection_flag' && (
+                                          <span>Based on: <strong>{msg.provenance.evidence_value}</strong> status shown above</span>
+                                        )}
+                                        {msg.provenance?.evidence_type === 'disassembly_line' && (
+                                          <span>Based on: the disassembly excerpt shown above</span>
+                                        )}
+                                        {msg.provenance?.evidence_type === 'rop_gadget' && (
+                                          <span>Based on: the ROP gadgets listed above</span>
+                                        )}
+                                        {(!msg.provenance || msg.provenance?.evidence_type === 'general') && (
+                                          <span style={{ fontStyle: 'italic', color: '#8b949e' }}>General guidance — not tied to a specific finding</span>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                                 {srcChatLoading&&<div className="chat-bubble chat-bubble--assistant"><span className="chat-bubble-label">AI Mentor</span><div className="chat-bubble-content"><span className="chat-typing">Thinking<span className="chat-dots">...</span></span></div></div>}

@@ -6148,11 +6148,19 @@ Output a 150-200 word summary preserving all technical details found."""
     return summary
 
 
-def is_chat_response_specific(response: str, binary_context: dict) -> bool:
+def is_chat_response_specific(response: str, binary_context: dict) -> tuple[bool, dict]:
+    """
+    Check if a response is specific to the binary context and extract provenance metadata.
+    Returns (is_specific, provenance_dict).
+    """
+    default_provenance = {
+        "evidence_type": "general",
+        "evidence_value": None
+    }
     if not response or len(response) < 50:
-        return False
+        return False, default_provenance
     if not binary_context:
-        return True  # No context to check against
+        return True, default_provenance  # No context to check against
 
     filename = binary_context.get('filename', '')
     category = binary_context.get('ctf_category', '')
@@ -6160,10 +6168,17 @@ def is_chat_response_specific(response: str, binary_context: dict) -> bool:
         category = category.get('category', '')
     functions = binary_context.get('functions', [])
     offset = binary_context.get('predicted_offset')
+    protections = binary_context.get('protections', {})
+    if isinstance(protections, dict):
+        protection_items = [f"{k.upper()}: {v}" for k, v in protections.items() if v is not None]
+    else:
+        protection_items = []
+    disassembly = binary_context.get('disassembly', [])
+    rop_gadgets = binary_context.get('rop_gadgets', [])
 
     # Extract function names safely (strings or dicts)
     function_names = []
-    for f in functions[:5]:
+    for f in functions[:10]:
         if isinstance(f, dict):
             name = f.get('name')
             if name:
@@ -6171,24 +6186,82 @@ def is_chat_response_specific(response: str, binary_context: dict) -> bool:
         elif isinstance(f, str):
             function_names.append(f)
 
-    # Response must contain at least one specific reference
+    response_lower = response.lower()
+
+    # Priority matching for provenance extraction (most specific first)
+    matched_provenance = None
+
+    # 1. Disassembly line
+    for line in disassembly:
+        line_str = line.get('line', '') if isinstance(line, dict) else str(line)
+        if line_str and len(line_str.strip()) > 5 and line_str.strip().lower() in response_lower:
+            matched_provenance = {
+                "evidence_type": "disassembly_line",
+                "evidence_value": line_str.strip()
+            }
+            break
+
+    # 2. Overflow offset
+    if not matched_provenance and offset:
+        offset_str = str(offset)
+        if offset_str in response or f"{offset_str} bytes" in response_lower or f"offset {offset_str}" in response_lower:
+            matched_provenance = {
+                "evidence_type": "overflow_offset",
+                "evidence_value": str(offset)
+            }
+
+    # 3. ROP gadget
+    if not matched_provenance and rop_gadgets:
+        for g in rop_gadgets:
+            g_str = g.get('gadget', '') if isinstance(g, dict) else str(g)
+            if g_str and len(g_str.strip()) > 3 and g_str.strip().lower() in response_lower:
+                matched_provenance = {
+                    "evidence_type": "rop_gadget",
+                    "evidence_value": g_str.strip()
+                }
+                break
+
+    # 4. Protection flag
+    if not matched_provenance and protections:
+        for k, v in protections.items():
+            if k and (k.lower() in response_lower or f"{k.upper()}" in response):
+                matched_provenance = {
+                    "evidence_type": "protection_flag",
+                    "evidence_value": f"{k.upper()}: {v}"
+                }
+                break
+
+    # 5. Detected function
+    if not matched_provenance and function_names:
+        for fname in function_names:
+            if fname and len(fname) > 2 and fname.lower() in response_lower:
+                matched_provenance = {
+                    "evidence_type": "detected_function",
+                    "evidence_value": fname
+                }
+                break
+
+    # Fallback checks for specificity gate
     specific_references = [filename] + function_names
     if category and category != 'unknown':
         specific_references.append(category)
     if offset:
         specific_references.append(str(offset))
 
-    response_lower = response.lower()
     has_specific = any(
         ref.lower() in response_lower
         for ref in specific_references
         if ref and len(ref) > 2
     )
 
-    # Also check for a bash code block (required per RULE 2)
+    # Also check for a bash code block
     has_command = '```' in response or '$' in response
 
-    return has_specific or has_command
+    is_specific = has_specific or has_command or (matched_provenance is not None)
+
+    provenance = matched_provenance if matched_provenance else default_provenance
+
+    return is_specific, provenance
 
 
 async def call_ai_with_fallback(
@@ -6196,100 +6269,103 @@ async def call_ai_with_fallback(
     messages: list[dict],
     binary_context: dict = None,
     tried_commands: list = None
-) -> str:
+) -> tuple[str, dict]:
     """
     Call AI providers in a fallback chain.
     Order: Groq → Nemotron → Gemini → OpenAI → Ollama (if enabled) → Claude (last resort)
+    Returns (response_text, provenance_dict)
     """
-    # ── Pass 1: High-quality pass ─────────────────────────────────────
-    # We try each provider in order. If a provider returns a result that
-    # is NOT low quality (i.e. satisfies the quality gate) AND is specific, we return it.
-    # Otherwise, if it returns a response, we keep it as a fallback, but continue.
-    first_low_quality: tuple[str, str] = None  # (provider_name, response_text)
+    first_low_quality: tuple[str, str, dict] = None  # (provider_name, response_text, provenance)
+
+    # Helper check
+    def _evaluate(res: str):
+        if not res:
+            return False, res, {"evidence_type": "general", "evidence_value": None}
+        is_spec, prov = is_chat_response_specific(res, binary_context)
+        is_ok = not is_low_quality_response(res) and is_spec
+        return is_ok, res, prov
 
     # 1. Groq
     groq_result = _try_groq(messages=messages, system_prompt=system_prompt)
     if groq_result:
-        if not is_low_quality_response(groq_result) and is_chat_response_specific(groq_result, binary_context):
+        is_ok, res, prov = _evaluate(groq_result)
+        if is_ok:
             logger.info("[BinExplain] call_ai_with_fallback: Groq succeeded (quality pass)")
-            return groq_result
+            return res, prov
         else:
-            if groq_result and not is_chat_response_specific(groq_result, binary_context):
-                print("[Chat] Response too generic, trying next provider...")
+            print("[Chat] Response too generic, trying next provider...")
             if not first_low_quality:
-                first_low_quality = ("Groq", groq_result)
+                first_low_quality = ("Groq", res, prov)
 
     # 2. Nemotron
     nemotron_result = _try_nemotron(prompt=messages, system=system_prompt)
     if nemotron_result:
-        if not is_low_quality_response(nemotron_result) and is_chat_response_specific(nemotron_result, binary_context):
+        is_ok, res, prov = _evaluate(nemotron_result)
+        if is_ok:
             logger.info("[BinExplain] call_ai_with_fallback: Nemotron succeeded (quality pass)")
-            return nemotron_result
+            return res, prov
         else:
-            if nemotron_result and not is_chat_response_specific(nemotron_result, binary_context):
-                print("[Chat] Response too generic, trying next provider...")
+            print("[Chat] Response too generic, trying next provider...")
             if not first_low_quality:
-                first_low_quality = ("Nemotron", nemotron_result)
+                first_low_quality = ("Nemotron", res, prov)
 
     # 3. Gemini
     gemini_result = _try_gemini(messages=messages, system_prompt=system_prompt)
     if gemini_result:
-        if not is_low_quality_response(gemini_result) and is_chat_response_specific(gemini_result, binary_context):
+        is_ok, res, prov = _evaluate(gemini_result)
+        if is_ok:
             logger.info("[BinExplain] call_ai_with_fallback: Gemini succeeded (quality pass)")
-            return gemini_result
+            return res, prov
         else:
-            if gemini_result and not is_chat_response_specific(gemini_result, binary_context):
-                print("[Chat] Response too generic, trying next provider...")
+            print("[Chat] Response too generic, trying next provider...")
             if not first_low_quality:
-                first_low_quality = ("Gemini", gemini_result)
+                first_low_quality = ("Gemini", res, prov)
 
     # 4. OpenAI
     openai_result = _try_openai(messages=messages, system_prompt=system_prompt)
     if openai_result:
-        if not is_low_quality_response(openai_result) and is_chat_response_specific(openai_result, binary_context):
+        is_ok, res, prov = _evaluate(openai_result)
+        if is_ok:
             logger.info("[BinExplain] call_ai_with_fallback: OpenAI succeeded (quality pass)")
-            return openai_result
+            return res, prov
         else:
-            if openai_result and not is_chat_response_specific(openai_result, binary_context):
-                print("[Chat] Response too generic, trying next provider...")
+            print("[Chat] Response too generic, trying next provider...")
             if not first_low_quality:
-                first_low_quality = ("OpenAI", openai_result)
+                first_low_quality = ("OpenAI", res, prov)
 
     # 5. Ollama
     if ENABLE_OLLAMA:
         ollama_messages = [{"role": "system", "content": system_prompt}] + messages
         ollama_result = _try_ollama_chat(ollama_messages)
         if ollama_result:
-            if not is_low_quality_response(ollama_result) and is_chat_response_specific(ollama_result, binary_context):
+            is_ok, res, prov = _evaluate(ollama_result)
+            if is_ok:
                 logger.info("[BinExplain] call_ai_with_fallback: Ollama succeeded (quality pass)")
-                return ollama_result
+                return res, prov
             else:
-                if ollama_result and not is_chat_response_specific(ollama_result, binary_context):
-                    print("[Chat] Response too generic, trying next provider...")
+                print("[Chat] Response too generic, trying next provider...")
                 if not first_low_quality:
-                    first_low_quality = ("Ollama", ollama_result)
+                    first_low_quality = ("Ollama", res, prov)
     else:
         logger.debug("[BinExplain] Ollama skipped (ENABLE_OLLAMA=false)")
 
     # 6. Claude
     claude_result = _try_claude(messages=messages, system_prompt=system_prompt)
     if claude_result:
-        if not is_low_quality_response(claude_result) and is_chat_response_specific(claude_result, binary_context):
+        is_ok, res, prov = _evaluate(claude_result)
+        if is_ok:
             logger.info("[BinExplain] call_ai_with_fallback: Claude succeeded (quality pass)")
-            return claude_result
+            return res, prov
         else:
-            if claude_result and not is_chat_response_specific(claude_result, binary_context):
-                print("[Chat] Response too generic, trying next provider...")
+            print("[Chat] Response too generic, trying next provider...")
             if not first_low_quality:
-                first_low_quality = ("Claude", claude_result)
+                first_low_quality = ("Claude", res, prov)
 
     # ── Pass 2: Degraded fallback ─────────────────────────────────────
-    # If we reached here, no provider returned a high-quality response.
-    # If we have a cached low-quality response, use it (all providers degraded).
     if first_low_quality:
-        prov, res = first_low_quality
-        logger.info(f"[BinExplain] call_ai_with_fallback: {prov} succeeded (all providers degraded)")
-        return res
+        prov_name, res, prov_obj = first_low_quality
+        logger.info(f"[BinExplain] call_ai_with_fallback: {prov_name} succeeded (all providers degraded)")
+        return res, prov_obj
 
     raise HTTPException(
         status_code=503,
@@ -6349,6 +6425,7 @@ async def chat(request: Request, body: ChatRequest):
         return {
             "response": "Mocked AI response for chat.\n• Observation 1.\n• Observation 2.\n**Next:** Try checksec.",
             "response_source": "ai",
+            "provenance": {"evidence_type": "general", "evidence_value": None},
             "conversation_summary": summary,
             "should_update_summary": False
         }
@@ -6406,9 +6483,11 @@ async def chat(request: Request, body: ChatRequest):
                 filename_clean = re.sub(r'[^a-zA-Z0-9_]', '', filename_clean)
                 
                 formatted_hints = hints_str.replace("{filename}", filename).replace("{offset}", offset_str).replace("{filename_clean}", filename_clean)
+                _, cache_prov = is_chat_response_specific(formatted_hints, binary_context)
                 return {
                     "response": formatted_hints,
                     "response_source": "cache",
+                    "provenance": cache_prov,
                     "conversation_summary": summary,
                     "should_update_summary": False
                 }
@@ -6447,9 +6526,11 @@ async def chat(request: Request, body: ChatRequest):
             res = _try_groq_vision(full_prompt, body.image_base64, body.image_media_type, system_prompt=system_prompt)
         
         if res:
+            _, vision_prov = is_chat_response_specific(res, binary_context)
             return {
                 "response": res,
                 "response_source": "ai",
+                "provenance": vision_prov,
                 "conversation_summary": summary,
                 "should_update_summary": False
             }
@@ -6493,7 +6574,7 @@ async def chat(request: Request, body: ChatRequest):
     ai_messages.append({"role": "user", "content": body.message})
 
     # Call AI with fallback
-    result = await call_ai_with_fallback(
+    result, provenance = await call_ai_with_fallback(
         system_prompt=system_prompt,
         messages=ai_messages,
         binary_context=binary_context,
@@ -6510,13 +6591,10 @@ async def chat(request: Request, body: ChatRequest):
         if not new_summary:
             new_summary = summary  # keep old summary if new one failed
 
-    if not is_chat_response_specific(result, body.binary_context):
-        print("[Chat] Response too generic, trying next provider...")
-        # Try next provider in chain
-
     return {
         "response": result,
         "response_source": "ai",
+        "provenance": provenance,
         "conversation_summary": new_summary,
         "should_update_summary": should_summarize
     }
