@@ -6169,12 +6169,18 @@ def is_chat_response_specific(response: str, binary_context: dict) -> tuple[bool
     functions = binary_context.get('functions', [])
     offset = binary_context.get('predicted_offset')
     protections = binary_context.get('protections', {})
-    if isinstance(protections, dict):
-        protection_items = [f"{k.upper()}: {v}" for k, v in protections.items() if v is not None]
-    else:
-        protection_items = []
     disassembly = binary_context.get('disassembly', [])
     rop_gadgets = binary_context.get('rop_gadgets', [])
+
+    # Normalize offset to a clean integer string.
+    # binary_context may store it as int, float (e.g. 88.0), or string — all
+    # must resolve to "88" so that "88 bytes" in the response matches.
+    offset_str = None
+    if offset is not None:
+        try:
+            offset_str = str(int(float(offset)))
+        except (ValueError, TypeError):
+            offset_str = str(offset).strip()
 
     # Extract function names safely (strings or dicts)
     function_names = []
@@ -6188,50 +6194,70 @@ def is_chat_response_specific(response: str, binary_context: dict) -> tuple[bool
 
     response_lower = response.lower()
 
+    # Protection key aliases — expand single-letter keys to common synonyms
+    # so the matcher is not defeated by paraphrasing.
+    _PROT_ALIASES = {
+        'nx':     ['nx', 'no-execute', 'noexecute', 'dep', 'non-executable', 'w^x'],
+        'pie':    ['pie', 'position independent', 'aslr'],
+        'canary': ['canary', 'stack canary', 'stack cookie', '__stack_chk'],
+        'relro':  ['relro', 'read-only relocations'],
+        'fortify':['fortify', 'fortified'],
+    }
+
     # Priority matching for provenance extraction (most specific first)
     matched_provenance = None
 
-    # 1. Disassembly line
+    # 1. Disassembly line — require full verbatim match (most concrete evidence)
     for line in disassembly:
         line_str = line.get('line', '') if isinstance(line, dict) else str(line)
-        if line_str and len(line_str.strip()) > 5 and line_str.strip().lower() in response_lower:
+        line_stripped = line_str.strip()
+        if line_stripped and len(line_stripped) > 5 and line_stripped.lower() in response_lower:
             matched_provenance = {
                 "evidence_type": "disassembly_line",
-                "evidence_value": line_str.strip()
+                "evidence_value": line_stripped
             }
             break
 
-    # 2. Overflow offset
-    if not matched_provenance and offset:
-        offset_str = str(offset)
-        if offset_str in response or f"{offset_str} bytes" in response_lower or f"offset {offset_str}" in response_lower:
+    # 2. Overflow offset — check if the numeric value appears anywhere in the
+    #    response.  This catches: "88 bytes", "offset 88", "88-byte buffer",
+    #    "pad = 88", etc.  Uses the int-normalized string so float storage
+    #    (88.0) still matches "88" in the response.
+    if not matched_provenance and offset_str:
+        if offset_str in response_lower:
             matched_provenance = {
                 "evidence_type": "overflow_offset",
-                "evidence_value": str(offset)
+                "evidence_value": offset_str
             }
 
-    # 3. ROP gadget
+    # 3. ROP gadget — verbatim gadget string anywhere in response
     if not matched_provenance and rop_gadgets:
         for g in rop_gadgets:
             g_str = g.get('gadget', '') if isinstance(g, dict) else str(g)
-            if g_str and len(g_str.strip()) > 3 and g_str.strip().lower() in response_lower:
+            g_stripped = g_str.strip()
+            if g_stripped and len(g_stripped) > 3 and g_stripped.lower() in response_lower:
                 matched_provenance = {
                     "evidence_type": "rop_gadget",
-                    "evidence_value": g_str.strip()
+                    "evidence_value": g_stripped
                 }
                 break
 
-    # 4. Protection flag
-    if not matched_provenance and protections:
+    # 4. Protection flag — check both the raw key name and known aliases so
+    #    paraphrases like "No-eXecute" or "stack cookie" are still caught.
+    if not matched_provenance and isinstance(protections, dict):
         for k, v in protections.items():
-            if k and (k.lower() in response_lower or f"{k.upper()}" in response):
+            if not k:
+                continue
+            k_lower = k.lower()
+            aliases = _PROT_ALIASES.get(k_lower, [k_lower])
+            if any(alias in response_lower for alias in aliases):
                 matched_provenance = {
                     "evidence_type": "protection_flag",
                     "evidence_value": f"{k.upper()}: {v}"
                 }
                 break
 
-    # 5. Detected function
+    # 5. Detected function — name must appear in the response.  Skip very
+    #    short names (≤2 chars) to avoid spurious matches.
     if not matched_provenance and function_names:
         for fname in function_names:
             if fname and len(fname) > 2 and fname.lower() in response_lower:
@@ -6241,12 +6267,12 @@ def is_chat_response_specific(response: str, binary_context: dict) -> tuple[bool
                 }
                 break
 
-    # Fallback checks for specificity gate
+    # Fallback specificity gate (drives the boolean return)
     specific_references = [filename] + function_names
     if category and category != 'unknown':
         specific_references.append(category)
-    if offset:
-        specific_references.append(str(offset))
+    if offset_str:
+        specific_references.append(offset_str)
 
     has_specific = any(
         ref.lower() in response_lower
@@ -6254,7 +6280,7 @@ def is_chat_response_specific(response: str, binary_context: dict) -> tuple[bool
         if ref and len(ref) > 2
     )
 
-    # Also check for a bash code block
+    # Also treat a code block as specific (command-containing response)
     has_command = '```' in response or '$' in response
 
     is_specific = has_specific or has_command or (matched_provenance is not None)
