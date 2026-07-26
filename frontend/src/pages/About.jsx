@@ -249,7 +249,7 @@ export default function About({ onNavigate }) {
               Vaibhavi Sanjay Kathepuri
             </div>
             <div style={{ fontSize: '13px', color: '#58a6ff', marginBottom: '14px' }}>
-              M.S. Cybersecurity &amp; AI — Pennsylvania State University
+              M.S. Cybersecurity Analytics and Operations — Pennsylvania State University
             </div>
             <p style={{ color: '#c9d1d9', fontSize: '14px', lineHeight: '1.7', margin: '0 0 10px' }}>
               After spending months struggling through her first binary exploitation challenges, Vaibhavi decided to build the tool she wished had existed. BinExplain started as a personal frustration with existing tools and grew into a full-featured platform over months of active development.
