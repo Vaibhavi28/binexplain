@@ -6,29 +6,29 @@ const STATS = [
   { value: '2,200+', label: 'CTF writeups indexed' },
   { value: '13',     label: 'writeup sources' },
   { value: '6',      label: 'exploit categories' },
-  { value: '235',    label: 'backend tests passing' },
+  { value: '238',    label: 'backend tests passing' },
 ];
 
 const FEATURES = [
   {
     icon: '[01]',
     title: 'CTF Category Detection',
-    desc: 'Classifies your binary into one of six exploitation archetypes — ret2win, format string, heap, ret2libc, ROP chain, shellcode — with a confidence level, explanation, and difficulty rating.',
+    desc: 'Classifies your binary into one of six core exploitation archetypes — ret2win, format string, heap, ret2libc, ROP chain, shellcode — with confidence scoring, CVSS risk rating, and offset predictions.',
     accent: '#238636',
     dim: 'rgba(35,134,54,0.10)',
     border: 'rgba(35,134,54,0.3)',
   },
   {
     icon: '[02]',
-    title: 'Parallel AI Inference',
-    desc: 'Calls Groq and Nemotron 3 Ultra simultaneously. A quality gate filters generic responses. Both answers merge into one expert-level hint that references your actual binary data.',
+    title: 'AI Mentor & Evidence Provenance',
+    desc: 'Calls parallel AI providers and commits to a single exploit hypothesis. Hints feature "Based on:" evidence labels detailing the exact function, offset, or checksec flag backing each claim.',
     accent: '#388bfd',
     dim: 'rgba(56,139,253,0.10)',
     border: 'rgba(56,139,253,0.3)',
   },
   {
     icon: '[03]',
-    title: 'RAG-Powered Hints',
+    title: 'RAG Knowledge Base',
     desc: '2,200+ real CTF writeups from 13 sources indexed with 24 technique tags. Hybrid vector + tag overlap retrieval surfaces genuinely similar past challenges — not just keyword matches.',
     accent: '#8957e5',
     dim: 'rgba(137,87,229,0.10)',
@@ -36,8 +36,8 @@ const FEATURES = [
   },
   {
     icon: '[04]',
-    title: 'Follow-up Chat',
-    desc: 'An AI mentor that remembers your binary context, tracks commands you have already tried, and answers follow-up questions with binary-specific advice — not generic answers.',
+    title: 'Interactive Learn Page',
+    desc: 'Complete 8-part learning map featuring a 12-term story-mode vocabulary, interactive protections feasibility matrix, decision tree flowchart, animated technique deep dives, real-world CVE case studies, and pre-loaded demo binaries.',
     accent: '#d2a8ff',
     dim: 'rgba(210,168,255,0.10)',
     border: 'rgba(210,168,255,0.3)',
@@ -45,15 +45,15 @@ const FEATURES = [
   {
     icon: '[05]',
     title: 'Source Code Analysis',
-    desc: 'Full feature parity for C/C++/Python/Rust/Go source files. Buffer overflow offsets read directly from declarations — more precise than binary disassembly alone.',
+    desc: 'Full feature parity for C/C++/Python/Rust/Go source files. Buffer overflow offsets read directly from variable declarations — providing precise analysis alongside binary parsing.',
     accent: '#ff8b4d',
     dim: 'rgba(255,139,77,0.10)',
     border: 'rgba(255,139,77,0.3)',
   },
   {
     icon: '[06]',
-    title: 'Security First',
-    desc: 'Static analysis only. Files deleted immediately after analysis. Zero binary execution. Rate limited per IP. All inputs validated. Nothing is stored or logged.',
+    title: 'Apache 2.0 Open Source',
+    desc: 'Permissively licensed code under Apache 2.0, completely free to self-host. Static analysis only, zero binary execution, files deleted immediately after scanning.',
     accent: '#f0e042',
     dim: 'rgba(240,224,66,0.10)',
     border: 'rgba(240,224,66,0.3)',
@@ -63,9 +63,9 @@ const FEATURES = [
 const TIMELINE = [
   { phase: 'The Problem',    text: 'Struggled through first binary exploitation CTF challenges. No free tool explained what analysis results actually meant or what to do next.' },
   { phase: 'First Build',   text: 'Shipped the core static analyser — checksec, strings, ROP gadget extraction — in evenings and weekends. Validated it on picoCTF challenges.' },
-  { phase: 'AI Layer',      text: 'Added parallel AI inference (Groq + Nemotron) with a quality gate. Built the RAG pipeline over 2,200+ real CTF writeups from 13 sources.' },
-  { phase: 'Learn Page',    text: 'Built the interactive Learn hub: zero-knowledge ELF guide, exploitation flowchart classifier, technique deep dives, and demo binary analysis.' },
-  { phase: 'Today',         text: 'Live at binexplain.com — free, no account required. 235 backend tests. Source code analysis. Follow-up chat with binary context memory.' },
+  { phase: 'AI Layer',      text: 'Added parallel AI inference with hypothesis commitment rules and evidence provenance tracking. Built the RAG pipeline over 2,200+ real CTF writeups.' },
+  { phase: 'Learn Page',    text: 'Built the interactive Learn hub: 12-term story mode vocabulary, protections matrix, flowchart classifier, technique deep dives, and demo binaries.' },
+  { phase: 'Today',         text: 'Live at binexplain.com — free, Apache 2.0 licensed, no account required. 238 backend tests passing. Source code & binary static analysis.' },
 ];
 
 export default function About({ onNavigate }) {
@@ -183,7 +183,7 @@ export default function About({ onNavigate }) {
               Binary exploitation has the highest barrier to entry of any CTF category. Professional tools cost hundreds of dollars or assume you already know assembly. No free tool explains what the analysis <em>means</em> or what to do next. Beginners download their first binary and stare at it — with no idea where to start.
             </p>
             <p style={{ color: '#8b949e', fontSize: '14px', lineHeight: '1.6', margin: '12px 0 0' }}>
-              BinExplain was built to fix exactly that — free, no account, works in the browser, and explains everything in plain English.
+              BinExplain was built to fix exactly that — free, open source under Apache 2.0, works in the browser, and explains everything in plain English.
             </p>
           </div>
         </div>
