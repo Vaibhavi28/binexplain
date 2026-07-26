@@ -345,6 +345,18 @@ export default function About({ onNavigate }) {
             Get in Touch
           </a>
         </div>
+        <div style={{ marginTop: '24px', fontSize: '13px', color: '#8b949e', lineHeight: '1.6' }}>
+          BinExplain is open source,{' '}
+          <a
+            href="https://www.apache.org/licenses/LICENSE-2.0"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: '#58a6ff', textDecoration: 'none', fontWeight: 600 }}
+          >
+            Licensed under Apache License 2.0
+          </a>
+          . The "BinExplain" name and branding are protected rights reserved for the official project (see NOTICE).
+        </div>
       </div>
     </div>
   );

@@ -5,7 +5,7 @@
 ### Free AI-Powered Binary Analysis for CTF Beginners
 
 [![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-binexplain.com-brightgreen?style=for-the-badge)](https://binexplain.com)
-[![License: CC BY-NC-ND 4.0](https://img.shields.io/badge/License-CC_BY--NC--ND_4.0-lightgrey?style=for-the-badge)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge)](LICENSE)
 [![Tests](https://img.shields.io/badge/Tests-235_passing-brightgreen?style=for-the-badge&logo=pytest&logoColor=white)](backend/tests)
 [![GitHub Stars](https://img.shields.io/github/stars/Vaibhavi28/binexplain?style=for-the-badge&logo=github&logoColor=white&color=yellow)](https://github.com/Vaibhavi28/binexplain/stargazers)
 [![Last Commit](https://img.shields.io/github/last-commit/Vaibhavi28/binexplain?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Vaibhavi28/binexplain/commits/master)
@@ -36,10 +36,10 @@
 
 [🚀 **Try it at binexplain.com**](https://binexplain.com) · [⭐ Star on GitHub](https://github.com/Vaibhavi28/binexplain) · [🐛 Report a Bug](https://github.com/Vaibhavi28/binexplain/issues)
 
-> ⚠️ **License Notice:** Source-available under CC BY-NC-ND 4.0.
-> You may use the live tool and view the code freely.
-> Cloning, forking, and redistribution are **not** permitted.
-> See [LICENSE](LICENSE) for full terms.
+> 📜 **License Notice:** Open source under Apache License 2.0.
+> The source code is freely available under Apache 2.0 terms.
+> Note: The "BinExplain" name and branding are protected rights reserved for the official project (see [NOTICE](NOTICE)).
+> See [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
 
 </div>
 
@@ -254,7 +254,7 @@ python knowledge_base/scraper.py
 
 ## Contributing
 
-Source-available under CC BY-NC-ND 4.0.
+Open source under Apache License 2.0.
 Bug reports and feature requests welcome via [GitHub Issues](https://github.com/Vaibhavi28/binexplain/issues).
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
@@ -262,9 +262,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## License
 
-**CC BY-NC-ND 4.0** — Use the live tool and view the code freely.
-Redistribution, forking, and commercial use are not permitted.
-See [LICENSE](LICENSE).
+**Apache License 2.0** — Open source code license.
+Per the [NOTICE](NOTICE) file, the "BinExplain" name, logos, and branding are protected identifiers reserved for the official project instance at binexplain.com.
+See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ---
 
@@ -278,7 +278,7 @@ Only analyze files you own or have explicit permission to analyze.
 
 <div align="center">
 
-**© 2026 Vaibhavi Sanjay Kathepuri — CC BY-NC-ND 4.0**
+**© 2026 Vaibhavi Sanjay Kathepuri — Licensed under Apache License 2.0**
 
 Built with ❤️ for the CTF community
 

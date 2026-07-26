@@ -1,7 +1,6 @@
 # Contributing to BinExplain
 
-BinExplain is source-available under CC BY-NC-ND 4.0. Direct code contributions
-via pull request are not accepted at this time. However, contributions in the
+BinExplain is open source under Apache License 2.0. Contributions in the
 following forms are very welcome:
 
 ## How to Contribute

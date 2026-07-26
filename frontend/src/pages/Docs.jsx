@@ -13,7 +13,8 @@ export default function Docs({ onNavigate }) {
         { id: 'source-analysis', label: '6. Source Code Analysis' },
         { id: 'virustotal', label: '7. VirusTotal' },
         { id: 'api-keys', label: '8. API Keys' },
-        { id: 'troubleshooting', label: '9. Troubleshooting' }
+        { id: 'troubleshooting', label: '9. Troubleshooting' },
+        { id: 'license-notice', label: '10. License & Open Source' }
     ];
 
     const [activeSection, setActiveSection] = useState('getting-started');
@@ -459,6 +460,25 @@ export default function Docs({ onNavigate }) {
                         </li>
                         <li>
                             <strong>"AI hints are generic":</strong> <GlossaryText text="This happens occasionally if the binary contains zero strings or readable tables. Ask a specific question in the follow-up chat (e.g., 'what does the main function do?') to seed the conversational memory." />
+                        </li>
+                    </ul>
+                </section>
+
+                {/* Section 10 — License & Open Source */}
+                <section id="license-notice" className="docs-section">
+                    <h2>10. License &amp; Open Source</h2>
+                    <p>
+                        BinExplain source code is open source and{' '}
+                        <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener noreferrer" className="docs-link">
+                            Licensed under Apache License 2.0
+                        </a>.
+                    </p>
+                    <ul>
+                        <li>
+                            <strong>Permissive Code License:</strong> You are free to inspect, modify, fork, and use the source code for commercial and non-commercial purposes under the terms of Apache License 2.0.
+                        </li>
+                        <li>
+                            <strong>Protected Name &amp; Branding:</strong> Per the project NOTICE file, the name "BinExplain", logos, and branding are protected identifiers for the official project maintained at <a href="https://binexplain.com" target="_blank" rel="noopener noreferrer" className="docs-link">binexplain.com</a>. Derivative works, forks, or competing deployments must use a distinct name and branding.
                         </li>
                     </ul>
                 </section>

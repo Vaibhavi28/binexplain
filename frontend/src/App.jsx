@@ -2765,7 +2765,16 @@ export default function App() {
                         <a href="https://github.com/Vaibhavi28/binexplain" target="_blank" rel="noopener noreferrer" className="footer-link">GitHub</a>
                     </div>
                     <span>
-                        © 2026 Vaibhavi Sanjay Kathepuri · CC BY-NC-ND 4.0 ·{' '}
+                        © 2026 Vaibhavi Sanjay Kathepuri ·{' '}
+                        <a
+                            href="https://www.apache.org/licenses/LICENSE-2.0"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: '700' }}
+                        >
+                            Licensed under Apache License 2.0
+                        </a>
+                        {' '}· "BinExplain" name &amp; branding protected per NOTICE ·{' '}
                         <Link to="/privacy" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: '700' }}>Privacy Policy</Link> ·{' '}
                         <Link to="/contact" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: '700' }}>Contact</Link>
                     </span>
