@@ -4,9 +4,9 @@
 
 ### Free AI-Powered Binary Analysis for CTF Beginners
 
-[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-binexplain.com-brightgreen?style=for-the-badge)](https://binexplain.com)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-binexplain.com-brightgreen?style=for-the-badge)](https://binexplain.com)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-235_passing-brightgreen?style=for-the-badge&logo=pytest&logoColor=white)](backend/tests)
+[![Tests](https://img.shields.io/badge/Tests-238_passing-brightgreen?style=for-the-badge&logo=pytest&logoColor=white)](backend/tests)
 [![GitHub Stars](https://img.shields.io/github/stars/Vaibhavi28/binexplain?style=for-the-badge&logo=github&logoColor=white&color=yellow)](https://github.com/Vaibhavi28/binexplain/stargazers)
 [![Last Commit](https://img.shields.io/github/last-commit/Vaibhavi28/binexplain?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Vaibhavi28/binexplain/commits/master)
 
@@ -34,9 +34,9 @@
 
 **No installation. No account. Always free for individual use.**
 
-[🚀 **Try it at binexplain.com**](https://binexplain.com) · [⭐ Star on GitHub](https://github.com/Vaibhavi28/binexplain) · [🐛 Report a Bug](https://github.com/Vaibhavi28/binexplain/issues)
+[**Try it at binexplain.com**](https://binexplain.com) · [Star on GitHub](https://github.com/Vaibhavi28/binexplain) · [Report a Bug](https://github.com/Vaibhavi28/binexplain/issues)
 
-> 📜 **License Notice:** Open source under Apache License 2.0.
+> **License Notice:** Open source under Apache License 2.0.
 > The source code is freely available under Apache 2.0 terms.
 > Note: The "BinExplain" name and branding are protected rights reserved for the official project (see [NOTICE](NOTICE)).
 > See [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
@@ -49,7 +49,7 @@
 
 Every CTF beginner downloads their first binary and has no idea what to do next. Professional tools like Ghidra assume expert knowledge. No free tool explains what the analysis **means** or tells you what to do next.
 
-**BinExplain acts like a senior CTF player sitting next to you.**
+**BinExplain acts like a committed CTF mentor sitting next to you** — committing to a single exploitation hypothesis based on your binary's data and diagnosing reported failures step-by-step rather than listing generic alternatives.
 
 ---
 
@@ -59,59 +59,62 @@ Every CTF beginner downloads their first binary and has no idea what to do next.
 
 | Feature | Details |
 |---------|---------|
-| 🎯 **CTF Category Detection** | ret2win, ret2libc, heap, format string, ROP chain, shellcode — with confidence level |
-| 🎲 **Difficulty Predictor** | Easy / Medium / Hard based on active protections |
-| 🔒 **Checksec Integration** | NX, PIE, Canary, RELRO, Fortify — explained in plain English |
-| 🔗 **ROP Gadget Finder** | Real gadgets with addresses via Capstone disassembly |
-| ⚡ **Pwntools Template** | Auto-generated with offset, architecture, and gadgets pre-filled |
-| 📐 **Overflow Offset Predictor** | Predicted from stack allocation instructions in disassembly |
-| 📚 **Libc Version Identifier** | Identifies libc version + direct link to libc database |
-| ⚠️ **Format String Detector** | Detects printf(buf) pattern |
-| 📊 **CVSS 3.1 Scoring** | Industry standard vulnerability scoring |
-| 🌊 **Data Flow Analysis** | Traces input → buffer → sink with addresses |
-| 📜 **Function List** | All functions from ELF symbol table |
-| 📥 **Import/Export Table** | Full dynamic symbol parsing |
-| 🔍 **Real Disassembly** | main() function via Capstone |
-| 🔐 **Password ZIP Support** | Analyze encrypted CTF archives |
-| 🚩 **11 Flag Formats** | picoCTF, HTB, THM, DUCTF, and more |
-| 📦 **8+ File Formats** | ELF, EXE, BIN, SO, DLL, ZIP and extensionless |
+| **CTF Category Detection** | ret2win, ret2libc, heap, format string, ROP chain, shellcode — with confidence level |
+| **Difficulty Predictor** | Easy / Medium / Hard based on active protections |
+| **Checksec Integration** | NX, PIE, Canary, RELRO, Fortify — explained in plain English |
+| **ROP Gadget Finder** | Real gadgets with addresses via Capstone disassembly |
+| **Pwntools Template** | Auto-generated with offset, architecture, and gadgets pre-filled |
+| **Overflow Offset Predictor** | Predicted from stack allocation instructions in disassembly |
+| **Libc Version Identifier** | Identifies libc version + direct link to libc database |
+| **Format String Detector** | Detects printf(buf) pattern |
+| **CVSS 3.1 Scoring** | Industry standard vulnerability scoring |
+| **Data Flow Analysis** | Traces input → buffer → sink with addresses |
+| **Function List** | All functions from ELF symbol table |
+| **Import/Export Table** | Full dynamic symbol parsing |
+| **Real Disassembly** | main() function via Capstone |
+| **Password ZIP Support** | Analyze encrypted CTF archives |
+| **Flag Detection** | Standard, picoCTF, HTB, THM, DUCTF, and generic formats |
+| **File Formats** | ELF, EXE, BIN, SO, DLL, ZIP and extensionless files |
 
 ### Source Code Analysis
 
 | Feature | Details |
 |---------|---------|
-| 🎯 **CTF Category Detection** | Same 6 archetypes, adapted for source code |
-| 📐 **Overflow Offset** | Read from buffer declarations — more precise than binary |
-| 🌊 **Data Flow Analysis** | Line-level with actual variable names |
-| 💡 **Exploit Template** | Working pwntools script from source analysis |
-| 📋 **Quick Commands** | Compilation and testing commands |
+| **CTF Category Detection** | Same 6 archetypes, adapted for source code |
+| **Overflow Offset** | Read from buffer declarations — more precise than binary |
+| **Data Flow Analysis** | Line-level with actual variable names |
+| **Exploit Template** | Working pwntools script from source analysis |
+| **Quick Commands** | Compilation and testing commands |
 
-### AI System
+### AI System & Provenance
 
 | Feature | Details |
 |---------|---------|
-| 🧠 **Parallel AI Inference** | Groq + Nemotron called simultaneously via asyncio, responses merged |
-| ✅ **Quality Gate** | Two-pass filter rejects generic responses, retries with next provider |
-| 🌐 **RAG Knowledge Base** | 6,400+ real CTF writeups from 8 curated sources |
-| 🏷️ **Technique Tagging** | 24 technique tags for hybrid vector + tag-overlap retrieval |
-| ⚡ **CAG Caching** | Common patterns served instantly — 80%+ cache hit rate |
-| 💬 **Unlimited Chat** | Auto-summarization every 10 messages — no context loss |
-| 📷 **Screenshot Analysis** | Paste terminal screenshots directly with Ctrl+V |
-| 🔧 **Visual Command Explainer** | Word-by-word command breakdown with inline diagram |
-| 📖 **Interactive Glossary** | Hover over technical terms for plain English explanations |
+| **Hypothesis Commitment (Rule 11)** | Commits to single most probable exploitation technique based on binary data |
+| **Failure Diagnosis (Rule 12 & 13)** | Diagnoses reported terminal errors/crashes before suggesting pivots |
+| **Evidence Provenance Labels** | Generated hints display "Based on:" labels tied to specific binary findings |
+| **Parallel AI Inference** | Groq + Nemotron called simultaneously via asyncio, responses merged |
+| **Quality Gate** | Two-pass filter rejects generic responses, retries with next provider |
+| **RAG Knowledge Base** | 2,250+ real CTF writeups from 13 curated sources |
+| **Technique Tagging** | 24 technique tags for hybrid vector + tag-overlap retrieval |
+| **CAG Caching** | Common patterns served instantly — high cache hit rate |
+| **Unlimited Chat** | Auto-summarization every 10 messages — no context loss |
+| **Screenshot Analysis** | Paste terminal screenshots directly with Ctrl+V |
+| **Visual Command Explainer** | Word-by-word command breakdown with inline diagram |
+| **Interactive Glossary** | Hover over technical terms for plain English explanations |
 
 ### Learn Page
 
 | Feature | Details |
 |---------|---------|
-| 📚 **Zero-Knowledge Explainer** | Teaches binary analysis from absolute beginner level |
-| 🏗️ **ELF Structure Diagram** | Interactive clickable sections — .text, stack, heap, GOT/PLT |
-| 🔒 **Protections Toggle Map** | Live toggle NX/PIE/Canary/RELRO — see which attacks survive |
-| 🌳 **Exploitation Flowchart** | Decision tree: answer 5 questions, arrive at your technique |
-| 🎬 **Animated Technique Dives** | 6 animated memory diagrams — one per exploitation category |
-| 🌍 **Real World CVE Map** | Each technique mapped to real CVEs with full attack story |
-| 🔗 **Relationship Map** | Function → vulnerability → technique → mitigation, all connected |
-| 🧪 **Try It Yourself** | Pre-loaded demo binaries — click Analyze, see results instantly |
+| **0. Core Vocabulary** | 12 foundational terms with plain definitions and a 3-part narrative/story mode |
+| **1. What is a Binary** | Interactive ELF structure layout and runtime execution walkthrough |
+| **2. Security Protections Map** | Live toggle NX/PIE/Canary/RELRO — see which attacks survive |
+| **3. Exploitation Flowchart** | Guided decision tree identifying the most probable attack path |
+| **4. Animated Technique Dives** | Step-by-step animated memory diagrams per exploitation category |
+| **5. Wired Connection Map** | Function → vulnerability → technique → mitigation architecture map |
+| **6. Real World Impact** | Case studies (Heartbleed, Shellshock, UAF) mapped to techniques |
+| **7. Try It Yourself** | Pre-loaded demo binaries with source code and pwntools scripts |
 
 ---
 
@@ -129,7 +132,7 @@ Binary uploaded → Static analysis (2-3 seconds)
          ↓                              ↓
    Quick hints shown            Deep hints ready
    immediately                        ↓
-                        ✅ Quality gate — rejects generic responses
+                        Quality gate — rejects generic responses
                                       ↓
                           Groq merges both into one answer
 ```
@@ -154,7 +157,7 @@ how2heap ─────┤──→ Scraper → quality filter → ChromaDB →
 CTF-pwn-tips ─┤              deduplication              vector similarity
 nobodyisnobody┤              credential filter        + technique tag overlap
 GitHub repos ──┤              24 category targets               ↓
-Medium articles┘                                    6,400+ indexed writeups
+Medium articles┘                                    2,250+ indexed writeups
 ```
 
 ---
@@ -172,7 +175,7 @@ Medium articles┘                                    6,400+ indexed writeups
 | **Input validation** | Pydantic field validators with length caps |
 | **CORS restricted** | Configured domain only, never wildcard |
 | **Security headers** | X-Content-Type-Options, X-Frame-Options, Referrer-Policy |
-| **235+ automated tests** | Unit, integration, CTF scenarios, chaos testing |
+| **238 automated tests** | Unit, integration, CTF scenarios, chaos testing |
 
 ---
 
@@ -229,10 +232,10 @@ python knowledge_base/scraper.py
 
 | | |
 |--|--|
-| **Backend** | Python 3.11, FastAPI, 6,400+ line main.py |
+| **Backend** | Python 3.11, FastAPI, 6,300+ lines in main.py |
 | **Frontend** | React 18, Vite, anime.js |
-| **Tests** | 235+ passing (unit, integration, CTF scenarios, chaos) |
-| **Knowledge Base** | 6,400+ real CTF writeups across 24 technique categories |
+| **Tests** | 238 passing (unit, integration, CTF scenarios, chaos) |
+| **Knowledge Base** | 2,250+ real CTF writeups across 24 technique categories |
 | **AI Providers** | 5 providers, parallel inference, quality gate, RAG + CAG |
 | **Development** | Months of active development and iteration |
 
@@ -243,7 +246,7 @@ python knowledge_base/scraper.py
 | Status | Version | Feature |
 |--------|---------|---------|
 | ✅ | v1 | Web app — live at binexplain.com |
-| ✅ | v1 | Interactive Learn page with 6 animated technique dives |
+| ✅ | v1 | Interactive Learn page with 8 modules & 3-part story mode |
 | ✅ | v1 | Pre-loaded demo binaries for all 6 CTF categories |
 | 🔄 | v2 | CLI tool — `pip install binexplain` |
 | 🔄 | v2 | Dynamic analysis sandbox (strace, ltrace automation) |
