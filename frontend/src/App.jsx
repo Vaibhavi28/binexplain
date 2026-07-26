@@ -1256,7 +1256,7 @@ export default function App() {
 
     const switchMode = (mode) => {
         setAnalysisMode(mode);
-        // Don't clear results when switching â€” preserve both for combined analysis
+        // Don't clear results when switching — preserve both for combined analysis
         if (mode === 'binary') {
             setSourceError('');
         } else {
@@ -1650,12 +1650,12 @@ export default function App() {
                 {/* *** ZIP Source Code Banner *** */}
                 {analysisMode === 'binary' && zipSourceBanner && (
                     <div className="zip-source-banner" onClick={() => { setAnalysisMode('source'); setZipSourceBanner(null); }}>
-                        <div className="zip-source-banner-icon">ðŸ“„</div>
+                        <div className="zip-source-banner-icon">📄</div>
                         <div className="zip-source-banner-text">
                             <strong>{zipSourceBanner.count} source code file{zipSourceBanner.count > 1 ? 's' : ''} detected in this ZIP!</strong>
                             <span className="zip-source-banner-files">{zipSourceBanner.filenames}</span>
                         </div>
-                        <div className="zip-source-banner-action">Switch to Source Code Analysis â†’</div>
+                        <div className="zip-source-banner-action">Switch to Source Code Analysis →</div>
                     </div>
                 )}
 
@@ -1791,9 +1791,9 @@ export default function App() {
                                 icon=""
                                 title="AI Hints + Kill Chain"
                                 stat={
-                                    result.ai_hints_enhanced ? "âœ… Enhanced with deep reasoning" :
-                                    result.ai_hints_quick ? "âš¡ Quick analysis" :
-                                    (result.ai_hints || result.hints) ? "Analysis available" : "Unavailable"
+                                    result.ai_hints_enhanced ? '✅ Enhanced with deep reasoning' :
+                                    result.ai_hints_quick ? '⚡ Quick analysis' :
+                                    (result.ai_hints || result.hints) ? 'Analysis available' : 'Unavailable'
                                 }
                                 statColor={
                                     result.ai_hints_enhanced ? "#4ade80" :
@@ -1810,12 +1810,12 @@ export default function App() {
                                         <div className="result-card-body">
                                             {result.ai_hints_enhanced && (
                                                 <div className="ai-system-badge ai-system-badge--enhanced">
-                                                    âœ… Enhanced with deep reasoning
+                                                    {'✅'} Enhanced with deep reasoning
                                                 </div>
                                             )}
                                             {!result.ai_hints_enhanced && result.ai_hints_quick && (
                                                 <div className="ai-system-badge ai-system-badge--quick">
-                                                    âš¡ Quick analysis
+                                                    {'⚡'} Quick analysis
                                                 </div>
                                             )}
                                             {mainHints ? (
@@ -2419,12 +2419,12 @@ export default function App() {
                                     {/* Enhanced / Quick badge — mirrors binary flow */}
                                     {sourceResult.ai_hints_enhanced && (
                                         <div className="ai-system-badge ai-system-badge--enhanced">
-                                            \u2705 Enhanced with deep reasoning
+                                            {'✅'} Enhanced with deep reasoning
                                         </div>
                                     )}
                                     {!sourceResult.ai_hints_enhanced && sourceResult.ai_hints_quick && (
                                         <div className="ai-system-badge ai-system-badge--quick">
-                                            \u26A1 Quick analysis
+                                            {'⚡'} Quick analysis
                                         </div>
                                     )}
                                     <div className="ai-bullets">
@@ -2587,7 +2587,7 @@ export default function App() {
                     </>
                 )}
 
-                {/* Combined Analysis â€” appears when BOTH binary and source results exist */}
+                {/* Combined Analysis — appears when BOTH binary and source results exist */}
                 {result && sourceResult && (
                     <div className="bottom-section combined-analysis-section">
                         <div className="bottom-section-header">
@@ -2608,7 +2608,7 @@ export default function App() {
                                 {result.overflow_hint?.likely_offset && Array.isArray(sourceResult.vulnerabilities) && sourceResult.vulnerabilities.some(v => v.type === 'buffer_overflow') && (
                                     <div className="combined-item combined-item--confirmed">
                                         <span className="combined-icon">{"\u2705"}</span>
-                                        <span>Source confirms binary has buffer overflow{sourceResult.vulnerabilities.filter(v => v.type === 'buffer_overflow').map(v => ` at ${v.description.split('â€”')[0].trim()}`).join('')} &mdash; binary overflow offset predicted at {result.overflow_hint.likely_offset} bytes.</span>
+                                        <span>Source confirms binary has buffer overflow{sourceResult.vulnerabilities.filter(v => v.type === 'buffer_overflow').map(v => ` at ${v.description.split('—')[0].trim()}`).join('')} &mdash; binary overflow offset predicted at {result.overflow_hint.likely_offset} bytes.</span>
                                     </div>
                                 )}
                                 {/* Checksec vs source vulns */}
