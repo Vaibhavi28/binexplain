@@ -8,13 +8,15 @@ export default function Docs({ onNavigate }) {
         { id: 'getting-started', label: '1. Getting Started' },
         { id: 'uploading-files', label: '2. Uploading Files' },
         { id: 'understanding-results', label: '3. Understanding Results' },
-        { id: 'ai-features', label: '4. AI Features' },
-        { id: 'quick-commands', label: '5. Quick Commands' },
-        { id: 'source-analysis', label: '6. Source Code Analysis' },
-        { id: 'virustotal', label: '7. VirusTotal' },
-        { id: 'api-keys', label: '8. API Keys' },
-        { id: 'troubleshooting', label: '9. Troubleshooting' },
-        { id: 'license-notice', label: '10. License & Open Source' }
+        { id: 'learn-page', label: '4. Learn Page & Interactive Guides' },
+        { id: 'ai-features', label: '5. AI Features & Mentor Commitment' },
+        { id: 'provenance', label: '6. Evidence & Provenance Labeling' },
+        { id: 'quick-commands', label: '7. Quick Commands' },
+        { id: 'source-analysis', label: '8. Source Code Analysis' },
+        { id: 'virustotal', label: '9. VirusTotal' },
+        { id: 'api-keys', label: '10. API Keys' },
+        { id: 'troubleshooting', label: '11. Troubleshooting' },
+        { id: 'license-notice', label: '12. License & Open Source' }
     ];
 
     const [activeSection, setActiveSection] = useState('getting-started');
@@ -62,7 +64,7 @@ export default function Docs({ onNavigate }) {
         <div className="docs-container">
             <Helmet>
                 <title>Documentation — BinExplain</title>
-                <meta name="description" content="Learn how to use BinExplain. Supported file formats, how to interpret CTF category results, AI features, and troubleshooting guide." />
+                <meta name="description" content="Complete documentation for BinExplain binary analysis tool, interactive Learn guides, AI mentor commitment rules, evidence provenance, and Apache 2.0 licensing." />
                 <link rel="canonical" href="https://binexplain.com/docs" />
                 <script type="application/ld+json">{`
 {
@@ -74,55 +76,38 @@ export default function Docs({ onNavigate }) {
       "name": "What is BinExplain?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "BinExplain is a free, browser-based tool that analyzes binary files for CTF (Capture The Flag) challenges. It detects the CTF exploitation category, finds ROP gadgets, predicts buffer overflow offsets, and generates a pre-filled pwntools exploit template."
+        "text": "BinExplain is a browser-based static analysis platform for CTF binary exploitation. It parses executables and source code, classifies exploitation vectors, extracts gadgets, and provides AI mentoring with evidence provenance."
       }
     },
     {
       "@type": "Question",
-      "name": "Is BinExplain free to use?",
+      "name": "How does the AI mentor work?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes, BinExplain is completely free for individual use. No account or installation required."
+        "text": "The AI mentor commits to a single exploitation hypothesis based on your binary's data and diagnoses reported failures before pivoting."
       }
     },
     {
       "@type": "Question",
-      "name": "What file types does BinExplain support?",
+      "name": "What is evidence provenance?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "BinExplain supports ELF binaries, PE executables, extensionless files, ZIP archives including password-protected ones, and source code in C, C++, Python, JavaScript, Rust, and Go."
+        "text": "Every hint displays a 'Based on:' label showing the exact binary evidence (function name, protection flag, offset, gadget, disassembly) backing the claim."
       }
     },
     {
       "@type": "Question",
-      "name": "Does BinExplain execute uploaded binaries?",
+      "name": "What license does BinExplain use?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "No. BinExplain performs static analysis only and never executes uploaded files. Files are deleted immediately after analysis."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What CTF categories does BinExplain detect?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "BinExplain classifies binaries into six CTF exploitation categories: ret2win, ret2libc, format string, heap exploitation, ROP chain, and shellcode."
+        "text": "BinExplain code is open source under Apache License 2.0. The BinExplain brand name remains reserved per the NOTICE file."
       }
     }
   ]
 }
                 `}</script>
-                <script type="application/ld+json">{`
-{
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  "itemListElement": [
-    {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://binexplain.com"},
-    {"@type": "ListItem", "position": 2, "name": "Documentation", "item": "https://binexplain.com/docs"}
-  ]
-}
-                `}</script>
             </Helmet>
+
             {/* Left Sidebar Navigation */}
             <aside className="docs-sidebar">
                 <div className="docs-nav-title">Documentation</div>
@@ -237,7 +222,7 @@ export default function Docs({ onNavigate }) {
                         </li>
                     </ul>
 
-                    <h4>Extended Techniques Detected (via RAG and technique tagging)</h4>
+                    <h4>Extended Techniques Detected</h4>
                     <p>
                         BinExplain also detects and indexes advanced binary exploitation and bypass techniques:
                     </p>
@@ -256,26 +241,14 @@ export default function Docs({ onNavigate }) {
                         <li><code className="docs-code">stack_pivot</code></li>
                         <li><code className="docs-code">integer_overflow</code></li>
                         <li><code className="docs-code">seccomp_bypass</code></li>
-                        <li><code className="docs-code">house_of_force</code></li>
-                        <li><code className="docs-code">house_of_spirit</code></li>
-                        <li><code className="docs-code">house_of_orange</code></li>
-                        <li><code className="docs-code">unsorted_bin_attack</code></li>
                     </ul>
 
-                    <h3>Difficulty Assessment</h3>
+                    <h3>Difficulty Assessment &amp; CVSS Score</h3>
                     <p>
-                        The analyzer classifies difficulty as <strong>Easy</strong>, <strong>Medium</strong>, or <strong>Hard</strong>. This rating is dynamically calculated based on the active security mitigations (e.g. checksec flags) present in the executable.
-                    </p>
-
-                    <h3>CVSS Score</h3>
-                    <p>
-                        A computed industry-standard Common Vulnerability Scoring System (CVSS) severity score between 0.0 (low risk) and 10.0 (critical risk) is provided based on the combined presence of dangerous functions, file mitigations, and potential exploit vectors.
+                        Difficulty is classified as <strong>Easy</strong>, <strong>Medium</strong>, or <strong>Hard</strong> based on active mitigations. A Common Vulnerability Scoring System (CVSS) severity score between 0.0 and 10.0 is computed from dangerous functions, protections, and exploit vectors.
                     </p>
 
                     <h3>Checksec Protections</h3>
-                    <p>
-                        Security mitigations compiled into the binary are explained in plain English:
-                    </p>
                     <ul>
                         <li><strong>NX (No-Execute):</strong> <GlossaryText text="Prevents code execution on the stack/heap." /></li>
                         <li><strong>PIE (Position Independent Executable):</strong> <GlossaryText text="Randomizes the binary's code section base address in memory." /></li>
@@ -283,78 +256,123 @@ export default function Docs({ onNavigate }) {
                         <li><strong>RELRO (RELocation Read-Only):</strong> <GlossaryText text="Hardens the Global Offset Table (GOT) against overwriting." /></li>
                         <li><strong>Fortify:</strong> <GlossaryText text="Replaces buffer-bound functions with bounds-checked variants (e.g. `__printf_chk`)." /></li>
                     </ul>
-
-                    <h3>ROP Gadgets</h3>
-                    <p>
-                        <GlossaryText text="Lists discovered assembly code sequences followed by a return instruction (`ret`) and their virtual memory addresses. These addresses are key ingredients for building custom ROP chains." />
-                    </p>
-
-                    <h3>Overflow Offset Prediction</h3>
-                    <p>
-                        <GlossaryText text="Predicts the exact number of bytes required to fill a local stack buffer and reach the saved frame pointer (EBP/RBP) or return address (EIP/RIP)." />
-                    </p>
                 </section>
 
-                {/* Section 4 — AI Features */}
-                <section id="ai-features" className="docs-section">
-                    <h2>4. AI Features</h2>
+                {/* Section 4 — Learn Page & Interactive Guides */}
+                <section id="learn-page" className="docs-section">
+                    <h2>4. Learn Page &amp; Interactive Guides</h2>
                     <p>
-                        BinExplain includes AI features that assist you with customized hints and interactive walk-throughs:
+                        The <Link to="/learn">Learn Page</Link> provides an interactive, visual curriculum designed to build mental models of binary exploitation concepts step-by-step:
                     </p>
                     <ul>
                         <li>
-                            <strong>AI Mentor Hints:</strong> <GlossaryText text="The system reads the results of checksec, file metadata, and strings to generate binary-specific hints. This goes beyond static documentation to explain the vulnerabilities present in the actual uploaded file." />
+                            <strong>0. Key Terms First (Core Vocabulary):</strong> Documents 12 foundational security terms (Stack, Return Address, Buffer Overflow, NX, Gadget, ROP, PIE, Canary, GOT, RELRO, Heap, libc). Each card includes a direct definition and a toggleable 3-part narrative mode:
+                            <br />
+                            <em>Part A (In Real Life)</em> — concrete literal definition without jargon.
+                            <br />
+                            <em>Part B (Picture It Like This)</em> — real-world apartment building metaphor with zero code or assembly syntax.
+                            <br />
+                            <em>Part C (Translated Back)</em> — direct one-to-one mapping connecting the metaphor back to technical primitives.
                         </li>
                         <li>
-                            <strong>Parallel AI Inference:</strong> <GlossaryText text="To produce high-quality hints, BinExplain sends requests to Groq (which returns a fast, structured initial analysis) and Nemotron (which processes deep, conceptual advice) simultaneously, merging the best of both outputs." />
+                            <strong>1. What is a Binary:</strong> Interactive ELF structure layout and step-by-step binary execution walkthrough.
                         </li>
                         <li>
-                            <strong>Quality Gate:</strong> <GlossaryText text="BinExplain uses a two-pass quality system. If an AI provider returns a generic or too-short response, it automatically tries the next provider instead of showing you a useless answer. You always get a substantive hint." />
+                            <strong>2. Security Protections Map:</strong> Interactive mitigation toggles with a live feasibility matrix showing how NX, PIE, Canary, and RELRO block specific attack vectors.
                         </li>
                         <li>
-                            <strong>Conversation Summarization:</strong> <GlossaryText text="Conversations never hit a hard limit. Every 10 messages, BinExplain automatically summarizes the session so far and continues with full context. You can have unlimited length sessions without losing context or starting over." />
+                            <strong>3. Exploitation Flowchart:</strong> Guided decision tree that leads you through binary analysis questions to pinpoint the exact attack strategy.
                         </li>
                         <li>
-                            <strong>AI Knowledge Base:</strong> <GlossaryText text="2200+ real CTF writeups from 13 curated sources, categorized across 24 exploitation technique tags including tcache poisoning, ret2csu, SROP, GOT overwrite, and more." />
+                            <strong>4. Technique Deep Dives:</strong> Interactive animated visual walkthroughs for ret2win, ret2libc, format string, heap exploitation, ROP chains, and shellcode.
                         </li>
                         <li>
-                            <strong>Enhanced Badge:</strong> <GlossaryText text="An Enhanced badge appears in the UI when the Nemotron model is active and its deep analysis has been successfully merged into the final output." />
+                            <strong>5. Wired Connection Map:</strong> Architectural relationship diagram connecting binary sections, CPU registers, and exploit targets.
                         </li>
                         <li>
-                            <strong>Follow-up Chat:</strong> <GlossaryText text="Use the interactive AI chatbot beneath your results to ask follow-up questions. Press Shift+Enter to insert a newline." />
+                            <strong>6. Real World Impact:</strong> Real-world CVE case studies (such as Heartbleed, Shellshock, and sudo UAF) mapped directly to binary exploitation techniques.
                         </li>
                         <li>
-                            <strong>Screenshot Analysis:</strong> <GlossaryText text="If you are stuck in GDB or are encountering a specific terminal error, take a screenshot and upload it to the chatbot. The vision model will analyze it and provide contextual debug advice." />
-                        </li>
-                        <li>
-                            <strong>Command Explainer:</strong> <GlossaryText text="Every time the AI suggests a terminal command, a ? helper icon is displayed next to it. Clicking the icon returns a visual breakdown of exactly what the command parameters do." />
-                        </li>
-                        <li>
-                            <strong>Interactive Glossary:</strong> <GlossaryText text="Hover over any highlighted technical term in the analysis results to see a plain English explanation with a real-world attack example. Terms covered include: buffer overflow, ROP, NX, PIE, canary, tcache, UAF, format string, and 30+ more." />
+                            <strong>7. Try It Yourself:</strong> Pre-loaded demo binary challenges compiled from source code, complete with source code views and pre-configured pwntools exploit scripts.
                         </li>
                     </ul>
                 </section>
 
-                {/* Section 5 — Quick Commands */}
+                {/* Section 5 — AI Features & Mentor Commitment */}
+                <section id="ai-features" className="docs-section">
+                    <h2>5. AI Features &amp; Mentor Commitment</h2>
+                    <p>
+                        BinExplain combines LLM inference with binary-derived analysis data to act as an active CTF mentor:
+                    </p>
+                    <ul>
+                        <li>
+                            <strong>Single Hypothesis Commitment (Rule 11):</strong> The AI mentor commits to a single exploitation hypothesis based on your binary's specific data and drives it forward, rather than listing multiple possible approaches.
+                        </li>
+                        <li>
+                            <strong>Diagnose Before Pivoting (Rule 12 &amp; 13):</strong> When something does not work, describe exactly what happened (the error message, unexpected output, or crash) so the AI can diagnose the specific cause rather than guessing at alternatives.
+                        </li>
+                        <li>
+                            <strong>Multi-Model Fallback &amp; Quality Gate:</strong> BinExplain queries Groq and Nemotron in parallel. If a primary response is generic or missing key detail, the system automatically falls back to secondary providers to ensure high-quality output.
+                        </li>
+                        <li>
+                            <strong>Knowledge Base RAG:</strong> Backed by 2,200+ indexed CTF writeups across 24 exploitation technique tags to provide accurate, real-world exploit patterns.
+                        </li>
+                        <li>
+                            <strong>Screenshot Analysis:</strong> Upload GDB or terminal error screenshots into the chatbot for contextual visual debugging assistance.
+                        </li>
+                        <li>
+                            <strong>Command Explainer:</strong> Clicking the helper icon next to suggested terminal commands opens a parameter-by-parameter breakdown of what the command does.
+                        </li>
+                    </ul>
+                </section>
+
+                {/* Section 6 — Evidence & Provenance Labeling */}
+                <section id="provenance" className="docs-section">
+                    <h2>6. Evidence &amp; Provenance Labeling</h2>
+                    <p>
+                        To ensure AI advice is verifiable and grounded in empirical facts, BinExplain implements end-to-end evidence provenance tracking across both backend analysis and frontend cards:
+                    </p>
+                    <ul>
+                        <li>
+                            <strong>"Based on:" Labels:</strong> AI-generated hints and analysis-derived cards each display a small "Based on:" label showing exactly which finding in the binary supports that specific claim.
+                        </li>
+                        <li>
+                            <strong>Evidence Types Tracked:</strong>
+                            <ul>
+                                <li><code>function</code> — specific symbols detected (e.g. <code>win</code>, <code>puts</code>, <code>system</code>)</li>
+                                <li><code>offset</code> — predicted stack buffer overflow distance (e.g. 72 bytes)</li>
+                                <li><code>protection</code> — active checksec mitigations (e.g. <code>NX Enabled</code>, <code>PIE Disabled</code>)</li>
+                                <li><code>disassembly</code> — assembly line instructions or function calls</li>
+                                <li><code>gadget</code> — discovered ROP gadgets (e.g. <code>pop rdi; ret</code>)</li>
+                                <li><code>general</code> — fallback binary metadata verification</li>
+                            </ul>
+                        </li>
+                        <li>
+                            <strong>Independent Verification:</strong> Users can cross-check every AI suggestion directly against the extracted binary evidence rather than relying on unverified claims.
+                        </li>
+                    </ul>
+                </section>
+
+                {/* Section 7 — Quick Commands */}
                 <section id="quick-commands" className="docs-section">
-                    <h2>5. Quick Commands Panel</h2>
+                    <h2>7. Quick Commands Panel</h2>
                     <p>
                         The Quick Commands panel automatically displays relevant terminal commands (e.g., <code className="docs-code">checksec</code>, <code className="docs-code">strings</code>, <code className="docs-code">objdump</code>, or custom Python pwntools commands) pre-filled with the name of the file you uploaded.
                     </p>
                     <ul>
                         <li>
-                            <strong>Each command has two buttons:</strong>
+                            <strong>Each command includes:</strong>
                             <ul>
-                                <li><strong>⎘ Copy</strong> — copies the exact command with your binary name pre-filled</li>
-                                <li><strong>? Explain</strong> — shows a visual word-by-word breakdown of what each flag and argument does, with expected output and CTF relevance</li>
+                                <li><strong>Copy</strong> — copies the exact command with your binary name pre-filled</li>
+                                <li><strong>Explain</strong> — shows a visual word-by-word breakdown of what each flag and argument does, with expected output and CTF relevance</li>
                             </ul>
                         </li>
                     </ul>
                 </section>
 
-                {/* Section 6 — Source Code Analysis */}
+                {/* Section 8 — Source Code Analysis */}
                 <section id="source-analysis" className="docs-section">
-                    <h2>6. Source Code Analysis</h2>
+                    <h2>8. Source Code Analysis</h2>
                     <p>
                         BinExplain provides full feature parity between binary and source code analysis.
                     </p>
@@ -366,14 +384,14 @@ export default function Docs({ onNavigate }) {
                             <strong>Precise Buffer Calculation:</strong> <GlossaryText text="In source code mode, the analyzer reads variable declarations directly (e.g., `char buf[64];`) to provide more precise overflow offset predictions." />
                         </li>
                         <li>
-                            <strong>Compilation Helper:</strong> <GlossaryText text="The quick commands panel in source code mode automatically generates compilations commands (e.g. `gcc -fno-stack-protector -z execstack`) showing you how to compile the source code to enable or disable specific mitigations for practice." />
+                            <strong>Compilation Helper:</strong> <GlossaryText text="The quick commands panel in source code mode automatically generates compilation commands (e.g. `gcc -fno-stack-protector -z execstack`) showing you how to compile the source code to enable or disable specific mitigations for practice." />
                         </li>
                     </ul>
                 </section>
 
-                {/* Section 7 — VirusTotal */}
+                {/* Section 9 — VirusTotal */}
                 <section id="virustotal" className="docs-section">
-                    <h2>7. VirusTotal Integration</h2>
+                    <h2>9. VirusTotal Integration</h2>
                     <p>
                         BinExplain features an optional VirusTotal scanning flag.
                     </p>
@@ -387,9 +405,9 @@ export default function Docs({ onNavigate }) {
                     </ul>
                 </section>
 
-                {/* Section 8 — API Keys */}
+                {/* Section 10 — API Keys */}
                 <section id="api-keys" className="docs-section">
-                    <h2>8. API Keys (for self-hosting)</h2>
+                    <h2>10. API Keys (for self-hosting)</h2>
                     <p>
                         If you choose to run BinExplain locally, you can self-host the application and add your own API keys. Full features are accessible using only free-tier API endpoints.
                     </p>
@@ -445,9 +463,9 @@ export default function Docs({ onNavigate }) {
                     </div>
                 </section>
 
-                {/* Section 9 — Troubleshooting */}
+                {/* Section 11 — Troubleshooting */}
                 <section id="troubleshooting" className="docs-section">
-                    <h2>9. Troubleshooting</h2>
+                    <h2>11. Troubleshooting</h2>
                     <ul>
                         <li>
                             <strong>"Cannot connect to backend":</strong> <GlossaryText text="Check that the backend server is running (defaults to `http://localhost:8000`). Refresh the page and try again." />
@@ -464,9 +482,9 @@ export default function Docs({ onNavigate }) {
                     </ul>
                 </section>
 
-                {/* Section 10 — License & Open Source */}
+                {/* Section 12 — License & Open Source */}
                 <section id="license-notice" className="docs-section">
-                    <h2>10. License &amp; Open Source</h2>
+                    <h2>12. License &amp; Open Source</h2>
                     <p>
                         BinExplain source code is open source and{' '}
                         <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener noreferrer" className="docs-link">
