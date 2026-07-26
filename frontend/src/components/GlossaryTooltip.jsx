@@ -97,7 +97,7 @@ const GlossaryTooltip = ({ children, term }) => {
             marginBottom: '10px', textTransform: 'capitalize',
             borderBottom: '1px solid #21262d', paddingBottom: '8px'
           }}>
-            📖 {term}
+            {term}
           </div>
 
           {/* Simple explanation */}
@@ -127,7 +127,7 @@ const GlossaryTooltip = ({ children, term }) => {
               textTransform: 'uppercase', letterSpacing: '0.08em',
               marginBottom: '5px'
             }}>
-              🌍 Real world example
+              Real world example
             </div>
             <p style={{
               color: '#c9d1d9', fontSize: '12px', lineHeight: '1.5',

@@ -67,7 +67,7 @@ export default function CoreVocabulary() {
           <div style={{ position: 'relative', border: '1px solid #30363d', background: '#21262d', padding: '8px 16px', borderRadius: '6px', fontSize: '11px', color: '#c9d1d9', fontFamily: 'monospace' }}>
             [ STACK MEMORY ]
             <span style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#f85149', color: '#fff', fontSize: '9px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '10px', border: '1px solid #fff' }}>
-              🚫 NO RUN
+              NO RUN
             </span>
           </div>
         </div>
@@ -141,7 +141,7 @@ export default function CoreVocabulary() {
       visual: (
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
           <div style={{ border: '1px solid #e3b341', background: '#e3b34118', padding: '4px 8px', borderRadius: '4px', fontSize: '10px', color: '#e3b341', display: 'flex', alignItems: 'center', gap: '3px' }}>
-            <span>🐤</span> canary
+            canary
           </div>
           <div style={{ color: '#8b949e', fontSize: '11px' }}>|</div>
           <div style={{ border: '1px solid #f85149', background: '#f8514918', padding: '4px 8px', borderRadius: '4px', fontSize: '10px', color: '#ff7b72' }}>
@@ -249,7 +249,7 @@ export default function CoreVocabulary() {
           fontWeight: viewMode === 'definition' ? 600 : 400,
           transition: 'all 0.15s'
         }}>
-          📖 Quick Definitions
+          Quick Definitions
         </button>
         <button onClick={() => setViewMode('story')} style={{
           padding: '8px 18px', borderRadius: '20px', fontSize: '13px',
@@ -259,7 +259,7 @@ export default function CoreVocabulary() {
           fontWeight: viewMode === 'story' ? 600 : 400,
           transition: 'all 0.15s'
         }}>
-          📚 Tell Me a Story
+          Tell Me a Story
         </button>
       </div>
 

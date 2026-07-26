@@ -513,7 +513,7 @@ export default function RealWorldMap() {
                 CWE: {d.cwe} — {d.cwe_label}
               </div>
               <div style={{ fontSize: '12px', color: '#c9d1d9', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>📁</span>
+                <span></span>
                 <span>{d.cases.length} real-world case{d.cases.length > 1 ? 's' : ''}</span>
               </div>
               <div style={{ fontSize: '11px', color: '#8b949e', fontStyle: 'italic', marginBottom: '16px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>

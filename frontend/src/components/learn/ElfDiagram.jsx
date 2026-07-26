@@ -152,7 +152,7 @@ export default function ElfDiagram() {
 
               {/* Translation Indicator / Compiler Arrow */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <span style={{ fontSize: '20px' }}>⚙️</span>
+                <span style={{ fontSize: '20px' }}>️</span>
                 <span style={{ fontSize: '11px', color: '#8b949e', fontWeight: 500, margin: '4px 0' }}>"Compiler"</span>
                 <span style={{ color: '#58a6ff', fontSize: '18px' }}>➔</span>
               </div>
@@ -254,10 +254,10 @@ export default function ElfDiagram() {
 
               {[
                 { id: 'text', label: '▶ The Instructions (.text)', color: '#1c2d4a', border: '#388bfd' },
-                { id: 'rodata', label: '📝 The Strings (.rodata)', color: '#271b3b', border: '#8957e5' },
-                { id: 'data', label: '📦 The Data (.data / .bss)', color: '#122c2b', border: '#1f8282' },
-                { id: 'stack', label: '📚 The Stack (scratchpad)', color: '#2b2214', border: '#d29922' },
-                { id: 'heap', label: '🗃️ The Heap (dynamic)', color: '#2b1a14', border: '#db6d28' },
+                { id: 'rodata', label: ' The Strings (.rodata)', color: '#271b3b', border: '#8957e5' },
+                { id: 'data', label: ' The Data (.data / .bss)', color: '#122c2b', border: '#1f8282' },
+                { id: 'stack', label: ' The Stack (scratchpad)', color: '#2b2214', border: '#d29922' },
+                { id: 'heap', label: '️ The Heap (dynamic)', color: '#2b1a14', border: '#db6d28' },
               ].map(sec => (
                 <button
                   key={sec.id}
@@ -302,7 +302,7 @@ export default function ElfDiagram() {
             }}>
               {!selectedSection ? (
                 <div style={{ textAlign: 'center', color: '#8b949e' }}>
-                  <span style={{ fontSize: '28px', display: 'block', marginBottom: '8px' }}>📂</span>
+                  <span style={{ fontSize: '28px', display: 'block', marginBottom: '8px' }}></span>
                   Select a section card on the left to learn what resides in that memory region.
                 </div>
               ) : (
@@ -391,14 +391,14 @@ export default function ElfDiagram() {
             gap: '12px'
           }}>
             <div style={{ flex: 1, textAlign: 'center', fontSize: '13px', color: '#79c0ff' }}>
-              😇 Programmer's Intent
+               Programmer's Intent
             </div>
             <div style={{ fontSize: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              ⚖️
+              ️
               <span style={{ fontSize: '10px', color: '#ff7b72', marginTop: '2px' }}>Vulnerable Gap</span>
             </div>
             <div style={{ flex: 1, textAlign: 'center', fontSize: '13px', color: '#ff7b72' }}>
-              😈 What Actually Happens
+               What Actually Happens
             </div>
           </div>
 
@@ -518,17 +518,17 @@ export default function ElfDiagram() {
             flexWrap: 'wrap'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '32px' }}>📄</span>
+              <span style={{ fontSize: '32px' }}></span>
               <span style={{ fontSize: '11px', color: '#8b949e' }}>Binary File</span>
             </div>
             <div style={{ fontSize: '24px' }}>➔</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '40px' }}>🔍</span>
+              <span style={{ fontSize: '40px' }}></span>
               <span style={{ fontSize: '11px', color: '#8b949e' }}>BinExplain Scanner</span>
             </div>
             <div style={{ fontSize: '24px' }}>➔</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '32px' }}>📊</span>
+              <span style={{ fontSize: '32px' }}></span>
               <span style={{ fontSize: '11px', color: '#8b949e' }}>Security Walkthrough</span>
             </div>
           </div>
@@ -621,7 +621,7 @@ export default function ElfDiagram() {
             fontWeight: 700,
             padding: '8px 12px'
           }}>
-            Ready to explore! 🎉
+            Ready to explore! 
           </span>
         )}
       </div>

@@ -268,7 +268,7 @@ export default function RetwinMemoryAnimation() {
             border: '1px solid #30363d', color: '#8b949e', opacity: playing ? 0.6 : 1,
           }}
         >
-          {speed === 1 ? '🐢 Slow Mode' : '⚡ Normal Speed'}
+          {speed === 1 ? 'Slow (1x) Mode' : 'Fast Normal Speed'}
         </button>
         {stage !== 'idle' && !playing && (
           <button

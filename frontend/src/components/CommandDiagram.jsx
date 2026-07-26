@@ -90,7 +90,7 @@ const CommandDiagram = ({ explanation, rawCommand }) => {
       {expected_output && (
         <div style={{marginBottom: '10px'}}>
           <div style={{fontSize: '11px', color: '#8b949e', fontWeight: 600, marginBottom: '3px'}}>
-            📤 EXPECTED OUTPUT
+            EXPECTED OUTPUT
           </div>
           <p style={{color: '#c9d1d9', fontSize: '13px', margin: 0, lineHeight: '1.5'}}>{expected_output}</p>
         </div>
@@ -98,7 +98,7 @@ const CommandDiagram = ({ explanation, rawCommand }) => {
       {ctf_relevance && (
         <div>
           <div style={{fontSize: '11px', color: '#8b949e', fontWeight: 600, marginBottom: '3px'}}>
-            🚩 CTF RELEVANCE
+            CTF RELEVANCE
           </div>
           <p style={{color: '#c9d1d9', fontSize: '13px', margin: 0, lineHeight: '1.5'}}>{ctf_relevance}</p>
         </div>

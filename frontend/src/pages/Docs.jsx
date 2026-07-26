@@ -153,7 +153,7 @@ export default function Docs({ onNavigate }) {
                 <div style={{fontSize:'12px',color:'#8b949e',padding:'12px 16px',
                     background:'#161b22',borderRadius:'6px',marginBottom:'20px',
                     border:'1px solid #21262d'}}>
-                  💡 <strong style={{color:'#79c0ff'}}>Tip:</strong> Hover over{' '}
+                  <strong style={{color:'#79c0ff'}}>Tip:</strong> Hover over{' '}
                   <span style={{borderBottom:'1px dashed #388bfd',color:'#79c0ff'}}>
                     highlighted terms
                   </span>{' '}anywhere in this documentation for plain English explanations

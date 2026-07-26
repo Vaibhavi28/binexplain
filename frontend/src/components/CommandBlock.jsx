@@ -155,7 +155,7 @@ const CommandBlock = ({ command, binaryContext }) => {
             textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700,
             display: 'flex', alignItems: 'center', gap: '6px'
           }}>
-            <span>💡</span> Command Breakdown
+            <span></span> Command Breakdown
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {renderExplanation(explanation)}

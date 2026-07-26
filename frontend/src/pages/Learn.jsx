@@ -225,7 +225,7 @@ export default function Learn() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '16px' }}>💡</span>
+            
             <span style={{ fontSize: '13px', fontWeight: 600, color: '#f0f6fc' }}>
               Command Quick Reference
             </span>
@@ -277,7 +277,7 @@ export default function Learn() {
         className="floating-glossary-btn"
         onClick={() => setGlossaryOpen(true)}
       >
-        📖 Term Glossary
+        Term Glossary
       </button>
 
       {/* Glossary Backdrop */}
@@ -324,7 +324,7 @@ export default function Learn() {
           alignItems: 'center',
         }}>
           <h3 style={{ margin: 0, color: '#f0f6fc', fontSize: '16px', fontWeight: 600 }}>
-            📖 Term Glossary
+            Term Glossary
           </h3>
           <button
             onClick={() => setGlossaryOpen(false)}

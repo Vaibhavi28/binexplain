@@ -507,7 +507,7 @@ export default function RelationshipMap() {
         fontSize: '13px', color: '#8b949e', fontStyle: 'italic',
         textAlign: 'center', marginBottom: '16px'
       }}>
-        💡 Click any node or connection line to see a detailed explanation
+         Click any node or connection line to see a detailed explanation
       </div>
 
       {/* Main Diagram Area with scroll on narrow screens */}
@@ -750,7 +750,7 @@ export default function RelationshipMap() {
           </div>
         ) : (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80px', color: '#8b949e', fontSize: '14px' }}>
-            💡 Click or hover any block in the map to discover its compiler, vulnerability, and exploit paths.
+             Click or hover any block in the map to discover its compiler, vulnerability, and exploit paths.
           </div>
         )}
       </div>

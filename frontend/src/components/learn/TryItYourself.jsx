@@ -8,7 +8,7 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 const CATEGORIES = [
   {
     id: 'ret2win',
-    emoji: '🏆',
+    
     title: 'ret2win',
     color: '#238636',
     dim: 'rgba(35,134,54,0.10)',
@@ -66,7 +66,7 @@ p.interactive()`,
 
   {
     id: 'format_string',
-    emoji: '📝',
+    
     title: 'format_string',
     color: '#d2a8ff',
     dim: 'rgba(210,168,255,0.10)',
@@ -139,7 +139,7 @@ p.interactive()`,
 
   {
     id: 'heap_exploitation',
-    emoji: '🏗️',
+    
     title: 'heap_exploitation',
     color: '#ff8b4d',
     dim: 'rgba(255,139,77,0.10)',
@@ -227,7 +227,7 @@ p.interactive()`,
 
   {
     id: 'ret2libc',
-    emoji: '🐚',
+    
     title: 'ret2libc',
     color: '#58a6ff',
     dim: 'rgba(88,166,255,0.10)',
@@ -313,7 +313,7 @@ p.interactive()`,
 
   {
     id: 'rop_chain',
-    emoji: '⛓️',
+    
     title: 'rop_chain',
     color: '#8957e5',
     dim: 'rgba(137,87,229,0.10)',
@@ -388,7 +388,7 @@ p.interactive()
 
   {
     id: 'shellcode',
-    emoji: '💉',
+    
     title: 'shellcode',
     color: '#f0e042',
     dim: 'rgba(240,224,66,0.10)',
@@ -706,7 +706,7 @@ function CategoryDetail({ cat, onSectionChange }) {
             display: 'flex', justifyContent: 'space-between', transition: 'all 0.2s'
           }}
         >
-          <span>📋 Exploit Template (pwntools)</span>
+          <span> Exploit Template (pwntools)</span>
           <span>{showExploit ? '▲ Hide' : '▼ Show'}</span>
         </button>
         {showExploit && (
@@ -734,7 +734,7 @@ function CategoryDetail({ cat, onSectionChange }) {
         borderRadius: '10px', padding: '20px', marginBottom: '28px'
       }}>
         <div style={{ fontSize: '13px', fontWeight: 700, color: '#79c0ff', marginBottom: '14px' }}>
-          🎯 Demo Binary — try BinExplain on a real challenge binary
+           Demo Binary — try BinExplain on a real challenge binary
         </div>
 
         <button

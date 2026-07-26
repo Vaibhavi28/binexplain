@@ -107,7 +107,7 @@ export default function HeapAnimation() {
               borderRadius: '6px', padding: '8px 14px', marginTop: '4px',
               fontSize: '12px', color: '#f85149',
             }}>
-              ⚠ Pointer to B now reads attacker-controlled data (C)
+              Warning: Pointer to B now reads attacker-controlled data (C)
             </div>
           )}
         </div>
@@ -165,7 +165,7 @@ export default function HeapAnimation() {
             border: '1px solid #30363d', color: '#8b949e', opacity: playing ? 0.6 : 1,
           }}
         >
-          {speed === 1 ? '🐢 Slow Mode' : '⚡ Normal Speed'}
+          {speed === 1 ? 'Slow (1x) Mode' : 'Fast Normal Speed'}
         </button>
         {phase > 0 && !playing && (
           <button onClick={resetAll} style={{

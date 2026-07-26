@@ -11,7 +11,7 @@ const STATS = [
 
 const FEATURES = [
   {
-    icon: '🎯',
+    icon: '[01]',
     title: 'CTF Category Detection',
     desc: 'Classifies your binary into one of six exploitation archetypes — ret2win, format string, heap, ret2libc, ROP chain, shellcode — with a confidence level, explanation, and difficulty rating.',
     accent: '#238636',
@@ -19,7 +19,7 @@ const FEATURES = [
     border: 'rgba(35,134,54,0.3)',
   },
   {
-    icon: '🤖',
+    icon: '[02]',
     title: 'Parallel AI Inference',
     desc: 'Calls Groq and Nemotron 3 Ultra simultaneously. A quality gate filters generic responses. Both answers merge into one expert-level hint that references your actual binary data.',
     accent: '#388bfd',
@@ -27,7 +27,7 @@ const FEATURES = [
     border: 'rgba(56,139,253,0.3)',
   },
   {
-    icon: '📚',
+    icon: '[03]',
     title: 'RAG-Powered Hints',
     desc: '2,200+ real CTF writeups from 13 sources indexed with 24 technique tags. Hybrid vector + tag overlap retrieval surfaces genuinely similar past challenges — not just keyword matches.',
     accent: '#8957e5',
@@ -35,7 +35,7 @@ const FEATURES = [
     border: 'rgba(137,87,229,0.3)',
   },
   {
-    icon: '💬',
+    icon: '[04]',
     title: 'Follow-up Chat',
     desc: 'An AI mentor that remembers your binary context, tracks commands you have already tried, and answers follow-up questions with binary-specific advice — not generic answers.',
     accent: '#d2a8ff',
@@ -43,7 +43,7 @@ const FEATURES = [
     border: 'rgba(210,168,255,0.3)',
   },
   {
-    icon: '📝',
+    icon: '[05]',
     title: 'Source Code Analysis',
     desc: 'Full feature parity for C/C++/Python/Rust/Go source files. Buffer overflow offsets read directly from declarations — more precise than binary disassembly alone.',
     accent: '#ff8b4d',
@@ -51,7 +51,7 @@ const FEATURES = [
     border: 'rgba(255,139,77,0.3)',
   },
   {
-    icon: '🔒',
+    icon: '[06]',
     title: 'Security First',
     desc: 'Static analysis only. Files deleted immediately after analysis. Zero binary execution. Rate limited per IP. All inputs validated. Nothing is stored or logged.',
     accent: '#f0e042',
@@ -120,9 +120,9 @@ export default function About({ onNavigate }) {
             background: 'linear-gradient(135deg, #161b22 0%, #1c2d4a 100%)',
             border: '1px solid rgba(56,139,253,0.4)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '36px', boxShadow: '0 8px 32px rgba(56,139,253,0.2)'
+            fontSize: '20px', fontWeight: 800, color: '#58a6ff'
           }}>
-            🔍
+            [BE]
           </div>
         </div>
 
@@ -173,8 +173,8 @@ export default function About({ onNavigate }) {
             fontSize: '32px', flexShrink: 0,
             width: '56px', height: '56px',
             background: 'rgba(218,54,55,0.1)', border: '1px solid rgba(218,54,55,0.3)',
-            borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>😤</div>
+            borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f85149', fontWeight: 800
+          }}>!</div>
           <div>
             <h2 style={{ color: '#f0f6fc', fontSize: '20px', fontWeight: 700, margin: '0 0 12px' }}>
               The Problem
@@ -242,8 +242,8 @@ export default function About({ onNavigate }) {
             width: '72px', height: '72px', borderRadius: '50%', flexShrink: 0,
             background: 'linear-gradient(135deg, #388bfd, #8957e5)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '28px'
-          }}>👩‍💻</div>
+            fontSize: '16px', fontWeight: 800, color: '#fff'
+          }}>VK</div>
           <div style={{ flex: 1, minWidth: '200px' }}>
             <div style={{ fontSize: '18px', fontWeight: 700, color: '#f0f6fc', marginBottom: '4px' }}>
               Vaibhavi Sanjay Kathepuri

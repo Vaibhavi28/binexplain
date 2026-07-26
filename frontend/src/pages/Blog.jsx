@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 
 const ARTICLES = [
   {
-    emoji: '🛠️',
+    emoji: '️',
     title: "I Built a Free AI Tool for CTF Binary Analysis — Here's What I Learned",
     category: 'Tool Reveal',
     tag: 'Featured',
@@ -18,7 +18,7 @@ const ARTICLES = [
     readTime: '8 min read',
   },
   {
-    emoji: '🔬',
+    emoji: '',
     title: "What Is a Binary File? A Beginner's Guide for CTF Players",
     category: 'Beginner Guide',
     tag: 'Beginner',
@@ -32,7 +32,7 @@ const ARTICLES = [
     readTime: '6 min read',
   },
   {
-    emoji: '💥',
+    emoji: '',
     title: 'Buffer Overflows Explained With a Real CTF Challenge',
     category: 'Tutorial',
     tag: 'Tutorial',
@@ -46,7 +46,7 @@ const ARTICLES = [
     readTime: '10 min read',
   },
   {
-    emoji: '📝',
+    emoji: '',
     title: 'Format String Vulnerabilities: From Zero to Exploit',
     category: 'Tutorial',
     tag: 'Tutorial',
@@ -60,7 +60,7 @@ const ARTICLES = [
     readTime: '12 min read',
   },
   {
-    emoji: '🏗️',
+    emoji: '️',
     title: 'Heap Exploitation Basics: Use-After-Free Explained',
     category: 'Tutorial',
     tag: 'Advanced',
@@ -74,7 +74,7 @@ const ARTICLES = [
     readTime: '15 min read',
   },
   {
-    emoji: '⚙️',
+    emoji: '️',
     title: 'How I Built a RAG System Over Real CTF Writeups',
     category: 'Technical Deep Dive',
     tag: 'Technical',
@@ -244,7 +244,7 @@ export default function Blog({ onNavigate }) {
         borderRadius: '8px', padding: '12px 16px', marginBottom: '28px',
         fontSize: '13px', color: '#f0e042'
       }}>
-        <span style={{ fontSize: '16px' }}>✍️</span>
+        <span style={{ fontSize: '16px' }}>️</span>
         <span>Articles are being written. Subscribe above to be the first to know when they go live.</span>
       </div>
 
@@ -320,7 +320,7 @@ export default function Blog({ onNavigate }) {
         borderRadius: '16px', padding: '36px 28px',
         textAlign: 'center'
       }}>
-        <div style={{ fontSize: '28px', marginBottom: '12px' }}>🚀</div>
+        <div style={{ fontSize: '28px', marginBottom: '12px' }}></div>
         <h3 style={{ color: '#f0f6fc', fontSize: '20px', fontWeight: 700, margin: '0 0 10px' }}>
           Ready to Exploit CTF Challenges?
         </h3>

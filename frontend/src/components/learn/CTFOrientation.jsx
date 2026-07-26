@@ -33,7 +33,7 @@ export default function CTFOrientation() {
         color: '#f0f6fc',
         textAlign: 'center'
       }}>
-        🏁 Welcome to BinExplain! Quick 30-Second Orientation
+        Welcome to BinExplain — Quick 30-Second Orientation
       </h3>
 
       {/* 3 Cards Container */}
@@ -55,7 +55,7 @@ export default function CTFOrientation() {
           alignItems: 'center',
           textAlign: 'center'
         }}>
-          <span style={{ fontSize: '28px', marginBottom: '12px' }}>🚩</span>
+          <span style={{ fontSize: '16px', fontWeight: 800, color: '#388bfd', marginBottom: '12px' }}>01</span>
           <h4 style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700, color: '#f0f6fc' }}>
             What is a CTF?
           </h4>
@@ -78,7 +78,7 @@ export default function CTFOrientation() {
           alignItems: 'center',
           textAlign: 'center'
         }}>
-          <span style={{ fontSize: '28px', marginBottom: '12px' }}>🔍</span>
+          <span style={{ fontSize: '16px', fontWeight: 800, color: '#388bfd', marginBottom: '12px' }}>02</span>
           <h4 style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700, color: '#f0f6fc' }}>
             What is binary exploitation?
           </h4>
@@ -101,7 +101,7 @@ export default function CTFOrientation() {
           alignItems: 'center',
           textAlign: 'center'
         }}>
-          <span style={{ fontSize: '28px', marginBottom: '12px' }}>🤖</span>
+          <span style={{ fontSize: '16px', fontWeight: 800, color: '#388bfd', marginBottom: '12px' }}>03</span>
           <h4 style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 700, color: '#f0f6fc' }}>
             How does this tool help?
           </h4>

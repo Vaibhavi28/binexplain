@@ -79,7 +79,7 @@ export default function Contact({ onNavigate }) {
             {/* SECTION 2 — Contact Cards */}
             <div className="contact-cards">
                 <div className="contact-card">
-                    <span className="contact-card-icon">🐛</span>
+                    <span className="contact-card-icon"></span>
                     <h3 className="contact-card-title">Found a Bug?</h3>
                     <p className="contact-card-text">
                         <span>Open a GitHub issue with steps to reproduce and I will fix it.</span>
@@ -95,7 +95,7 @@ export default function Contact({ onNavigate }) {
                 </div>
 
                 <div className="contact-card">
-                    <span className="contact-card-icon">💬</span>
+                    <span className="contact-card-icon"></span>
                     <h3 className="contact-card-title">General Feedback</h3>
                     <p className="contact-card-text">
                         <span>Did BinExplain help you solve a challenge? I genuinely want to know.</span>

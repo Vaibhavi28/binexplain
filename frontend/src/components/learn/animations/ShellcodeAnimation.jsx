@@ -173,7 +173,7 @@ export default function ShellcodeAnimation() {
             border: '1px solid #30363d', color: '#8b949e', opacity: playing ? 0.6 : 1,
           }}
         >
-          {speed === 1 ? '🐢 Slow Mode' : '⚡ Normal Speed'}
+          {speed === 1 ? 'Slow (1x) Mode' : 'Fast Normal Speed'}
         </button>
         {phase > 0 && !playing && (
           <button onClick={resetAll} style={{

@@ -247,7 +247,7 @@ export default function BinaryRuntimeWalkthrough({ onNavigate }) {
                   cursor: 'pointer'
                 }}
               >
-                📄
+                
                 <div style={{ fontSize: '11px', color: '#58a6ff', marginTop: '6px', fontFamily: 'monospace' }}>
                   ./program
                 </div>
@@ -258,7 +258,7 @@ export default function BinaryRuntimeWalkthrough({ onNavigate }) {
                 right: '-10px',
                 fontSize: '28px'
               }}>
-                🖱️
+                ️
               </span>
             </div>
             
@@ -277,7 +277,7 @@ export default function BinaryRuntimeWalkthrough({ onNavigate }) {
                 opacity: prefersReducedMotion ? 1 : 0
               }}
             >
-              <span>🐧</span>
+              <span></span>
               <span>Linux OS Activated</span>
             </div>
           </div>
@@ -362,7 +362,7 @@ export default function BinaryRuntimeWalkthrough({ onNavigate }) {
               textAlign: 'center',
               width: '120px'
             }}>
-              <span style={{ fontSize: '28px' }}>🎛️</span>
+              <span style={{ fontSize: '28px' }}>️</span>
               <div style={{ fontSize: '12px', fontWeight: 700, color: '#ff7b72', marginTop: '6px' }}>CPU Processor</div>
             </div>
 
@@ -753,7 +753,7 @@ export default function BinaryRuntimeWalkthrough({ onNavigate }) {
               transition: 'background 0.15s'
             }}
           >
-            ➔ See Exploitation Flowchart
+            See Exploitation Flowchart
           </button>
           <button
             onClick={() => { if (onNavigate) onNavigate('tryit'); }}
@@ -769,7 +769,7 @@ export default function BinaryRuntimeWalkthrough({ onNavigate }) {
               transition: 'background 0.15s'
             }}
           >
-            ➔ Try It on a Real Binary
+            Try It on a Real Binary
           </button>
         </div>
       </div>

@@ -2024,12 +2024,12 @@ export default function App() {
                             />
                             {result.similar_writeups && result.similar_writeups.length > 0 && (
                                 <CCard
-                                    icon="🌐 "
+                                    icon=" "
                                     title="Similar Writeups"
                                     stat={`${result.similar_writeups.length} similar challenges found`}
                                     statColor="#22d3ee"
                                     accent="#06b6d4"
-                                    onClick={() => om('Similar Writeups', '🌐 ', '#06b6d4',
+                                    onClick={() => om('Similar Writeups', ' ', '#06b6d4',
                                         <div className="result-card-body">
                                             {result.similar_writeups.map((w, idx) => (
                                                 <div key={idx} style={{ marginBottom: '1.2rem', paddingBottom: '1rem', borderBottom: idx < result.similar_writeups.length - 1 ? '1px solid rgba(255, 255, 255, 0.1)' : 'none' }}>
@@ -2184,10 +2184,10 @@ export default function App() {
                                     <span className="chat-bubble-label">
                                       {msg.role==='user'?'You':'AI Mentor'}
                                       {msg.role === 'assistant' && msg.response_source === 'cache' && (
-                                        <span className="response-source-badge response-source-badge--cache" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(46, 160, 67, 0.15)', color: '#3fb950', border: '1px solid rgba(46, 160, 67, 0.4)', display: 'inline-flex', alignItems: 'center' }}>⚡ Instant</span>
+                                        <span className="response-source-badge response-source-badge--cache" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(46, 160, 67, 0.15)', color: '#3fb950', border: '1px solid rgba(46, 160, 67, 0.4)', display: 'inline-flex', alignItems: 'center' }}> Instant</span>
                                       )}
                                       {msg.role === 'assistant' && msg.response_source === 'ai' && (
-                                        <span className="response-source-badge response-source-badge--ai" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(56, 139, 253, 0.15)', color: '#58a6ff', border: '1px solid rgba(56, 139, 253, 0.4)', display: 'inline-flex', alignItems: 'center' }}>🤖 AI</span>
+                                        <span className="response-source-badge response-source-badge--ai" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(56, 139, 253, 0.15)', color: '#58a6ff', border: '1px solid rgba(56, 139, 253, 0.4)', display: 'inline-flex', alignItems: 'center' }}> AI</span>
                                       )}
                                     </span>
                                     {msg.image&&<img src={msg.image} alt="Attached" className="chat-image-preview-bubble"/>}
@@ -2256,12 +2256,12 @@ export default function App() {
                                     background: '#21262d', border: '1px solid #30363d', borderRadius: '6px',
                                     color: '#8b949e', fontSize: '18px', cursor: 'pointer',
                                     padding: '6px 8px', lineHeight: '1', flexShrink: 0, minWidth: '36px'
-                                  }}>📷</button>
+                                  }}></button>
                                 <textarea ref={chatTextareaRef} className="chat-input chat-textarea" placeholder={chatImage||pastedImage?'Add a message about your screenshot... (Shift+Enter for new line)':'Ask anything about this binary... (Shift+Enter for new line)'} value={chatInput} onChange={e=>{setChatInput(e.target.value);e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,200)+'px';}} onKeyDown={onChatKeyDown} onPaste={handlePasteImage} disabled={chatLoading} id="chat-input" rows={3}/>
                                 <button className="chat-send-btn" onClick={sendChat} disabled={chatLoading||(!chatInput.trim()&&!chatImage&&!pastedImage)} id="chat-send-btn">{chatLoading?'...':' Send'}</button>
                               </div>
                               <div style={{fontSize: '11px', color: '#484f58', padding: '4px 2px 0'}}>
-                                💡 Paste terminal screenshots with Ctrl+V or drag and drop
+                                 Paste terminal screenshots with Ctrl+V or drag and drop
                               </div>
                             </div>
                         </div>
@@ -2689,10 +2689,10 @@ export default function App() {
                                     <span className="chat-bubble-label">
                                       {msg.role==='user'?'You':'AI Mentor'}
                                       {msg.role === 'assistant' && msg.response_source === 'cache' && (
-                                        <span className="response-source-badge response-source-badge--cache" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(46, 160, 67, 0.15)', color: '#3fb950', border: '1px solid rgba(46, 160, 67, 0.4)', display: 'inline-flex', alignItems: 'center' }}>⚡ Instant</span>
+                                        <span className="response-source-badge response-source-badge--cache" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(46, 160, 67, 0.15)', color: '#3fb950', border: '1px solid rgba(46, 160, 67, 0.4)', display: 'inline-flex', alignItems: 'center' }}> Instant</span>
                                       )}
                                       {msg.role === 'assistant' && msg.response_source === 'ai' && (
-                                        <span className="response-source-badge response-source-badge--ai" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(56, 139, 253, 0.15)', color: '#58a6ff', border: '1px solid rgba(56, 139, 253, 0.4)', display: 'inline-flex', alignItems: 'center' }}>🤖 AI</span>
+                                        <span className="response-source-badge response-source-badge--ai" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(56, 139, 253, 0.15)', color: '#58a6ff', border: '1px solid rgba(56, 139, 253, 0.4)', display: 'inline-flex', alignItems: 'center' }}> AI</span>
                                       )}
                                     </span>
                                     <div className="chat-bubble-content">{renderAIMessage(msg.content, binaryContext)}</div>
