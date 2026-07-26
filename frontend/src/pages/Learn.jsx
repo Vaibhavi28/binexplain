@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ElfDiagram from '../components/learn/ElfDiagram';
 import BinaryRuntimeWalkthrough from '../components/learn/BinaryRuntimeWalkthrough';
-import CTFOrientation from '../components/learn/CTFOrientation';
+
 import ProtectionsMap from '../components/learn/ProtectionsMap';
 import ExploitFlowchart from '../components/learn/ExploitFlowchart';
 import TechniqueDives from '../components/learn/TechniqueDives';
@@ -33,7 +33,6 @@ export default function Learn() {
       maxWidth: '1400px', margin: '0 auto',
       padding: '40px 24px 80px', minHeight: '100vh'
     }}>
-      <CTFOrientation />
       <Helmet>
         <title>Binary Exploitation Learning Map — BinExplain</title>
         <meta name="description" content="Interactive visual guide to binary exploitation. Learn how ELF binaries work, what each security protection does, and which exploit technique applies to your challenge. Free, visual, beginner-friendly." />
