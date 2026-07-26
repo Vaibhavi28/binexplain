@@ -6171,45 +6171,104 @@ def is_chat_response_specific(response: str, binary_context: dict) -> tuple[bool
         "evidence_type": "general",
         "evidence_value": None
     }
-    if not response or len(response) < 50:
+    if not response or len(response) < 20:
         return False, default_provenance
     if not binary_context:
         return True, default_provenance  # No context to check against
 
-    filename = binary_context.get('filename', '')
-    category = binary_context.get('ctf_category', '')
+    ctx = binary_context or {}
+
+    filename = str(ctx.get('filename') or '')
+    category = ctx.get('ctf_category')
     if isinstance(category, dict):
-        category = category.get('category', '')
-    functions = binary_context.get('functions', [])
-    offset = binary_context.get('predicted_offset')
-    protections = binary_context.get('protections', {})
-    disassembly = binary_context.get('disassembly', [])
-    rop_gadgets = binary_context.get('rop_gadgets', [])
+        category = str(category.get('category') or '')
+    else:
+        category = str(category or '')
 
-    # Normalize offset to a clean integer string.
-    # binary_context may store it as int, float (e.g. 88.0), or string — all
-    # must resolve to "88" so that "88 bytes" in the response matches.
+    # 1. Resolve offset safely (convert int, float e.g. 88.0, string to clean str)
+    raw_offset = ctx.get('predicted_offset')
+    if raw_offset is None:
+        raw_offset = ctx.get('overflow_offset')
+    if raw_offset is None:
+        raw_offset = ctx.get('likely_offset')
+    if raw_offset is None:
+        raw_offset = ctx.get('offset')
+    if raw_offset is None and isinstance(ctx.get('overflow_hint'), dict):
+        raw_offset = ctx.get('overflow_hint', {}).get('likely_offset')
+
     offset_str = None
-    if offset is not None:
+    if raw_offset is not None and str(raw_offset).strip() != '':
         try:
-            offset_str = str(int(float(offset)))
+            offset_str = str(int(float(raw_offset)))
         except (ValueError, TypeError):
-            offset_str = str(offset).strip()
+            offset_str = str(raw_offset).strip()
 
-    # Extract function names safely (strings or dicts)
+    # 2. Resolve functions safely
+    functions = ctx.get('functions') or ctx.get('function_list') or ctx.get('detected_functions') or []
     function_names = []
-    for f in functions[:10]:
+    for f in functions[:15]:
         if isinstance(f, dict):
             name = f.get('name')
             if name:
-                function_names.append(name)
-        elif isinstance(f, str):
-            function_names.append(f)
+                function_names.append(str(name).strip())
+        elif f:
+            function_names.append(str(f).strip())
 
-    response_lower = response.lower()
+    # 3. Resolve protections safely
+    protections = ctx.get('protections') or ctx.get('checksec') or {}
 
-    # Protection key aliases — expand single-letter keys to common synonyms
-    # so the matcher is not defeated by paraphrasing.
+    # 4. Resolve disassembly safely
+    disassembly = ctx.get('disassembly') or ctx.get('disasm') or ctx.get('disassembly_excerpt') or []
+
+    # 5. Resolve ROP gadgets safely
+    rop_gadgets = ctx.get('rop_gadgets') or ctx.get('gadgets') or []
+
+    # Evaluate matches across all categories independently
+    candidates = {}
+
+    # Category A: disassembly_line
+    for line in disassembly:
+        line_str = line.get('line', '') if isinstance(line, dict) else str(line)
+        line_stripped = line_str.strip()
+        if line_stripped and len(line_stripped) > 5 and line_stripped.lower() in response.lower():
+            candidates['disassembly_line'] = {
+                "evidence_type": "disassembly_line",
+                "evidence_value": line_stripped
+            }
+            break
+
+    # Category B: rop_gadget
+    for g in rop_gadgets:
+        g_str = g.get('gadget', '') if isinstance(g, dict) else str(g)
+        g_stripped = g_str.strip()
+        if g_stripped and len(g_stripped) > 3 and g_stripped.lower() in response.lower():
+            candidates['rop_gadget'] = {
+                "evidence_type": "rop_gadget",
+                "evidence_value": g_stripped
+            }
+            break
+
+    # Category C: overflow_offset
+    if offset_str and offset_str != '0':
+        pattern = r'\b' + re.escape(offset_str) + r'\b'
+        if re.search(pattern, response, re.IGNORECASE):
+            candidates['overflow_offset'] = {
+                "evidence_type": "overflow_offset",
+                "evidence_value": offset_str
+            }
+
+    # Category D: detected_function
+    for fname in function_names:
+        if fname and len(fname) > 1:
+            pattern = r'\b' + re.escape(fname) + r'\b'
+            if re.search(pattern, response, re.IGNORECASE):
+                candidates['detected_function'] = {
+                    "evidence_type": "detected_function",
+                    "evidence_value": fname
+                }
+                break
+
+    # Category E: protection_flag
     _PROT_ALIASES = {
         'nx':     ['nx', 'no-execute', 'noexecute', 'dep', 'non-executable', 'w^x'],
         'pie':    ['pie', 'position independent', 'aslr'],
@@ -6218,87 +6277,61 @@ def is_chat_response_specific(response: str, binary_context: dict) -> tuple[bool
         'fortify':['fortify', 'fortified'],
     }
 
-    # Priority matching for provenance extraction (most specific first)
-    matched_provenance = None
-
-    # 1. Disassembly line — require full verbatim match (most concrete evidence)
-    for line in disassembly:
-        line_str = line.get('line', '') if isinstance(line, dict) else str(line)
-        line_stripped = line_str.strip()
-        if line_stripped and len(line_stripped) > 5 and line_stripped.lower() in response_lower:
-            matched_provenance = {
-                "evidence_type": "disassembly_line",
-                "evidence_value": line_stripped
-            }
-            break
-
-    # 2. Overflow offset — check if the numeric value appears anywhere in the
-    #    response.  This catches: "88 bytes", "offset 88", "88-byte buffer",
-    #    "pad = 88", etc.  Uses the int-normalized string so float storage
-    #    (88.0) still matches "88" in the response.
-    if not matched_provenance and offset_str:
-        if offset_str in response_lower:
-            matched_provenance = {
-                "evidence_type": "overflow_offset",
-                "evidence_value": offset_str
-            }
-
-    # 3. ROP gadget — verbatim gadget string anywhere in response
-    if not matched_provenance and rop_gadgets:
-        for g in rop_gadgets:
-            g_str = g.get('gadget', '') if isinstance(g, dict) else str(g)
-            g_stripped = g_str.strip()
-            if g_stripped and len(g_stripped) > 3 and g_stripped.lower() in response_lower:
-                matched_provenance = {
-                    "evidence_type": "rop_gadget",
-                    "evidence_value": g_stripped
-                }
-                break
-
-    # 4. Protection flag — check both the raw key name and known aliases so
-    #    paraphrases like "No-eXecute" or "stack cookie" are still caught.
-    if not matched_provenance and isinstance(protections, dict):
+    if isinstance(protections, dict):
         for k, v in protections.items():
             if not k:
                 continue
-            k_lower = k.lower()
+            k_lower = str(k).lower()
             aliases = _PROT_ALIASES.get(k_lower, [k_lower])
-            if any(alias in response_lower for alias in aliases):
-                matched_provenance = {
-                    "evidence_type": "protection_flag",
-                    "evidence_value": f"{k.upper()}: {v}"
-                }
+            for alias in aliases:
+                pattern = r'\b' + re.escape(alias) + r'\b'
+                if re.search(pattern, response, re.IGNORECASE):
+                    val_str = str(v) if v is not None else "Enabled"
+                    candidates['protection_flag'] = {
+                        "evidence_type": "protection_flag",
+                        "evidence_value": f"{str(k).upper()}: {val_str}"
+                    }
+                    break
+            if 'protection_flag' in candidates:
                 break
+    elif isinstance(protections, list):
+        for prot in protections:
+            prot_str = str(prot).strip()
+            if prot_str:
+                pattern = r'\b' + re.escape(prot_str.lower()) + r'\b'
+                if re.search(pattern, response, re.IGNORECASE):
+                    candidates['protection_flag'] = {
+                        "evidence_type": "protection_flag",
+                        "evidence_value": prot_str
+                    }
+                    break
 
-    # 5. Detected function — name must appear in the response.  Skip very
-    #    short names (≤2 chars) to avoid spurious matches.
-    if not matched_provenance and function_names:
-        for fname in function_names:
-            if fname and len(fname) > 2 and fname.lower() in response_lower:
-                matched_provenance = {
-                    "evidence_type": "detected_function",
-                    "evidence_value": fname
-                }
-                break
+    # Priority selection among matched candidates
+    priority_order = ['disassembly_line', 'rop_gadget', 'overflow_offset', 'detected_function', 'protection_flag']
+    matched_provenance = None
+    for etype in priority_order:
+        if etype in candidates:
+            matched_provenance = candidates[etype]
+            break
 
-    # Fallback specificity gate (drives the boolean return)
+    # Specificity gate calculation
     specific_references = [filename] + function_names
-    if category and category != 'unknown':
+    if category and category.lower() != 'unknown':
         specific_references.append(category)
     if offset_str:
         specific_references.append(offset_str)
 
-    has_specific = any(
-        ref.lower() in response_lower
-        for ref in specific_references
-        if ref and len(ref) > 2
-    )
+    has_specific = False
+    for ref in specific_references:
+        if ref and len(ref) > 2:
+            pattern = r'\b' + re.escape(ref) + r'\b'
+            if re.search(pattern, response, re.IGNORECASE):
+                has_specific = True
+                break
 
-    # Also treat a code block as specific (command-containing response)
     has_command = '```' in response or '$' in response
 
     is_specific = has_specific or has_command or (matched_provenance is not None)
-
     provenance = matched_provenance if matched_provenance else default_provenance
 
     return is_specific, provenance
