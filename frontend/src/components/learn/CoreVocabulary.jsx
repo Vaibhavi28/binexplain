@@ -7,7 +7,9 @@ export default function CoreVocabulary() {
     {
       title: '1. STACK',
       definition: 'A pile of memory where your program keeps track of what function called what, and what to do next.',
-      story: 'Imagine an apartment building where every time a function is called, a new tenant moves into a unit on the top floor. They unpack their local variables and build their layout. But as soon as they finish their job, they pack up, move out, and the next floor down becomes active again.',
+      storyPartA: 'The stack is a region of memory that keeps track of which function called which, in order, like a stack of trays.',
+      storyPartB: 'Picture an apartment building where every time a function is called, a new tenant moves onto the next floor up. They unpack their things, do their work, then move out — and the floor below them becomes the active one again.',
+      storyPartC: 'In the story, each floor is one function call, and moving out is the function finishing and control returning to whoever called it.',
       visual: (
         <div style={{ display: 'flex', flexDirection: 'column-reverse', gap: '3px', alignItems: 'center', width: '120px', margin: '0 auto' }}>
           <div style={{ border: '1px solid #30363d', background: '#21262d', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', width: '100%', textAlign: 'center', color: '#c9d1d9' }}>main()</div>
@@ -20,7 +22,9 @@ export default function CoreVocabulary() {
     {
       title: '2. RETURN ADDRESS',
       definition: "A note on the stack telling the CPU 'go back here when this function finishes.'",
-      story: "Before a tenant leaves their apartment to run an errand, they write a quick note on the back of their door: 'When I return, go back to main() on the ground floor.' The CPU reads this note to figure out where to send the workflow when the tenant moves out. Overwrite this note, and you can redirect the CPU anywhere.",
+      storyPartA: 'The return address is a stored memory location telling the program exactly where to continue running once the current function ends.',
+      storyPartB: 'Before a tenant leaves their apartment, they leave a note on the door saying exactly which floor to send mail back to. Whoever reads that note later knows precisely where to go next.',
+      storyPartC: 'In the story, the note on the door is the return address — and if someone rewrites that note, they control where execution goes next.',
       visual: (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', position: 'relative', width: '140px', margin: '0 auto' }}>
           <div style={{ border: '1px solid #f85149', background: '#3a0000', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', color: '#ff7b72', width: '100%', textAlign: 'center', zIndex: 2 }}>RET ADDR</div>
@@ -37,7 +41,9 @@ export default function CoreVocabulary() {
     {
       title: '3. BUFFER OVERFLOW',
       definition: 'Writing more data into a memory box than it was built to hold, so the extra data spills into the box next to it.',
-      story: "You want to write a letter to a tenant in buf[64], but you write a massive, multi-page letter that completely fills their mailbox. Since the mailboxes are built right next to each other on the wall, the excess paper spills over. It ends up completely blanketing and overwriting the forwarding note on the return address door next to it.",
+      storyPartA: 'A buffer overflow happens when a program writes more data into a fixed-size memory space than it was designed to hold, and the extra data spills into neighboring memory.',
+      storyPartB: "Imagine a tenant's mailbox that only fits one envelope. Someone stuffs in a huge stack of paper instead, and since mailboxes sit right next to each other, the overflow spills onto the neighboring mailbox and covers up whatever note was sitting there.",
+      storyPartC: 'In the story, the neighboring mailbox is the return address, and the spilled paper is attacker-controlled data overwriting it.',
       visual: (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', width: '120px', margin: '0 auto' }}>
           <div style={{ display: 'flex', gap: '8px', color: '#f85149', fontSize: '12px', fontWeight: 'bold', height: '14px' }}>
@@ -53,7 +59,9 @@ export default function CoreVocabulary() {
     {
       title: '4. NX (No-Execute)',
       definition: 'A rule that says: this piece of memory can be run as code, OR written to as data — never both at once.',
-      story: "The building manager instills a strict rule: any mail delivered to a tenant's mailbox can only be read as a message, never acted on as a tenant work order. Even if you write a perfect step-by-step instruction script inside the buffer mailbox, the CPU will refuse to run it as executable code. This stops direct shellcode injection dead in its tracks.",
+      storyPartA: "NX is a security setting that marks certain memory as 'data only' — the computer will refuse to run anything stored there as code.",
+      storyPartB: 'The building manager makes a rule: nothing dropped in a mailbox can ever be treated as a work order for staff to carry out — it can only ever be read as a letter, never acted on as an instruction.',
+      storyPartC: 'In the story, the mailbox is memory like the buffer, and the rule against acting on its contents is what NX enforces in real memory.',
       visual: (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
           <div style={{ position: 'relative', border: '1px solid #30363d', background: '#21262d', padding: '8px 16px', borderRadius: '6px', fontSize: '11px', color: '#c9d1d9', fontFamily: 'monospace' }}>
@@ -69,7 +77,9 @@ export default function CoreVocabulary() {
     {
       title: '5. GADGET',
       definition: "A tiny 2-3 instruction fragment already inside the program's own code, ending in 'return.'",
-      story: "You want the building to do something unauthorized, but you can't bring in your own tools. Instead, you look around the lobby and find old magazines lying on the tables. You cut out a single phrase that ends in 'return'—like 'pop rdi; ret'—which does one tiny action before telling the reader to check the next instruction.",
+      storyPartA: 'A gadget is a small, already-existing sequence of instructions inside a program that an attacker can reuse, rather than writing new code.',
+      storyPartB: "Since you're not allowed to bring in new tools, you look around the lobby and notice small useful notes already lying around — each one says a short, specific instruction, like 'pick up the phone.'",
+      storyPartC: 'In the story, each lying-around note is one gadget — a small borrowed instruction that already existed in the building (the program) before you arrived.',
       visual: (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
           <div style={{ border: '1px solid #bc8cff', background: '#bc8cff15', padding: '6px 12px', borderRadius: '6px', fontFamily: 'monospace', fontSize: '11px', color: '#d2a8ff' }}>
@@ -77,12 +87,14 @@ export default function CoreVocabulary() {
           </div>
         </div>
       ),
-      whyItMatters: "You chain gadgets together to build actions out of code that already exists.",
+      whyItMatters: 'You chain gadgets together to build actions out of code that already exists.',
     },
     {
       title: '6. ROP (Return-Oriented Programming)',
       definition: 'Chaining multiple gadgets together, one after another, to make the CPU do something useful — without injecting any new code.',
-      story: "Since you can't run your own script, you collect dozens of magazines and cut out tiny 2-word phrases (gadgets) from different pages. You paste them together in a long chain, like a ransom note. When the CPU reads the chain, it executes the instructions one by one, executing a complex heist using only words that were already in the building.",
+      storyPartA: 'ROP means chaining several of these small borrowed instructions together, one after another, to make the computer do something the original program never intended.',
+      storyPartB: "You collect several of those short notes and arrange them in a specific order, so that each one's instruction leads naturally into the next, forming one longer combined plan out of pieces that were never meant to be used together.",
+      storyPartC: 'In the story, the arranged sequence of notes is the ROP chain — none of it is new writing, only existing pieces reordered.',
       visual: (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%', height: '100%' }}>
           <div style={{ border: '1px solid #bc8cff', background: '#bc8cff15', padding: '3px 6px', borderRadius: '4px', fontSize: '9px', fontFamily: 'monospace', color: '#d2a8ff' }}>pop rdi</div>
@@ -97,7 +109,9 @@ export default function CoreVocabulary() {
     {
       title: '7. PIE (Position Independent Executable)',
       definition: 'A setting that makes the program load at a random memory address every single time it runs.',
-      story: "To prevent thieves from planning a heist, the building manager uses a magic key that relocates the entire apartment building to a random street address every single morning. The layout inside stays identical, but the absolute coordinates change. Before you can jump to a gadget, you have to look out the window and leak a clue to find today's base address.",
+      storyPartA: 'PIE means the program loads at a different, random memory address every single time it runs, instead of always the same place.',
+      storyPartB: 'Imagine the entire apartment building relocates to a different street every morning. The rooms inside stay arranged exactly the same relative to each other, but the actual street address is new each day.',
+      storyPartC: "In the story, the changing street address is the randomized memory location — you need to find out today's address before you can find anything inside.",
       visual: (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', height: '100%', width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', width: '160px', position: 'relative' }}>
@@ -121,7 +135,9 @@ export default function CoreVocabulary() {
     {
       title: '8. CANARY',
       definition: 'A random secret value placed right before the return address. If it changes, the program knows it was attacked and crashes on purpose.',
-      story: "To catch mail tampering, the manager places a fragile clay vase directly on the floor between the buffer mailbox and the return address note. If someone tries to stuff too much mail in and overflow the buffer, they will inevitably knock over and shatter the vase. Before the function exits and reads the return note, it checks the vase; if it's broken, the alarm sounds and the building locks down.",
+      storyPartA: 'A stack canary is a secret value placed in memory that gets checked right before a function returns, to detect if an overflow happened.',
+      storyPartB: 'The manager places a fragile glass ornament right next to every mailbox. If mail ever overflows the box, the ornament is knocked over first. Before continuing, staff always check if the ornament is still standing.',
+      storyPartC: 'In the story, the ornament is the canary value, and it being knocked over is how the program detects an overflow happened before trusting the return address.',
       visual: (
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
           <div style={{ border: '1px solid #e3b341', background: '#e3b34118', padding: '4px 8px', borderRadius: '4px', fontSize: '10px', color: '#e3b341', display: 'flex', alignItems: 'center', gap: '3px' }}>
@@ -138,7 +154,9 @@ export default function CoreVocabulary() {
     {
       title: '9. GOT (Global Offset Table)',
       definition: 'A lookup table the program uses to find the real memory address of functions like printf() or system() at runtime.',
-      story: "Whenever a tenant wants to make an outside call, they don't dial the number directly. Instead, they tell the lobby receptionist (the PLT), who looks up the official phone book (the GOT) to find the current phone number for system() or printf() and connects them. If you can edit this phone book, you can make them call the wrong person.",
+      storyPartA: 'The GOT is a lookup table a running program uses to find the real memory address of shared functions it calls, like printf.',
+      storyPartB: "Whenever a tenant wants to call someone outside the building, they don't dial directly — they ask the front desk, who looks up the current phone number in a shared phone book and connects the call.",
+      storyPartC: 'In the story, the shared phone book is the GOT, and the number it looks up is the real address of the function being called.',
       visual: (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
           <div style={{ border: '1px solid #30363d', borderRadius: '6px', background: '#0d1117', padding: '4px 8px', width: '160px', fontFamily: 'monospace', fontSize: '9px' }}>
@@ -156,7 +174,9 @@ export default function CoreVocabulary() {
     {
       title: '10. RELRO (Relocation Read-Only)',
       definition: 'A setting that makes the GOT table read-only after the program starts, so it can never be changed again.',
-      story: "To protect the lobby phone book from being tampered with, the manager seals the book in a glass display case and bolts it to the wall the moment the building opens. Now, the receptionist can read the numbers to make calls, but no visitor can rewrite printf()'s number to system()'s number. Full RELRO makes the table permanently read-only.",
+      storyPartA: 'RELRO is a setting that makes that lookup table read-only after the program starts, so it can never be changed again while running.',
+      storyPartB: 'To stop anyone from secretly changing numbers in the phone book, the manager seals it in a locked glass case the moment the building opens for the day. Staff can still read it, but no one can edit it.',
+      storyPartC: 'In the story, the locked glass case is Full RELRO — the phone book (GOT) becomes permanently read-only.',
       visual: (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
           <div style={{ position: 'relative', border: '1px solid #3fb950', borderRadius: '6px', background: '#162c1e', padding: '4px 8px', width: '160px', fontFamily: 'monospace', fontSize: '9px' }}>
@@ -177,7 +197,9 @@ export default function CoreVocabulary() {
     {
       title: '11. HEAP',
       definition: 'A separate area of memory for data your program asks for while it\'s running, using malloc(). You give it back with free().',
-      story: "Unlike the neatly organized apartments of the stack, the heap is a giant self-storage facility across the street. When you need storage space, you ask the clerk (malloc) who rents you a box of a requested size. When you are done, you return the key (free). If you keep a duplicate key, you can sneak back in and mess with the next tenant's boxes.",
+      storyPartA: "The heap is a separate area of memory a program can request extra space from while it's running, and give back when done.",
+      storyPartB: "Across the street from the apartment building is a self-storage facility. Whenever you need extra space, you ask the front desk for a unit, and when you're finished, you return the key.",
+      storyPartC: 'In the story, renting a unit is calling malloc(), and returning the key is calling free().',
       visual: (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', width: '130px', justifyContent: 'center', position: 'relative' }}>
@@ -192,7 +214,9 @@ export default function CoreVocabulary() {
     {
       title: '12. LIBC',
       definition: 'A shared library of common functions — printf, malloc, system — that almost every program on Linux uses.',
-      story: "The building comes pre-installed with a massive utility room containing every tool you could ever need—a locksmith, a direct line to the police, and a heavy-duty shredder (printf, system, etc.). You don't need to smuggle any weapons into the building; you just need to hijack the return address to dial the utility room.",
+      storyPartA: 'libc is a shared library of common, ready-made functions — like printing text or running a system command — that almost every program relies on.',
+      storyPartB: 'The building already has a fully stocked utility room with tools everyone shares — a working phone line, a printer, a set of master keys. Nobody needs to bring their own version of these things.',
+      storyPartC: 'In the story, the shared utility room is libc — a common set of tools already present and available to any program that needs them.',
       visual: (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
           <div style={{ border: '1px solid #30363d', background: '#21262d', padding: '4px 10px', borderRadius: '6px', width: '130px', textAlign: 'center', fontFamily: 'monospace' }}>
@@ -254,7 +278,7 @@ export default function CoreVocabulary() {
               border: '1px solid #30363d',
               borderRadius: '10px',
               padding: '18px',
-              minHeight: viewMode === 'story' ? '280px' : '220px',
+              minHeight: viewMode === 'story' ? '320px' : '220px',
               display: 'flex',
               flexDirection: 'column',
               gap: '10px',
@@ -265,8 +289,39 @@ export default function CoreVocabulary() {
             <div style={{ fontSize: '16px', fontWeight: 700, color: '#79c0ff' }}>
               {t.title}
             </div>
-            <div style={{ fontSize: '13px', color: '#c9d1d9', lineHeight: 1.5, flexGrow: 1 }}>
-              {viewMode === 'story' ? t.story : t.definition}
+            <div style={{ flexGrow: 1 }}>
+              {viewMode === 'story' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: 800, color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '3px' }}>
+                      IN REAL LIFE
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#c9d1d9', lineHeight: 1.5 }}>
+                      {t.storyPartA}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: 800, color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '3px' }}>
+                      PICTURE IT LIKE THIS
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#c9d1d9', lineHeight: 1.5 }}>
+                      {t.storyPartB}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: 800, color: '#58a6ff', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '3px' }}>
+                      TRANSLATED BACK
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#c9d1d9', lineHeight: 1.5 }}>
+                      {t.storyPartC}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: '13px', color: '#c9d1d9', lineHeight: 1.5 }}>
+                  {t.definition}
+                </div>
+              )}
             </div>
             <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
               {t.visual}
