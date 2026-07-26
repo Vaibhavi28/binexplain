@@ -1,5 +1,9 @@
+import os
+import sys
 import pytest
-from backend.main import is_chat_response_specific
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from main import is_chat_response_specific
 
 def test_provenance_matching_5_plus_1():
     binary_context = {
