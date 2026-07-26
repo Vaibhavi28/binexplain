@@ -1690,6 +1690,7 @@ export default function App() {
                                         <span className={`ctf-confidence-badge ctf-confidence-badge--${result.ctf_category.confidence.toLowerCase()}`}>{result.ctf_category.confidence}</span>
                                     </div>
                                     <p className="hero-card-desc">{result.ctf_category.explanation}</p>
+                                    {renderProvenanceBadge(result.ctf_category.explanation, binaryContext, { hideGeneral: true })}
                                     {result.ctf_category.runner_up && (
                                         <div style={{
                                             marginTop: '16px',
@@ -1763,6 +1764,7 @@ export default function App() {
                                         <span className={`difficulty-badge difficulty-badge--${result.difficulty.difficulty.toLowerCase()}`}>{result.difficulty.difficulty}</span>
                                     </div>
                                     <p className="hero-card-desc">{result.difficulty.reason}</p>
+                                    {renderProvenanceBadge(result.difficulty.reason, binaryContext, { hideGeneral: true })}
                                 </div>
                             )}
                         </div>
@@ -2106,7 +2108,7 @@ export default function App() {
                                     background: '#21262d', border: '1px solid #30363d', borderRadius: '6px',
                                     color: '#8b949e', fontSize: '18px', cursor: 'pointer',
                                     padding: '6px 8px', lineHeight: '1', flexShrink: 0, minWidth: '36px'
-                                  }}></button>
+                                  }}>📷</button>
                                 <textarea ref={chatTextareaRef} className="chat-input chat-textarea" placeholder={chatImage||pastedImage?'Add a message about your screenshot... (Shift+Enter for new line)':'Ask anything about this binary... (Shift+Enter for new line)'} value={chatInput} onChange={e=>{setChatInput(e.target.value);e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,200)+'px';}} onKeyDown={onChatKeyDown} onPaste={handlePasteImage} disabled={chatLoading} id="chat-input" rows={3}/>
                                 <button className="chat-send-btn" onClick={sendChat} disabled={chatLoading||(!chatInput.trim()&&!chatImage&&!pastedImage)} id="chat-send-btn">{chatLoading?'...':' Send'}</button>
                               </div>

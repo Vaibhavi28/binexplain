@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 
 const ARTICLES = [
   {
-    emoji: '️',
+    emoji: '🔐',
     title: "I Built a Free AI Tool for CTF Binary Analysis — Here's What I Learned",
     category: 'Tool Reveal',
     tag: 'Featured',
@@ -18,7 +18,7 @@ const ARTICLES = [
     readTime: '8 min read',
   },
   {
-    emoji: '',
+    emoji: '📖',
     title: "What Is a Binary File? A Beginner's Guide for CTF Players",
     category: 'Beginner Guide',
     tag: 'Beginner',
@@ -32,7 +32,7 @@ const ARTICLES = [
     readTime: '6 min read',
   },
   {
-    emoji: '',
+    emoji: '💥',
     title: 'Buffer Overflows Explained With a Real CTF Challenge',
     category: 'Tutorial',
     tag: 'Tutorial',
@@ -46,7 +46,7 @@ const ARTICLES = [
     readTime: '10 min read',
   },
   {
-    emoji: '',
+    emoji: '🔢',
     title: 'Format String Vulnerabilities: From Zero to Exploit',
     category: 'Tutorial',
     tag: 'Tutorial',
@@ -60,7 +60,7 @@ const ARTICLES = [
     readTime: '12 min read',
   },
   {
-    emoji: '️',
+    emoji: '🗑️',
     title: 'Heap Exploitation Basics: Use-After-Free Explained',
     category: 'Tutorial',
     tag: 'Advanced',
@@ -74,7 +74,7 @@ const ARTICLES = [
     readTime: '15 min read',
   },
   {
-    emoji: '️',
+    emoji: '🔨',
     title: 'How I Built a RAG System Over Real CTF Writeups',
     category: 'Technical Deep Dive',
     tag: 'Technical',

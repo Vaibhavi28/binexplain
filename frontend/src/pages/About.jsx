@@ -11,7 +11,7 @@ const STATS = [
 
 const FEATURES = [
   {
-    icon: '[01]',
+    icon: '1️⃣',
     title: 'CTF Category Detection',
     desc: 'Classifies your binary into one of six core exploitation archetypes — ret2win, format string, heap, ret2libc, ROP chain, shellcode — with confidence scoring, CVSS risk rating, and offset predictions.',
     accent: '#238636',
@@ -19,7 +19,7 @@ const FEATURES = [
     border: 'rgba(35,134,54,0.3)',
   },
   {
-    icon: '[02]',
+    icon: '2️⃣',
     title: 'AI Mentor & Evidence Provenance',
     desc: 'Calls parallel AI providers and commits to a single exploit hypothesis. Hints feature "Based on:" evidence labels detailing the exact function, offset, or checksec flag backing each claim.',
     accent: '#388bfd',
@@ -27,7 +27,7 @@ const FEATURES = [
     border: 'rgba(56,139,253,0.3)',
   },
   {
-    icon: '[03]',
+    icon: '3️⃣',
     title: 'RAG Knowledge Base',
     desc: '2,200+ real CTF writeups from 13 sources indexed with 24 technique tags. Hybrid vector + tag overlap retrieval surfaces genuinely similar past challenges — not just keyword matches.',
     accent: '#8957e5',
@@ -35,7 +35,7 @@ const FEATURES = [
     border: 'rgba(137,87,229,0.3)',
   },
   {
-    icon: '[04]',
+    icon: '4️⃣',
     title: 'Interactive Learn Page',
     desc: 'Complete 8-part learning map featuring a 12-term story-mode vocabulary, interactive protections feasibility matrix, decision tree flowchart, animated technique deep dives, real-world CVE case studies, and pre-loaded demo binaries.',
     accent: '#d2a8ff',
@@ -43,7 +43,7 @@ const FEATURES = [
     border: 'rgba(210,168,255,0.3)',
   },
   {
-    icon: '[05]',
+    icon: '5️⃣',
     title: 'Source Code Analysis',
     desc: 'Full feature parity for C/C++/Python/Rust/Go source files. Buffer overflow offsets read directly from variable declarations — providing precise analysis alongside binary parsing.',
     accent: '#ff8b4d',
@@ -51,7 +51,7 @@ const FEATURES = [
     border: 'rgba(255,139,77,0.3)',
   },
   {
-    icon: '[06]',
+    icon: '6️⃣',
     title: 'Apache 2.0 Open Source',
     desc: 'Permissively licensed code under Apache 2.0, completely free to self-host. Static analysis only, zero binary execution, files deleted immediately after scanning.',
     accent: '#f0e042',
